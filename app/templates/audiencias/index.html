@@ -1,0 +1,500 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  /* ========= AUDIÊNCIAS — escopado (não mexe no modo noite) ========= */
+  body.kj-day .aud-page { color:#0b1b33 !important; }
+  body.kj-day .aud-page h3 { color:#0b1b33 !important; font-weight:900; letter-spacing:-.02em; }
+
+  body.kj-day .aud-page .card{
+    background:#fff !important;
+    border:1px solid rgba(37,99,235,.14) !important;
+    border-radius:18px !important;
+    box-shadow:0 16px 38px rgba(2,6,23,.06) !important;
+  }
+
+  body.kj-day .aud-page .table{ color:#0b1b33 !important; }
+  body.kj-day .aud-page .table thead th{ color:#0b1b33 !important; }
+
+  .whats-btn{ display:inline-flex; align-items:center; gap:8px; }
+  .whats-ico{ font-size:1.05rem; }
+
+  .import-stats{ font-size:.92rem; }
+  .col-check{ width:44px; text-align:center; }
+
+  .panel-title{
+    font-weight:800;
+    letter-spacing:-.01em;
+  }
+
+  .bulkbar{
+    display:flex;
+    gap:.5rem;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+    padding: .75rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+
+  /* =========================
+     ✅ CONTADORES (TOP BAR)
+     ========================= */
+  .aud-stats{
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+    align-items:stretch;
+    margin: 0 0 14px 0;
+    padding: 10px 0 0 0;
+  }
+
+  .aud-stat{
+    min-width: 170px;
+    flex: 1 1 170px;
+    border-radius: 14px;
+    padding: 12px 14px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(20,26,38,.55);
+    box-shadow: 0 10px 28px rgba(0,0,0,.22);
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+  }
+
+  .aud-stat .num{
+    font-size: 1.25rem;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -.02em;
+  }
+
+  .aud-stat .lbl{
+    font-size: .78rem;
+    opacity: .85;
+    margin-top: 6px;
+    line-height: 1.15;
+  }
+
+  /* variações suaves (noite) */
+  .aud-stat.s1{ border-color: rgba(255,215,0,.20); }
+  .aud-stat.s2{ border-color: rgba(56,189,248,.22); }
+  .aud-stat.s3{ border-color: rgba(34,197,94,.22); }
+  .aud-stat.s4{ border-color: rgba(245,158,11,.22); }
+  .aud-stat.s5{ border-color: rgba(168,85,247,.22); }
+  .aud-stat.s6{ border-color: rgba(148,163,184,.22); }
+
+  /* modo dia (escopado) */
+  body.kj-day .aud-stats{ margin-bottom: 16px; }
+  body.kj-day .aud-stat{
+    background: #ffffff !important;
+    border: 1px solid rgba(37,99,235,.14) !important;
+    box-shadow: 0 16px 38px rgba(2,6,23,.06) !important;
+  }
+  body.kj-day .aud-stat .num{ color:#0b1b33 !important; }
+  body.kj-day .aud-stat .lbl{ color:#334155 !important; opacity:1 !important; }
+</style>
+
+<div class="aud-page">
+
+  <!-- ================= TOP BAR ================= -->
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h3 class="m-0">Audiências</h3>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-primary" href="/audiencias/novo">
+        <i class="bi bi-plus-lg me-1"></i> Nova Audiência
+      </a>
+
+      <a class="btn btn-outline-secondary" href="/dashboard">Voltar</a>
+
+      <!-- ✅ NOVO: Enviar resumo para advogados (usa HearingContact habilitados) -->
+      <a class="btn btn-outline-success" href="/audiencias/enviar-advogados">
+        <i class="bi bi-whatsapp me-1"></i> Enviar (advogados)
+      </a>
+
+      <a class="btn btn-outline-dark" href="/audiencias/config">Configurar envio (advogados)</a>
+      <a class="btn btn-outline-secondary" href="/audiencias/realizadas">Ver todas realizadas</a>
+    </div>
+  </div>
+
+  <!-- ✅ NOVO: CONTADORES (na pegada do Controle de Prazos) -->
+  <div class="aud-stats">
+    <div class="aud-stat s1">
+      <div class="num">{{ stats.total if stats else 0 }}</div>
+      <div class="lbl">Total de Audiências</div>
+    </div>
+
+    <div class="aud-stat s2">
+      <div class="num">{{ stats.a_realizar if stats else 0 }}</div>
+      <div class="lbl">A Realizar</div>
+    </div>
+
+    <div class="aud-stat s3">
+      <div class="num">{{ stats.realizadas if stats else 0 }}</div>
+      <div class="lbl">Realizadas</div>
+    </div>
+
+    <div class="aud-stat s4">
+      <div class="num">{{ stats.hoje if stats else 0 }}</div>
+      <div class="lbl">Hoje</div>
+    </div>
+
+    <div class="aud-stat s5">
+      <div class="num">{{ stats.essa_semana if stats else 0 }}</div>
+      <div class="lbl">Essa Semana</div>
+    </div>
+
+    <div class="aud-stat s6">
+      <div class="num">{{ stats.semana_que_vem if stats else 0 }}</div>
+      <div class="lbl">Semana que Vem</div>
+    </div>
+  </div>
+
+  <!-- ✅ Mensagem principal -->
+  {% if msg %}
+    <div class="alert alert-success py-2">
+      {{ msg }}
+    </div>
+  {% endif %}
+
+  <!-- ✅ Estatísticas detalhadas da última importação -->
+  {% if import_stats %}
+    <div class="alert alert-info py-2 import-stats">
+      <strong>Detalhes da última importação:</strong><br>
+      Arquivos processados: <b>{{ import_stats.arquivos }}</b> |
+      Audiências extraídas: <b>{{ import_stats.extraidas }}</b> |
+      Inseridas no sistema: <b>{{ import_stats.inseridas }}</b> |
+      Duplicadas ignoradas: <b>{{ import_stats.duplicadas }}</b>
+    </div>
+  {% endif %}
+
+  <!-- ================= IMPORTAÇÃO ================= -->
+  <form class="card p-3 mb-3" action="/audiencias/import" method="post" enctype="multipart/form-data">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-8">
+        <label class="form-label">Importar arquivos (múltiplos)</label>
+        <input class="form-control" type="file" name="files" multiple>
+        <div class="form-text">
+          O sistema evita repetição por <b>Processo + Data/Hora</b>.
+        </div>
+      </div>
+      <div class="col-md-4 d-grid">
+        <button class="btn btn-primary" type="submit">Importar</button>
+      </div>
+    </div>
+  </form>
+
+  <!-- ================= A REALIZAR ================= -->
+  <div class="card mb-3">
+
+    <div class="p-3 border-bottom">
+      <div class="panel-title">Audiências a realizar</div>
+      <div class="small text-muted">Mostra apenas audiências futuras (e não marcadas como realizadas, se seu banco tiver esse campo).</div>
+    </div>
+
+    <!-- ✅ AÇÕES EM LOTE (A REALIZAR) -->
+    <div class="bulkbar">
+      {% if has_is_performed %}
+        <button class="btn btn-sm btn-outline-success" type="button" id="btnMarkSelectedFuture">
+          Marcar selecionadas como realizadas
+        </button>
+      {% endif %}
+      <button class="btn btn-sm btn-outline-danger" type="button" id="btnDeleteSelectedFuture">
+        Excluir selecionadas
+      </button>
+      <button class="btn btn-sm btn-outline-secondary" type="button" id="btnClearFuture">
+        Limpar seleção
+      </button>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-striped align-middle mb-0" id="tblFuture">
+        <thead>
+          <tr>
+            <th class="col-check">
+              <input type="checkbox" id="chkAllFuture">
+            </th>
+            <th>Data/Hora</th>
+            <th>Processo</th>
+            <th>Promovente</th>
+            <th>Promovido</th>
+            <th>Modalidade</th>
+            <th>Extensão</th>
+            <th style="width: 420px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+
+        {% if hearings %}
+          {% for h in hearings %}
+            <tr>
+              <td class="col-check">
+                <input class="form-check-input chkFuture" type="checkbox" value="{{ h.id }}">
+              </td>
+
+              <td>
+                {% if h.starts_at %}
+                  {{ h.starts_at.strftime("%d/%m/%Y %H:%M") }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+
+              <td>{{ h.process_number or "-" }}</td>
+              <td>{{ h.promovente or "-" }}</td>
+              <td>{{ h.promovido or "-" }}</td>
+              <td>{{ h.modalidade or "-" }}</td>
+              <td>{{ h.extension_code or "-" }}</td>
+
+              <td class="text-nowrap">
+                <a class="btn btn-sm btn-outline-primary" href="/audiencias/{{ h.id }}/edit">Editar</a>
+
+                <form action="/audiencias/{{ h.id }}/delete" method="post" style="display:inline;">
+                  <button class="btn btn-sm btn-outline-danger" type="submit"
+                          onclick="return confirm('Excluir esta audiência?')">Excluir</button>
+                </form>
+
+                <!-- ✅ PDF (download para anexar no WhatsApp) -->
+                <a class="btn btn-sm btn-outline-dark" href="/audiencias/{{ h.id }}/pdf-orientacoes" target="_blank">
+                  <i class="bi bi-filetype-pdf me-1"></i> PDF
+                </a>
+
+                {% if h.client_id and h.client and (h.client.phone or h.client.telefone) %}
+                  <a class="btn btn-sm btn-success whats-btn" href="/audiencias/{{ h.id }}/whatsapp" target="_blank">
+                    <i class="bi bi-whatsapp whats-ico"></i> WhatsApp
+                  </a>
+                {% else %}
+                  <a class="btn btn-sm btn-outline-secondary" href="/audiencias/{{ h.id }}/create-client">
+                    Cadastrar cliente
+                  </a>
+                {% endif %}
+
+                {% if has_is_performed %}
+                  <form action="/audiencias/{{ h.id }}/mark-performed" method="post" style="display:inline;">
+                    <button class="btn btn-sm btn-outline-success" type="submit"
+                            onclick="return confirm('Marcar esta audiência como realizada?')">
+                      Realizada
+                    </button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="8" class="text-center py-4 text-muted">
+              Nenhuma audiência programada.
+            </td>
+          </tr>
+        {% endif %}
+
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ================= REALIZADAS (NA TELA INICIAL) ================= -->
+  <div class="card">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+      <div>
+        <div class="panel-title">Audiências realizadas</div>
+        <div class="small text-muted">
+          Aqui ficam as audiências já passadas (e também as marcadas manualmente, se existir o campo).
+        </div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-outline-secondary" type="button"
+                data-bs-toggle="collapse" data-bs-target="#performedCollapse">
+          Mostrar/ocultar
+        </button>
+      </div>
+    </div>
+
+    <!-- ✅ AÇÕES EM LOTE (REALIZADAS) -->
+    <div class="bulkbar">
+      {% if has_is_performed %}
+        <button class="btn btn-sm btn-outline-secondary" type="button" id="btnRestoreSelectedDone">
+          Restaurar selecionadas
+        </button>
+      {% endif %}
+      <button class="btn btn-sm btn-outline-danger" type="button" id="btnDeleteSelectedDone">
+        Excluir selecionadas
+      </button>
+      <button class="btn btn-sm btn-outline-secondary" type="button" id="btnClearDone">
+        Limpar seleção
+      </button>
+    </div>
+
+    <div class="collapse show" id="performedCollapse">
+      <div class="table-responsive">
+        <table class="table table-borderless align-middle mb-0" id="tblDone">
+          <thead>
+            <tr>
+              <th class="col-check">
+                <input type="checkbox" id="chkAllDone">
+              </th>
+              <th>Data/Hora</th>
+              <th>Processo</th>
+              <th>Partes</th>
+              <th style="width: 280px;">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+
+          {% if performed_hearings %}
+            {% for p in performed_hearings %}
+              <tr>
+                <td class="col-check">
+                  <input class="form-check-input chkDone" type="checkbox" value="{{ p.id }}">
+                </td>
+
+                <td>
+                  {% if p.starts_at %}
+                    {{ p.starts_at.strftime("%d/%m/%Y %H:%M") }}
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+                <td>{{ p.process_number or "-" }}</td>
+                <td>{{ p.promovente or "-" }} / {{ p.promovido or "-" }}</td>
+
+                <td class="text-nowrap">
+                  <a class="btn btn-sm btn-outline-primary" href="/audiencias/{{ p.id }}/edit">Editar</a>
+
+                  {% if has_is_performed %}
+                    <form action="/audiencias/{{ p.id }}/unmark-performed" method="post" style="display:inline;">
+                      <button class="btn btn-sm btn-outline-secondary" type="submit">
+                        Restaurar
+                      </button>
+                    </form>
+                  {% endif %}
+
+                  <form action="/audiencias/{{ p.id }}/delete" method="post" style="display:inline;">
+                    <button class="btn btn-sm btn-outline-danger" type="submit"
+                            onclick="return confirm('Excluir esta audiência definitivamente?')">
+                      Excluir
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="5" class="text-center py-4 text-muted">
+                Nenhuma audiência realizada.
+              </td>
+            </tr>
+          {% endif %}
+
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  function getChecked(selector){
+    return Array.from(document.querySelectorAll(selector))
+      .filter(x => x.checked)
+      .map(x => x.value);
+  }
+
+  function setChecked(selector, checked){
+    Array.from(document.querySelectorAll(selector)).forEach(x => x.checked = checked);
+  }
+
+  // ===== FUTURAS (A REALIZAR) =====
+  const chkAllFuture = document.getElementById("chkAllFuture");
+  chkAllFuture?.addEventListener("change", function(){
+    setChecked(".chkFuture", this.checked);
+  });
+
+  document.getElementById("btnClearFuture")?.addEventListener("click", function(){
+    setChecked(".chkFuture", false);
+    if (chkAllFuture) chkAllFuture.checked = false;
+  });
+
+  // Marcar selecionadas como realizadas
+  const btnMarkSelectedFuture = document.getElementById("btnMarkSelectedFuture");
+  btnMarkSelectedFuture?.addEventListener("click", function(){
+    const ids = getChecked(".chkFuture");
+    if (ids.length === 0){
+      alert("Selecione ao menos uma audiência.");
+      return;
+    }
+    if (!confirm("Marcar " + ids.length + " audiências como realizadas?")) return;
+
+    fetch("/audiencias/mark-performed", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ ids: ids.join(",") })
+    }).then(() => window.location.href = "/audiencias");
+  });
+
+  // Excluir selecionadas (futuras)
+  document.getElementById("btnDeleteSelectedFuture")?.addEventListener("click", function(){
+    const ids = getChecked(".chkFuture");
+    if (ids.length === 0){
+      alert("Selecione ao menos uma audiência.");
+      return;
+    }
+    if (!confirm("Excluir " + ids.length + " audiências selecionadas? Esta ação não pode ser desfeita.")) return;
+
+    fetch("/audiencias/delete-batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ ids: ids.join(",") })
+    }).then(() => window.location.href = "/audiencias");
+  });
+
+  // ===== REALIZADAS =====
+  const chkAllDone = document.getElementById("chkAllDone");
+  chkAllDone?.addEventListener("change", function(){
+    setChecked(".chkDone", this.checked);
+  });
+
+  document.getElementById("btnClearDone")?.addEventListener("click", function(){
+    setChecked(".chkDone", false);
+    if (chkAllDone) chkAllDone.checked = false;
+  });
+
+  // Restaurar selecionadas (realizadas)
+  const btnRestoreSelectedDone = document.getElementById("btnRestoreSelectedDone");
+  btnRestoreSelectedDone?.addEventListener("click", function(){
+    const ids = getChecked(".chkDone");
+    if (ids.length === 0){
+      alert("Selecione ao menos uma audiência.");
+      return;
+    }
+    if (!confirm("Restaurar " + ids.length + " audiências?")) return;
+
+    fetch("/audiencias/unmark-performed", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ ids: ids.join(",") })
+    }).then(() => window.location.href = "/audiencias");
+  });
+
+  // Excluir selecionadas (realizadas)
+  document.getElementById("btnDeleteSelectedDone")?.addEventListener("click", function(){
+    const ids = getChecked(".chkDone");
+    if (ids.length === 0){
+      alert("Selecione ao menos uma audiência.");
+      return;
+    }
+    if (!confirm("Excluir " + ids.length + " audiências selecionadas? Esta ação não pode ser desfeita.")) return;
+
+    fetch("/audiencias/delete-batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ ids: ids.join(",") })
+    }).then(() => window.location.href = "/audiencias");
+  });
+
+})();
+</script>
+
+{% endblock %}

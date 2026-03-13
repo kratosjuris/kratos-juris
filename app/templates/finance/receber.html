@@ -1,0 +1,771 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  /* ================================
+     KJ — Receber (somente aqui)
+     Objetivo: modais no mesmo estilo do "Novo Processo" (dark)
+     ================================ */
+
+  /* cards/áreas no tema dark */
+  .kj-card{
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 18px;
+    background:
+      radial-gradient(900px 700px at 10% 0%, rgba(255,255,255,.08), transparent 45%),
+      linear-gradient(180deg, rgba(18,24,38,.88), rgba(10,14,24,.90));
+    box-shadow: 0 18px 44px rgba(0,0,0,.55),
+                0 1px 0 rgba(255,255,255,.08) inset;
+    color: rgba(242,244,247,.92);
+  }
+
+  /* tabela no dark */
+  .kj-tablewrap{
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 18px 44px rgba(0,0,0,.55);
+  }
+
+  /* observação truncada */
+  .kj-obs{
+    max-width: 520px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+    vertical-align: bottom;
+  }
+
+  /* ================================
+     ✅ MODAIS (Novo/Editar/Baixar) NO ESTILO DARK
+     ================================ */
+  .kj-modal .modal-content{
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,.10);
+    background:
+      radial-gradient(900px 700px at 12% 0%, rgba(255,255,255,.08), transparent 45%),
+      linear-gradient(180deg, rgba(18,24,38,.94), rgba(10,14,24,.94));
+    box-shadow: 0 26px 90px rgba(0,0,0,.70);
+    color: rgba(242,244,247,.92);
+  }
+
+  .kj-modal .modal-header{
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    padding: 14px 18px;
+  }
+  .kj-modal .modal-title{
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
+
+  .kj-modal .modal-body{
+    padding: 18px;
+  }
+
+  .kj-modal .modal-footer{
+    border-top: 1px solid rgba(255,255,255,.08);
+    padding: 14px 18px;
+  }
+
+  /* botão X do modal (branco) */
+  .kj-modal .btn-close{
+    filter: invert(1) grayscale(1);
+    opacity: .85;
+  }
+  .kj-modal .btn-close:hover{ opacity: 1; }
+
+  /* labels e helper text */
+  .kj-modal .form-label{
+    color: rgba(242,244,247,.88);
+    font-weight: 750;
+  }
+  .kj-modal .form-text{
+    color: rgba(242,244,247,.62);
+  }
+
+  /* inputs no dark */
+  .kj-modal .form-control,
+  .kj-modal .form-select,
+  .kj-modal textarea{
+    background: rgba(255,255,255,.04);
+    color: rgba(242,244,247,.92);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 12px;
+  }
+
+  .kj-modal .form-control::placeholder,
+  .kj-modal textarea::placeholder{
+    color: rgba(242,244,247,.45);
+  }
+
+  .kj-modal .form-control:focus,
+  .kj-modal .form-select:focus,
+  .kj-modal textarea:focus{
+    border-color: rgba(231,198,106,.45);
+    box-shadow: 0 0 0 .20rem rgba(231,198,106,.16);
+    outline: none;
+  }
+
+  /* alert do comparativo no dark */
+  .kj-alert{
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 14px;
+    background: rgba(155,171,205,.10);
+    color: rgba(242,244,247,.92);
+  }
+
+  /* botões no dark (opcional leve) */
+  .btn{ border-radius: 12px; }
+
+  /* =========================================================
+     ✅ OVERRIDES MODO DIA (NÃO ALTERA MODO NOITE)
+     + FIX DEFINITIVO PARA NÃO HERDAR "DOURADO/GLOW" DO BASE
+     ========================================================= */
+
+  body.kj-day{
+    background:#ffffff !important;
+    color:#111827 !important;
+  }
+
+  /* ✅ FIX: neutraliza estilos herdados do base (glow/dourado) no DIA */
+  body.kj-day .btn{
+    background-image: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+    box-shadow: none !important;
+  }
+
+  /* ✅ PRIMARY / OUTLINE-PRIMARY NO DIA (AZUL) */
+  body.kj-day .btn-primary{
+    background:#2563eb !important;
+    border-color:#2563eb !important;
+    color:#ffffff !important;
+  }
+  body.kj-day .btn-primary:hover{
+    background:#1d4ed8 !important;
+    border-color:#1d4ed8 !important;
+    color:#ffffff !important;
+  }
+
+  body.kj-day .btn-outline-primary{
+    background:#ffffff !important;
+    color:#2563eb !important;
+    border-color:#2563eb !important;
+  }
+  body.kj-day .btn-outline-primary:hover{
+    background:#2563eb !important;
+    border-color:#2563eb !important;
+    color:#ffffff !important;
+  }
+
+  /* ✅ btn-success (Consultar/Salvar/Confirmar) no dia não pode ficar dourado */
+  body.kj-day .btn-success{
+    background:#16a34a !important;
+    border-color:#16a34a !important;
+    color:#ffffff !important;
+  }
+  body.kj-day .btn-success:hover{
+    background:#15803d !important;
+    border-color:#15803d !important;
+    color:#ffffff !important;
+  }
+
+  /* Outline success (Receber/Baixar) */
+  body.kj-day .btn-outline-success{
+    background:#ffffff !important;
+    color:#166534 !important;
+    border-color: rgba(22,101,52,.45) !important;
+  }
+  body.kj-day .btn-outline-success:hover{
+    background: rgba(22,101,52,.08) !important;
+  }
+
+  /* Outline danger (Excluir) */
+  body.kj-day .btn-outline-danger{
+    background:#ffffff !important;
+    color:#b91c1c !important;
+    border-color: rgba(185,28,28,.45) !important;
+  }
+  body.kj-day .btn-outline-danger:hover{
+    background: rgba(185,28,28,.08) !important;
+  }
+
+  /* Cards principais (viram branco no dia) */
+  body.kj-day .kj-card{
+    background:#ffffff !important;
+    border:1px solid #e5e7eb !important;
+    box-shadow: 0 8px 22px rgba(0,0,0,.06) !important;
+    color:#111827 !important;
+  }
+
+  /* texto muted no dia */
+  body.kj-day .text-muted{
+    color:#6b7280 !important;
+  }
+
+  /* bloco "totais por conta" (tem style inline dark) */
+  body.kj-day .kj-card .border.rounded.p-2{
+    border-color:#e5e7eb !important;
+    background:#f9fafb !important;
+  }
+
+  /* alert comparativo */
+  body.kj-day .kj-alert{
+    border:1px solid #e5e7eb !important;
+    background:#f3f4f6 !important;
+    color:#111827 !important;
+  }
+
+  /* tablewrap no dia */
+  body.kj-day .kj-tablewrap{
+    border:1px solid #e5e7eb !important;
+    box-shadow: 0 8px 22px rgba(0,0,0,.06) !important;
+  }
+
+  /* tabela no dia (legível) */
+  body.kj-day .table{
+    color:#111827 !important;
+  }
+  body.kj-day .table thead th{
+    background:#f9fafb !important;
+    border-bottom:1px solid #e5e7eb !important;
+    color:#111827 !important;
+  }
+  body.kj-day .table td,
+  body.kj-day .table th{
+    border-color:#eef2f7 !important;
+  }
+  body.kj-day .table-hover tbody tr:hover{
+    background: rgba(17,24,39,.04) !important;
+  }
+
+  /* badge conta (bg-light já é ok, só garante borda suave) */
+  body.kj-day .badge.bg-light{
+    background:#f3f4f6 !important;
+    color:#111827 !important;
+    border-color:#e5e7eb !important;
+  }
+
+  /* Modais no dia (viram claros) */
+  body.kj-day .kj-modal .modal-content{
+    background:#ffffff !important;
+    border:1px solid #e5e7eb !important;
+    box-shadow: 0 22px 70px rgba(0,0,0,.16) !important;
+    color:#111827 !important;
+  }
+  body.kj-day .kj-modal .modal-header,
+  body.kj-day .kj-modal .modal-footer{
+    border-color:#e5e7eb !important;
+  }
+
+  /* botão X no dia não pode ficar invertido */
+  body.kj-day .kj-modal .btn-close{
+    filter:none !important;
+    opacity:.75;
+  }
+  body.kj-day .kj-modal .btn-close:hover{ opacity: 1; }
+
+  /* labels e helper no dia */
+  body.kj-day .kj-modal .form-label{
+    color:#111827 !important;
+  }
+  body.kj-day .kj-modal .form-text{
+    color:#6b7280 !important;
+  }
+
+  /* inputs no dia */
+  body.kj-day .kj-modal .form-control,
+  body.kj-day .kj-modal .form-select,
+  body.kj-day .kj-modal textarea{
+    background:#ffffff !important;
+    color:#111827 !important;
+    border:1px solid #d1d5db !important;
+  }
+  body.kj-day .kj-modal .form-control::placeholder,
+  body.kj-day .kj-modal textarea::placeholder{
+    color:#9ca3af !important;
+  }
+  body.kj-day .kj-modal .form-control:focus,
+  body.kj-day .kj-modal .form-select:focus,
+  body.kj-day .kj-modal textarea:focus{
+    border-color:#9ca3af !important;
+    box-shadow: 0 0 0 .15rem rgba(17,24,39,.08) !important;
+  }
+
+  /* "Observação" truncada no dia (garante contraste) */
+  body.kj-day .kj-obs{
+    color:#6b7280 !important;
+  }
+
+  /* botões outline no dia (contraste bom) */
+  body.kj-day .btn-outline-secondary{
+    background:#ffffff !important;
+    color:#111827 !important;
+    border-color:#9ca3af !important;
+  }
+  body.kj-day .btn-outline-secondary:hover{
+    background:#f3f4f6 !important;
+  }
+
+  /* btn-outline-dark no dia fica legível */
+  body.kj-day .btn-outline-dark{
+    background:#ffffff !important;
+    color:#111827 !important;
+    border-color:#9ca3af !important;
+  }
+  body.kj-day .btn-outline-dark:hover{
+    background:#f3f4f6 !important;
+  }
+
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="m-0">Contas a Receber</h3>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="/financeiro">Voltar</a>
+    <a class="btn btn-outline-dark" target="_blank" href="/financeiro/receber/relatorio-mes?ym={{ ym }}">Relatório do mês</a>
+    <a class="btn btn-outline-primary" target="_blank" href="/financeiro/receber/relatorio-anual">Comparativo anual</a>
+      <a class="btn btn-outline-secondary" href="/financeiro/receber/relatorio-anual-csl">
+  Anual CSL x Despesas
+</a>
+  </div>
+</div>
+
+<form method="get" action="/financeiro/receber" class="kj-card p-3 mb-3">
+  <div class="row g-3 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label">Mês</label>
+      <input type="month" class="form-control" name="ym" value="{{ ym }}">
+    </div>
+
+    <div class="col-md-3">
+      <button class="btn btn-success" type="submit">Consultar</button>
+      <button class="btn btn-outline-primary ms-2" type="button" data-bs-toggle="modal" data-bs-target="#modalNovo">
+        + Novo lançamento
+      </button>
+    </div>
+
+    <div class="col-md-6">
+      <div class="kj-alert mb-0 p-2">
+        <strong>Comparativo:</strong>
+        mês anterior ({{ ym_prev }}) = {{ prev_total | money_br }} |
+        mês atual ({{ ym }}) = {{ total | money_br }}
+      </div>
+    </div>
+  </div>
+</form>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <div class="kj-card p-3">
+      <div class="text-muted">Total no mês ({{ ym }})</div>
+      <div class="fs-4 fw-bold">{{ total | money_br }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="kj-card p-3">
+      <div class="text-muted">Recebido</div>
+      <div class="fs-4 fw-bold text-success">{{ total_recebido | money_br }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="kj-card p-3">
+      <div class="text-muted">Pendente</div>
+      <div class="fs-4 fw-bold text-warning">{{ total_pendente | money_br }}</div>
+    </div>
+  </div>
+</div>
+
+{% if por_conta %}
+<div class="kj-card p-3 mb-3">
+  <div class="fw-semibold mb-2">Totais por conta ({{ ym }})</div>
+  <div class="row g-2">
+    {% for c in por_conta %}
+      <div class="col-md-3">
+        <div class="border rounded p-2" style="border-color: rgba(255,255,255,.12)!important; background: rgba(255,255,255,.03);">
+          <div class="text-muted small">{{ c.label }}</div>
+          <div class="fw-bold">{{ c.total | money_br }}</div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="kj-card p-3 mb-3">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="fw-semibold">Lançamentos do mês</div>
+
+    <form method="get" action="/financeiro/receber" class="d-flex gap-2">
+      <input type="hidden" name="ym" value="{{ ym }}">
+
+      <select class="form-select form-select-sm" name="status" style="max-width: 200px;">
+        <option value="" {% if not status %}selected{% endif %}>Todos</option>
+        <option value="Pendente" {% if status=='Pendente' %}selected{% endif %}>Pendente</option>
+        <option value="Recebido" {% if status=='Recebido' %}selected{% endif %}>Recebido</option>
+      </select>
+
+      <input class="form-control form-control-sm" name="q" value="{{ q or '' }}"
+             placeholder="Buscar parte / processo / vara..." style="min-width: 280px;">
+
+      <button class="btn btn-sm btn-outline-secondary" type="submit">Filtrar</button>
+    </form>
+  </div>
+
+  <div class="kj-tablewrap">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th style="min-width: 260px;">Parte / Processo</th>
+            <th style="min-width: 220px;">Vara</th>
+            <th>Conta</th>
+            <th>Data prevista</th>
+            <th class="text-end">Valor</th>
+            <th>Status</th>
+            <th>Recebido em</th>
+            <th class="text-end">Ações</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td>
+              <div class="fw-semibold">{{ r.parte_autora }}</div>
+              <div class="text-muted small">{{ r.numero_processo }}</div>
+              {% if r.obs %}
+                <div class="text-muted small mt-1 kj-obs" title="{{ r.obs }}">{{ r.obs }}</div>
+              {% endif %}
+            </td>
+
+            <td>{{ r.vara }}</td>
+
+            <td>
+              <span class="badge bg-light text-dark border">{{ r.conta_label or r.conta }}</span>
+            </td>
+
+            <td>
+              <span class="{% if (not r.recebido) and r.em_atraso %}text-danger fw-semibold{% endif %}">
+                {{ r.data_prevista | date_br }}
+              </span>
+            </td>
+
+            <td class="text-end fw-semibold">{{ r.valor | money_br }}</td>
+
+            <td>
+              {% if r.recebido %}
+                <span class="badge bg-success">Recebido</span>
+              {% else %}
+                {% if r.em_atraso %}
+                  <span class="badge bg-danger">Em atraso</span>
+                {% else %}
+                  <span class="badge bg-primary">Pendente</span>
+                {% endif %}
+              {% endif %}
+            </td>
+
+            <td>{{ r.recebido_em | date_br }}</td>
+
+            <td class="text-end">
+              <div class="btn-group">
+                <form method="post" action="/financeiro/receber/{{ r.id }}/toggle" class="d-inline">
+                  <input type="hidden" name="ym" value="{{ ym }}">
+                  <button class="btn btn-sm {% if r.recebido %}btn-outline-secondary{% else %}btn-outline-success{% endif %}" type="submit">
+                    {% if r.recebido %}Desfazer{% else %}Receber{% endif %}
+                  </button>
+                </form>
+
+                {% if not r.recebido %}
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-success"
+                  data-bs-toggle="modal"
+                  data-bs-target="#modalBaixar"
+                  data-id="{{ r.id }}"
+                  data-parte="{{ r.parte_autora }}"
+                  data-valor="{{ r.valor_raw }}"
+                >
+                  Baixar
+                </button>
+                {% endif %}
+
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-primary"
+                  data-bs-toggle="modal"
+                  data-bs-target="#modalEditar"
+                  data-id="{{ r.id }}"
+                  data-ym="{{ r.ym }}"
+                  data-numero_processo="{{ r.numero_processo }}"
+                  data-parte_autora="{{ r.parte_autora }}"
+                  data-vara="{{ r.vara }}"
+                  data-data_prevista="{{ r.data_prevista_iso }}"
+                  data-conta="{{ r.conta }}"
+                  data-valor="{{ r.valor_raw }}"
+                  data-obs="{{ r.obs or '' }}"
+                >
+                  Editar
+                </button>
+
+                <form method="post" action="/financeiro/receber/{{ r.id }}/excluir" class="d-inline"
+                      onsubmit="return confirm('Excluir este lançamento?');">
+                  <input type="hidden" name="ym" value="{{ ym }}">
+                  <button class="btn btn-sm btn-outline-danger" type="submit">Excluir</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="8" class="text-muted text-center py-4">Nenhum lançamento encontrado para os filtros atuais.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ✅ MODAL NOVO (DARK) -->
+<div class="modal fade kj-modal" id="modalNovo" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" action="/financeiro/receber/novo">
+        <div class="modal-header">
+          <h5 class="modal-title">Novo lançamento (Receber)</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+
+        <div class="modal-body">
+          <input type="hidden" name="ym" value="{{ ym }}">
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Número do processo</label>
+              <input class="form-control" name="numero_processo" required>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Parte autora</label>
+              <input class="form-control" name="parte_autora" required>
+            </div>
+
+            <div class="col-md-12">
+              <label class="form-label">Vara</label>
+              <input class="form-control" name="vara" required>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Data prevista</label>
+              <input type="date" class="form-control" name="data_prevista">
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Conta</label>
+              <select class="form-select" name="conta">
+                <option value="CONTA_CSL">Conta CSL</option>
+                <option value="CONTA_TARCISIO">Conta Tarcisio</option>
+                <option value="CONTA_ANA">Conta Ana Luisa</option>
+                <option value="CONTA_TIAGO">Conta Tiago</option>
+              </select>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Valor (R$)</label>
+              <input class="form-control" name="valor" inputmode="decimal" placeholder="0,00" required>
+              <div class="form-text">Aceita: 115292,67 ou 115.292,67</div>
+            </div>
+
+            <div class="col-md-12">
+              <label class="form-label">Observações</label>
+              <textarea class="form-control" name="obs" rows="3" placeholder="Opcional..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-success" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ✅ MODAL EDITAR (DARK) -->
+<div class="modal fade kj-modal" id="modalEditar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" id="formEditar" action="">
+        <div class="modal-header">
+          <h5 class="modal-title">Editar lançamento</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+
+        <div class="modal-body">
+          <input type="hidden" name="ym" value="{{ ym }}">
+
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Competência (mês)</label>
+              <input type="month" class="form-control" name="ym_novo" id="ed_ym_novo">
+              <div class="form-text">
+                Se você alterar <strong>Data prevista</strong>, a competência será ajustada automaticamente para o mês da data.
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Data prevista</label>
+              <input type="date" class="form-control" name="data_prevista" id="ed_data_prevista">
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Conta</label>
+              <select class="form-select" name="conta" id="ed_conta">
+                <option value="CONTA_CSL">Conta CSL</option>
+                <option value="CONTA_TARCISIO">Conta Tarcisio</option>
+                <option value="CONTA_ANA">Conta Ana Luisa</option>
+                <option value="CONTA_TIAGO">Conta Tiago</option>
+              </select>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Número do processo</label>
+              <input class="form-control" name="numero_processo" id="ed_numero_processo" required>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Parte autora</label>
+              <input class="form-control" name="parte_autora" id="ed_parte_autora" required>
+            </div>
+
+            <div class="col-md-12">
+              <label class="form-label">Vara</label>
+              <input class="form-control" name="vara" id="ed_vara" required>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Valor (R$)</label>
+              <input class="form-control" name="valor" id="ed_valor" required>
+              <div class="form-text">Aceita: 115292,67 ou 115.292,67</div>
+            </div>
+
+            <div class="col-md-12">
+              <label class="form-label">Observações</label>
+              <textarea class="form-control" name="obs" id="ed_obs" rows="3"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" type="submit">Salvar alterações</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ✅ MODAL BAIXAR (DARK) -->
+<div class="modal fade kj-modal" id="modalBaixar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" id="formBaixar" action="">
+        <div class="modal-header">
+          <h5 class="modal-title">Baixar recebimento</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+
+        <div class="modal-body">
+          <input type="hidden" name="ym" value="{{ ym }}">
+
+          <div class="border rounded p-3 mb-3" style="border-color: rgba(255,255,255,.12)!important; background: rgba(255,255,255,.03);">
+            <div class="small text-muted">Parte autora</div>
+            <div class="fw-semibold" id="bx_parte">—</div>
+            <div class="small text-muted mt-2">Valor</div>
+            <div class="fw-bold" id="bx_valor">—</div>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-6">
+              <label class="form-label">Data do recebimento</label>
+              <input type="date" class="form-control" name="recebido_em" required>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Observação (opcional)</label>
+              <textarea class="form-control" name="obs" rows="2" placeholder="Ex.: recebido por alvará, parcela, etc."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-success" type="submit">Confirmar baixa</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function(){
+    const modalEditar = document.getElementById("modalEditar");
+    const modalBaixar = document.getElementById("modalBaixar");
+
+    function fmtMoneyBR(raw){
+      const n = Number(String(raw || "0").replace(",", "."));
+      if (isNaN(n)) return "R$ 0,00";
+      const s = n.toFixed(2);
+      const parts = s.split(".");
+      let intPart = parts[0];
+      const decPart = parts[1];
+      intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      return "R$ " + intPart + "," + decPart;
+    }
+
+    if(modalEditar){
+      modalEditar.addEventListener("show.bs.modal", function(ev){
+        const btn = ev.relatedTarget;
+        if(!btn) return;
+
+        const id = btn.getAttribute("data-id");
+        const form = document.getElementById("formEditar");
+        form.action = "/financeiro/receber/" + id + "/editar";
+
+        document.getElementById("ed_ym_novo").value = btn.getAttribute("data-ym") || "";
+        document.getElementById("ed_numero_processo").value = btn.getAttribute("data-numero_processo") || "";
+        document.getElementById("ed_parte_autora").value = btn.getAttribute("data-parte_autora") || "";
+        document.getElementById("ed_vara").value = btn.getAttribute("data-vara") || "";
+        document.getElementById("ed_data_prevista").value = btn.getAttribute("data-data_prevista") || "";
+        document.getElementById("ed_conta").value = btn.getAttribute("data-conta") || "CONTA_CSL";
+
+        const raw = btn.getAttribute("data-valor") || "0";
+        const n = Number(String(raw).replace(",", "."));
+        document.getElementById("ed_valor").value = isNaN(n) ? "0,00" : n.toFixed(2).replace(".", ",");
+
+        document.getElementById("ed_obs").value = btn.getAttribute("data-obs") || "";
+      });
+    }
+
+    if(modalBaixar){
+      modalBaixar.addEventListener("show.bs.modal", function(ev){
+        const btn = ev.relatedTarget;
+        if(!btn) return;
+
+        const id = btn.getAttribute("data-id");
+        const form = document.getElementById("formBaixar");
+        form.action = "/financeiro/receber/" + id + "/baixar";
+
+        document.getElementById("bx_parte").textContent = btn.getAttribute("data-parte") || "—";
+        document.getElementById("bx_valor").textContent = fmtMoneyBR(btn.getAttribute("data-valor") || "0");
+      });
+    }
+  })();
+</script>
+{% endblock %}

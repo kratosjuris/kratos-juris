@@ -1,0 +1,163 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f3f6fb;
+  color: #1b2430;
+}
+
+.page-wrap {
+  max-width: 1200px;
+  margin: 30px auto;
+  padding: 0 20px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.panel {
+  background: #fff;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.form-panel {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid #e7edf5;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.table th {
+  background: #f9fbff;
+}
+
+.actions a,
+.actions button {
+  margin-right: 10px;
+}
+
+.btn-primary,
+.btn-secondary {
+  display: inline-block;
+  text-decoration: none;
+  border: none;
+  border-radius: 12px;
+  padding: 11px 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: #153b8a;
+  color: #fff;
+}
+
+.btn-secondary {
+  background: #e7edf5;
+  color: #1b2430;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #153b8a;
+  cursor: pointer;
+  font: inherit;
+}
+
+.btn-link.danger {
+  color: #b42318;
+}
+
+label {
+  display: block;
+  margin-top: 16px;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid #d0d7e2;
+  border-radius: 12px;
+}
+
+.checks {
+  margin-top: 18px;
+}
+
+.checks label {
+  display: block;
+  margin: 10px 0;
+  font-weight: 500;
+}
+
+.form-actions {
+  margin-top: 24px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.alert-error,
+.alert-info {
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.alert-error {
+  background: #ffe4e4;
+  color: #9f1c1c;
+  border: 1px solid #ffb5b5;
+}
+
+.alert-info {
+  background: #eef4ff;
+  color: #153b8a;
+  border: 1px solid #c7dafd;
+}
+
+.perm-group {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e7edf5;
+}
+
+.perm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.perm-item {
+  background: #f9fbff;
+  border: 1px solid #e1e8f2;
+  border-radius: 12px;
+  padding: 12px;
+}

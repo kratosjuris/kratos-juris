@@ -1,0 +1,597 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  /* =========================================================
+     ✅ PROCESSOS/LIST — ARQUITETURA CORRETA
+     - Dark somente em body:not(.kj-day)
+     - Day somente em body.kj-day
+     - não altera nada no modo noite (só escopa)
+     ========================================================= */
+
+  /* ====== DARK (NOITE) — mantém exatamente seu visual ====== */
+  body:not(.kj-day) .processos-page .kj-page-title{
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    color: rgba(242,244,247,.96);
+    text-shadow: 0 10px 22px rgba(0,0,0,.45);
+  }
+
+  body:not(.kj-day) .processos-page .kj-toolbar .btn{ border-radius: 12px; }
+
+  body:not(.kj-day) .processos-page .kj-counter-card{
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 18px;
+    background:
+      radial-gradient(900px 700px at 10% 0%, rgba(255,255,255,.08), transparent 45%),
+      linear-gradient(180deg, rgba(18,24,38,.88), rgba(10,14,24,.90));
+    box-shadow:
+      0 18px 44px rgba(0,0,0,.55),
+      0 1px 0 rgba(255,255,255,.08) inset,
+      0 0 0 1px rgba(231,198,106,.06) inset;
+    color: rgba(242,244,247,.92);
+  }
+
+  body:not(.kj-day) .processos-page .kj-pill{
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 14px;
+    padding: .55rem .7rem;
+    min-width: 150px;
+    background: rgba(255,255,255,.03);
+    box-shadow: 0 10px 22px rgba(0,0,0,.28);
+  }
+  body:not(.kj-day) .processos-page .kj-pill .fw-bold{ font-weight: 900 !important; }
+  body:not(.kj-day) .processos-page .kj-pill .kj-sub{ color: rgba(242,244,247,.68); font-size: 13px; }
+
+  body:not(.kj-day) .processos-page .kj-pill.ok{ border-color: rgba(231,198,106,.14); }
+  body:not(.kj-day) .processos-page .kj-pill.warn{ background: rgba(231,198,106,.08); border-color: rgba(231,198,106,.25); }
+  body:not(.kj-day) .processos-page .kj-pill.info{ background: rgba(155,171,205,.08); border-color: rgba(155,171,205,.20); }
+  body:not(.kj-day) .processos-page .kj-pill.bad{ background: rgba(239,68,68,.10); border-color: rgba(239,68,68,.25); }
+
+  body:not(.kj-day) .processos-page .kj-tablewrap{
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 18px 44px rgba(0,0,0,.55);
+  }
+  body:not(.kj-day) .processos-page .kj-tablewrap .table{ margin-bottom: 0; }
+
+  body:not(.kj-day) .processos-page tr.table-warning > *{
+    background-color: rgba(231,198,106,.10) !important;
+    color: rgba(242,244,247,.96) !important;
+    border-color: rgba(231,198,106,.18) !important;
+  }
+  body:not(.kj-day) .processos-page tr.table-danger > *{
+    background-color: rgba(239,68,68,.10) !important;
+    color: rgba(242,244,247,.96) !important;
+    border-color: rgba(239,68,68,.18) !important;
+  }
+  body:not(.kj-day) .processos-page tr.table-success > *{
+    background-color: rgba(34,197,94,.10) !important;
+    color: rgba(242,244,247,.96) !important;
+    border-color: rgba(34,197,94,.18) !important;
+  }
+
+  /* ✅ CORRIGIDO: no modo noite, table-info NÃO fica azul.
+     Fica neutro premium (igual ao “antes”). */
+  body:not(.kj-day) .processos-page tr.table-info > *{
+    background-color: rgba(255,255,255,.02) !important;
+    color: rgba(242,244,247,.96) !important;
+    border-color: rgba(255,255,255,.10) !important;
+  }
+
+  body:not(.kj-day) .processos-page .kj-obs{
+    max-width: 320px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+    vertical-align: bottom;
+  }
+
+  body:not(.kj-day) .processos-page .th-acoes{ width: 420px; min-width: 420px; }
+  body:not(.kj-day) .processos-page .td-acoes{
+    width: 420px; min-width: 420px;
+    vertical-align: top;
+    white-space: normal;
+  }
+  body:not(.kj-day) .processos-page .kj-actions-wrap{
+    display:flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+  }
+  body:not(.kj-day) .processos-page .kj-actions-wrap .btn,
+  body:not(.kj-day) .processos-page .kj-actions-wrap .form-select{
+    border-radius: 12px;
+  }
+  body:not(.kj-day) .processos-page .kj-actions-wrap .form-select{
+    min-width: 220px;
+    max-width: 220px;
+  }
+
+  /* =========================================================
+     ✅ DAY (MODO DIA) — REVISADO
+     - zebra azul MAIS FRACA (pedido)
+     ========================================================= */
+
+  body.kj-day .processos-page{ color: #0b1b33 !important; }
+
+  body.kj-day .processos-page .kj-page-title{
+    color: #0b1b33 !important;
+    text-shadow: none !important;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
+
+  /* ✅ Contadores */
+  body.kj-day .processos-page .kj-counter-card{
+    border: 1px solid rgba(15,23,42,.08) !important;
+    background: #ffffff !important;
+    border-radius: 16px !important;
+    box-shadow: 0 12px 28px rgba(2,6,23,.05) !important;
+    color: #0b1b33 !important;
+  }
+
+  body.kj-day .processos-page .kj-pill{
+    background: rgba(15,23,42,.02) !important;
+    border: 1px solid rgba(15,23,42,.08) !important;
+    border-radius: 14px !important;
+    padding: .6rem .9rem !important;
+    min-width: 150px;
+    transition: background .15s ease;
+    color: #0b1b33 !important;
+  }
+  body.kj-day .processos-page .kj-pill:hover{ background: rgba(37,99,235,.05) !important; }
+  body.kj-day .processos-page .kj-pill .fw-bold{
+    font-size: 18px !important;
+    font-weight: 900 !important;
+    color: #0b1b33 !important;
+  }
+  body.kj-day .processos-page .kj-pill .kj-sub{
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .10em;
+    color: rgba(11,27,51,.65) !important;
+  }
+
+  body.kj-day .processos-page .kj-pill.warn{ border-color: rgba(245,158,11,.35) !important; }
+  body.kj-day .processos-page .kj-pill.bad{  border-color: rgba(220,38,38,.35) !important; }
+  body.kj-day .processos-page .kj-pill.ok{   border-color: rgba(34,197,94,.30) !important; }
+  body.kj-day .processos-page .kj-pill.info{ border-color: rgba(37,99,235,.30) !important; }
+
+  /* ✅ Tabela */
+  body.kj-day .processos-page .kj-tablewrap{
+    border: 1px solid rgba(37,99,235,.18) !important;
+    background: #fff !important;
+    border-radius: 18px !important;
+    overflow: hidden;
+    box-shadow: 0 16px 38px rgba(2,6,23,.06) !important;
+  }
+
+  body.kj-day .processos-page .table{
+    color: #0b1b33 !important;
+    background: #fff !important;
+  }
+
+  body.kj-day .processos-page .table thead th{
+    background: rgba(37,99,235,.06) !important;
+    color: #0b1b33 !important;
+    border-bottom: 1px solid rgba(37,99,235,.18) !important;
+  }
+
+  body.kj-day .processos-page .table td,
+  body.kj-day .processos-page .table th{
+    border-color: rgba(37,99,235,.10) !important;
+    color: #0b1b33 !important;
+  }
+
+  body.kj-day .processos-page .text-muted{ color: rgba(11,27,51,.65) !important; }
+
+  body.kj-day .processos-page .table-striped>tbody>tr:not(.table-warning):not(.table-danger):not(.table-success):not(.table-info):nth-of-type(odd) > *{
+    background-color: rgba(37,99,235,.018) !important;
+  }
+
+  body.kj-day .processos-page .table-hover>tbody>tr:not(.table-warning):not(.table-danger):not(.table-success):not(.table-info):hover > *{
+    background-color: rgba(37,99,235,.03) !important;
+  }
+
+  body.kj-day .processos-page .table-striped>tbody>tr.table-warning:nth-of-type(odd) > *,
+  body.kj-day .processos-page .table-striped>tbody>tr.table-warning:nth-of-type(even) > *,
+  body.kj-day .processos-page .table-striped>tbody>tr.table-danger:nth-of-type(odd) > *,
+  body.kj-day .processos-page .table-striped>tbody>tr.table-danger:nth-of-type(even) > *,
+  body.kj-day .processos-page .table-striped>tbody>tr.table-success:nth-of-type(odd) > *,
+  body.kj-day .processos-page .table-striped>tbody>tr.table-success:nth-of-type(even) > *,
+  body.kj-day .processos-page .table-striped>tbody>tr.table-info:nth-of-type(odd) > *,
+  body.kj-day .processos-page .table-striped>tbody>tr.table-info:nth-of-type(even) > *{
+    background-color: inherit !important;
+  }
+
+  body.kj-day .processos-page tr.table-danger > *{
+    background-color: rgba(220,38,38,.14) !important;
+    color: #0b1b33 !important;
+    border-color: rgba(220,38,38,.28) !important;
+  }
+
+  body.kj-day .processos-page tr.table-warning > *{
+    background-color: rgba(245,158,11,.32) !important;
+    color: #0b1b33 !important;
+    border-color: rgba(180,83,9,.55) !important;
+    box-shadow: inset 0 0 0 9999px rgba(245,158,11,.10) !important;
+  }
+
+  body.kj-day .processos-page tr.table-success > *{
+    background-color: rgba(34,197,94,.14) !important;
+    color: #0b1b33 !important;
+    border-color: rgba(34,197,94,.30) !important;
+  }
+
+  body.kj-day .processos-page tr.table-info,
+  body.kj-day .processos-page tr.table-info > *{
+    background-color: rgba(59,130,246,.04) !important;
+    color: #0b1b33 !important;
+    border-color: rgba(59,130,246,.12) !important;
+    box-shadow: none !important;
+  }
+
+  body.kj-day .processos-page .kj-obs{
+    max-width: 320px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+    vertical-align: bottom;
+    color: #0b1b33 !important;
+  }
+
+  body.kj-day .processos-page .form-select,
+  body.kj-day .processos-page .form-control{
+    background: #fff !important;
+    color: #0b1b33 !important;
+    border: 1px solid rgba(37,99,235,.22) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 10px 22px rgba(2,6,23,.04) !important;
+  }
+  body.kj-day .processos-page .form-select:focus,
+  body.kj-day .processos-page .form-control:focus{
+    border-color: rgba(37,99,235,.55) !important;
+    box-shadow: 0 0 0 .2rem rgba(37,99,235,.18) !important;
+  }
+
+  body.kj-day .processos-page .btn.btn-primary,
+  body.kj-day .processos-page .btn.btn-outline-primary,
+  body.kj-day .processos-page .btn.btn-outline-secondary,
+  body.kj-day .processos-page .btn.btn-success,
+  body.kj-day .processos-page .btn.btn-warning,
+  body.kj-day .processos-page .btn.btn-info{
+    border-radius: 12px !important;
+    border: 1px solid rgba(37,99,235,.28) !important;
+    background: linear-gradient(180deg, rgba(37,99,235,.98), rgba(29,78,216,.98)) !important;
+    color: rgba(255,255,255,.98) !important;
+    font-weight: 900 !important;
+    box-shadow: 0 14px 28px rgba(2,6,23,.10), 0 1px 0 rgba(255,255,255,.18) inset !important;
+    transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+  }
+  body.kj-day .processos-page .btn:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 18px 36px rgba(2,6,23,.12), 0 1px 0 rgba(255,255,255,.22) inset !important;
+    filter: brightness(.98) saturate(1.05);
+  }
+
+  body.kj-day .processos-page .btn.btn-outline-danger,
+  body.kj-day .processos-page .btn.btn-danger{
+    background: transparent !important;
+    color: #dc2626 !important;
+    border: 1px solid rgba(220,38,38,.55) !important;
+    font-weight: 900 !important;
+    box-shadow: none !important;
+  }
+  body.kj-day .processos-page .btn.btn-outline-danger:hover,
+  body.kj-day .processos-page .btn.btn-danger:hover{
+    background: rgba(220,38,38,.08) !important;
+    transform: translateY(-1px);
+  }
+
+  body.kj-day .processos-page .th-acoes{ width: 420px; min-width: 420px; }
+  body.kj-day .processos-page .td-acoes{
+    width: 420px; min-width: 420px;
+    vertical-align: top;
+    white-space: normal;
+  }
+  body.kj-day .processos-page .kj-actions-wrap{
+    display:flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+  }
+  body.kj-day .processos-page .kj-actions-wrap .btn,
+  body.kj-day .processos-page .kj-actions-wrap .form-select{
+    border-radius: 12px;
+  }
+  body.kj-day .processos-page .kj-actions-wrap .form-select{
+    min-width: 220px;
+    max-width: 220px;
+  }
+    /* =========================================================
+   FIX DEFINITIVO — MODO NOITE NÃO TER AZUL NO table-info
+   (sobrescreve Bootstrap e o seu próprio CSS anterior)
+   Cole no FINAL do <style> do list.html
+   ========================================================= */
+
+/* 1) alvo real do Bootstrap 5.3 */
+body:not(.kj-day) .processos-page .table > :not(caption) > .table-info > *{
+  background-color: rgba(255,255,255,.02) !important;
+  color: rgba(242,244,247,.96) !important;
+  border-color: rgba(255,255,255,.10) !important;
+}
+
+/* 2) se vier como <tr class="table-info"> */
+body:not(.kj-day) .processos-page tr.table-info > td,
+body:not(.kj-day) .processos-page tr.table-info > th{
+  background-color: rgba(255,255,255,.02) !important;
+  color: rgba(242,244,247,.96) !important;
+  border-color: rgba(255,255,255,.10) !important;
+}
+
+/* 3) segurança extra: remove qualquer “azul” herdado */
+body:not(.kj-day) .processos-page tr.table-info,
+body:not(.kj-day) .processos-page tr.table-info > *{
+  box-shadow: none !important;
+  filter: none !important;
+}
+</style>
+
+<div class="processos-page">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="m-0 kj-page-title">{{ title }}</h3>
+
+    <div class="d-flex gap-2 kj-toolbar">
+      <a class="btn btn-primary" href="/processos/novo?status={{ status }}">Novo Processo</a>
+
+      <form id="formLote" method="post" action="/processos/excluir-lote"
+            onsubmit="return confirm('Deseja excluir os processos selecionados APENAS desta aba?');">
+        <input type="hidden" name="status" value="{{ status }}">
+        <input type="hidden" name="ids" id="idsSelecionados" value="">
+        <button class="btn btn-outline-danger" type="submit">Excluir Selecionados</button>
+      </form>
+    </div>
+  </div>
+
+  {% if msg %}
+    <div class="alert alert-warning">{{ msg }}</div>
+  {% endif %}
+
+  {% if status == "PRAZOS" and counters %}
+    <div class="kj-counter-card p-3 mb-3">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div class="d-flex flex-wrap gap-2">
+          <div class="kj-pill ok">
+            <div class="fw-bold">{{ counters.total }}</div>
+            <div class="kj-sub">Total de Prazos</div>
+          </div>
+
+          <div class="kj-pill info">
+            <div class="fw-bold">{{ counters.concluidos }}</div>
+            <div class="kj-sub">Prazos Concluídos</div>
+          </div>
+
+          <div class="kj-pill warn">
+            <div class="fw-bold">{{ counters.vence_hoje }}</div>
+            <div class="kj-sub">Vence Hoje</div>
+          </div>
+
+          <div class="kj-pill warn" style="min-width: 170px;">
+            <div class="fw-bold">{{ counters.vence_semana }}</div>
+            <div class="kj-sub">Vence Essa Semana</div>
+          </div>
+
+          <div class="kj-pill info" style="min-width: 190px;">
+            <div class="fw-bold">{{ counters.vence_proxima_semana }}</div>
+            <div class="kj-sub">Vence Semana que Vem</div>
+          </div>
+
+          <div class="kj-pill bad">
+            <div class="fw-bold">{{ counters.atrasados }}</div>
+            <div class="kj-sub">Atrasados</div>
+          </div>
+        </div>
+
+        <form method="get" action="/processos" class="d-flex align-items-center gap-2">
+          <input type="hidden" name="status" value="PRAZOS">
+          <label class="text-muted" style="font-size: 13px;">Filtro</label>
+          <select name="filtro" class="form-select form-select-sm" style="width: 170px;">
+            <option value="PENDENTES" {% if filtro == "PENDENTES" %}selected{% endif %}>Pendentes</option>
+            <option value="CUMPRIDOS" {% if filtro == "CUMPRIDOS" %}selected{% endif %}>Cumpridos</option>
+            <option value="TODOS" {% if filtro == "TODOS" %}selected{% endif %}>Todos</option>
+          </select>
+          <button class="btn btn-sm btn-primary" type="submit">Aplicar</button>
+        </form>
+      </div>
+    </div>
+  {% elif (status == "PROCEDENTE" or status == "EXECUCAO") and counters %}
+    <div class="kj-counter-card p-3 mb-3">
+      <div class="d-flex flex-wrap gap-2">
+        <div class="kj-pill ok" style="min-width:170px;">
+          <div class="fw-bold">{{ counters.total }}</div>
+          <div class="kj-sub">Quantidade de Ações</div>
+        </div>
+
+        <div class="kj-pill warn">
+          <div class="fw-bold">{{ counters.vence_hoje }}</div>
+          <div class="kj-sub">Vence Hoje</div>
+        </div>
+
+        <div class="kj-pill warn" style="min-width:170px;">
+          <div class="fw-bold">{{ counters.vence_semana }}</div>
+          <div class="kj-sub">Vence Essa Semana</div>
+        </div>
+
+        <div class="kj-pill info" style="min-width:190px;">
+          <div class="fw-bold">{{ counters.vence_proxima_semana }}</div>
+          <div class="kj-sub">Vence Semana que Vem</div>
+        </div>
+
+        <div class="kj-pill bad">
+          <div class="fw-bold">{{ counters.atrasados }}</div>
+          <div class="kj-sub">Atrasados</div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="kj-tablewrap">
+    <div class="table-responsive">
+      <table class="table table-striped align-middle">
+        <thead>
+          <tr>
+            <th style="width: 40px;">
+              <input class="form-check-input" type="checkbox" id="checkAll">
+            </th>
+            <th>Nº do Processo</th>
+            <th>Parte Autora</th>
+            <th>Vara</th>
+            <th>DJEN</th>
+            <th>Prazo</th>
+            <th>Vencimento</th>
+            <th>Dias</th>
+            <th>Observação</th>
+            <th class="th-acoes">Ações</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for item in itens %}
+            {% set p = item.p %}
+
+            {# ✅ dr sempre vira inteiro #}
+            {% set dr_raw = item.dias_restantes %}
+            {% if dr_raw is none %}
+              {% set dr = none %}
+            {% else %}
+              {% set dr = dr_raw|int %}
+            {% endif %}
+
+            {# ✅ prioridade automática #}
+            {% set row_class = "" %}
+            {% if dr is not none %}
+              {% if p.cumprimento == "CUMPRIDO" %}
+                {% set row_class = "table-success" %}
+              {% elif dr < 0 %}
+                {% set row_class = "table-danger" %}
+              {% elif dr <= 5 %}
+                {% set row_class = "table-warning" %}
+              {% elif dr <= 10 %}
+                {% set row_class = "table-info" %}
+              {% endif %}
+            {% else %}
+              {% set cor = item.cor %}
+              {% if cor == 'warning' %}{% set row_class = "table-warning" %}
+              {% elif cor == 'danger' %}{% set row_class = "table-danger" %}
+              {% elif cor == 'success' %}{% set row_class = "table-success" %}
+              {% elif cor == 'info' %}{% set row_class = "table-info" %}
+              {% endif %}
+            {% endif %}
+
+            <tr class="{{ row_class }}">
+              <td>
+                <input class="form-check-input checkItem" type="checkbox" value="{{ p.id }}">
+              </td>
+
+              <td>{{ p.numero_processo }}</td>
+              <td>{{ p.parte_autora }}</td>
+              <td>{{ p.vara }}</td>
+              <td>{{ p.data_intimacao.strftime("%d/%m/%Y") if p.data_intimacao else "" }}</td>
+              <td>{{ p.prazo_dias or "" }}</td>
+              <td>{{ p.vencimento.strftime("%d/%m/%Y") if p.vencimento else "" }}</td>
+
+              <td>
+                {% if dr is not none %}
+                  {% if dr < 0 %}
+                    Vencido ({{ dr }})
+                  {% else %}
+                    {{ dr }}
+                  {% endif %}
+                {% endif %}
+              </td>
+
+              <td style="max-width: 320px;">
+                {% if p.obs %}
+                  <span class="kj-obs" title="{{ p.obs }}">
+                    {{ p.obs[:80] }}{% if p.obs|length > 80 %}...{% endif %}
+                  </span>
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+
+              <td class="td-acoes">
+                <div class="kj-actions-wrap">
+                  <a class="btn btn-sm btn-outline-primary" href="/processos/{{ p.id }}/editar">Editar</a>
+
+                  <form method="post" action="/processos/{{ p.id }}/atualizar-status"
+                        class="d-flex gap-2 align-items-center">
+                    <input type="hidden" name="status" value="{{ status }}">
+
+                    {% if status == "PROCEDENTE" %}
+                      <select name="cumprimento" class="form-select form-select-sm">
+                        <option value="PENDENTE" {% if p.cumprimento == "PENDENTE" %}selected{% endif %}>Pendente</option>
+                        <option value="TRANSITADO" {% if p.cumprimento == "TRANSITADO" %}selected{% endif %}>Transitado em julgado</option>
+                        <option value="RECURSO" {% if p.cumprimento == "RECURSO" %}selected{% endif %}>Interposição de recurso</option>
+                      </select>
+                    {% elif status == "PRAZOS" %}
+                      <select name="cumprimento" class="form-select form-select-sm">
+                        <option value="PENDENTE" {% if p.cumprimento == "PENDENTE" %}selected{% endif %}>Pendente</option>
+                        <option value="CUMPRIDO" {% if p.cumprimento == "CUMPRIDO" %}selected{% endif %}>Cumprido</option>
+                      </select>
+                    {% else %}
+                      <select name="cumprimento" class="form-select form-select-sm">
+                        <option value="PENDENTE" {% if p.cumprimento == "PENDENTE" %}selected{% endif %}>Pendente</option>
+                        <option value="TRANSITADO" {% if p.cumprimento == "TRANSITADO" %}selected{% endif %}>Transitado (marcado)</option>
+                      </select>
+                    {% endif %}
+
+                    <button class="btn btn-sm btn-outline-secondary" type="submit">Salvar</button>
+                  </form>
+
+                  <form method="post" action="/processos/{{ p.id }}/excluir"
+                        onsubmit="return confirm('Deseja excluir este processo?');">
+                    <input type="hidden" name="status" value="{{ status }}">
+                    <button class="btn btn-sm btn-outline-danger" type="submit">Excluir</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+
+          {% if itens|length == 0 %}
+            <tr>
+              <td colspan="10" class="text-center py-4">Nenhum processo cadastrado.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const checkAll = document.getElementById("checkAll");
+    const checks = () => Array.from(document.querySelectorAll(".checkItem"));
+    const idsSelecionados = document.getElementById("idsSelecionados");
+
+    function atualizarIds() {
+      const ids = checks().filter(c => c.checked).map(c => c.value);
+      idsSelecionados.value = ids.join(",");
+    }
+
+    checkAll?.addEventListener("change", () => {
+      checks().forEach(c => c.checked = checkAll.checked);
+      atualizarIds();
+    });
+
+    checks().forEach(c => c.addEventListener("change", atualizarIds));
+  </script>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="m-0">Perícias e Diligências</h3>
+  <div class="d-flex gap-2">
+    <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#modalNovo">
+      + Novo
+    </button>
+    <a class="btn btn-outline-secondary" href="/dashboard">Voltar</a>
+  </div>
+</div>
+
+{% if lembretes and lembretes|length > 0 %}
+<div class="alert alert-warning">
+  <div class="fw-semibold mb-1">Lembretes (próximos 7 dias)</div>
+  <ul class="mb-0">
+    {% for x in lembretes %}
+      <li>
+        <strong>{{ x.data_evento_fmt }}</strong> — {{ x.nome_parte }}
+        <span class="text-muted">({{ x.numero_processo }})</span>
+        {% if x.local %}<span class="text-muted"> — {{ x.local }}</span>{% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="card p-3 mb-3">
+  <form method="get" action="/pericias" class="d-flex gap-2 flex-wrap">
+    <select class="form-select" name="status" style="max-width: 220px;">
+      <option value="" {% if not status %}selected{% endif %}>Todos</option>
+      <option value="Pendente" {% if status=='Pendente' %}selected{% endif %}>Pendente</option>
+      <option value="Concluido" {% if status=='Concluido' %}selected{% endif %}>Concluído</option>
+    </select>
+
+    <input class="form-control" name="q" value="{{ q or '' }}"
+           placeholder="Buscar processo / parte / local / observação..." style="min-width: 280px;">
+
+    <button class="btn btn-outline-secondary" type="submit">Filtrar</button>
+  </form>
+</div>
+
+<div class="card p-3">
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle">
+      <thead>
+        <tr>
+          <th>Nº Processo</th>
+          <th>Parte</th>
+          <th>Observação</th>
+          <th>Local</th>
+          <th>Data</th>
+          <th>Status</th>
+          <th class="text-end">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td class="fw-semibold">{{ r.numero_processo }}</td>
+          <td>{{ r.nome_parte }}</td>
+          <td class="text-muted small">{{ r.observacao or "" }}</td>
+          <td>{{ r.local or "" }}</td>
+          <td>
+            <span class="{% if (not r.concluido) and r.em_atraso %}text-danger fw-semibold{% endif %}">
+              {{ r.data_evento_fmt }}
+            </span>
+          </td>
+          <td>
+            {% if r.concluido %}
+              <span class="badge bg-success">Concluído</span>
+            {% else %}
+              {% if r.em_atraso %}
+                <span class="badge bg-danger">Em atraso</span>
+              {% else %}
+                <span class="badge bg-primary">Pendente</span>
+              {% endif %}
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <div class="btn-group">
+              <form method="post" action="/pericias/{{ r.id }}/toggle">
+                <button class="btn btn-sm {% if r.concluido %}btn-outline-secondary{% else %}btn-outline-success{% endif %}" type="submit">
+                  {% if r.concluido %}Desfazer{% else %}Concluir{% endif %}
+                </button>
+              </form>
+
+              <button class="btn btn-sm btn-outline-primary"
+                data-bs-toggle="modal"
+                data-bs-target="#modalEditar"
+                data-id="{{ r.id }}"
+                data-numero="{{ r.numero_processo }}"
+                data-parte="{{ r.nome_parte }}"
+                data-observacao="{{ r.observacao or '' }}"
+                data-local="{{ r.local or '' }}"
+                data-data="{{ r.data_evento_iso }}"
+              >Editar</button>
+
+              <form method="post" action="/pericias/{{ r.id }}/excluir" onsubmit="return confirm('Excluir este registro?');">
+                <button class="btn btn-sm btn-outline-danger" type="submit">Excluir</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# MODAL NOVO #}
+<div class="modal fade" id="modalNovo" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" action="/pericias/novo">
+        <div class="modal-header">
+          <h5 class="modal-title">Nova Perícia/Diligência</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Número do Processo</label>
+              <input class="form-control" name="numero_processo" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Nome da Parte</label>
+              <input class="form-control" name="nome_parte" required>
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Observação</label>
+              <textarea class="form-control" name="observacao" rows="3"></textarea>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Local</label>
+              <input class="form-control" name="local">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Data</label>
+              <input type="date" class="form-control" name="data_evento" required>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-success" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# MODAL EDITAR #}
+<div class="modal fade" id="modalEditar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" id="formEditar" action="">
+        <div class="modal-header">
+          <h5 class="modal-title">Editar Perícia/Diligência</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Número do Processo</label>
+              <input class="form-control" name="numero_processo" id="ed_numero" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Nome da Parte</label>
+              <input class="form-control" name="nome_parte" id="ed_parte" required>
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Observação</label>
+              <textarea class="form-control" name="observacao" id="ed_observacao" rows="3"></textarea>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Local</label>
+              <input class="form-control" name="local" id="ed_local">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Data</label>
+              <input type="date" class="form-control" name="data_evento" id="ed_data" required>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" type="submit">Salvar alterações</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const modal = document.getElementById("modalEditar");
+  if(!modal) return;
+
+  modal.addEventListener("show.bs.modal", function(ev){
+    const btn = ev.relatedTarget;
+    if(!btn) return;
+
+    const id = btn.getAttribute("data-id");
+    document.getElementById("formEditar").action = "/pericias/" + id + "/editar";
+
+    document.getElementById("ed_numero").value = btn.getAttribute("data-numero") || "";
+    document.getElementById("ed_parte").value = btn.getAttribute("data-parte") || "";
+    document.getElementById("ed_observacao").value = btn.getAttribute("data-observacao") || "";
+    document.getElementById("ed_local").value = btn.getAttribute("data-local") || "";
+    document.getElementById("ed_data").value = btn.getAttribute("data-data") || "";
+  });
+})();
+</script>
+
+{% endblock %}

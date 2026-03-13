@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+/* =========================================================
+   PATCH VISUAL — MODO DIA (NÃO ALTERA MODO NOITE)
+   ========================================================= */
+
+body.kj-day{
+  background:#ffffff !important;
+  color:#111827 !important;
+}
+
+/* Cards claros */
+body.kj-day .card{
+  background:#ffffff !important;
+  border:1px solid #e5e7eb !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,.05);
+}
+
+/* Textos e títulos */
+body.kj-day .card,
+body.kj-day .card h1,
+body.kj-day .card h2,
+body.kj-day .card h3,
+body.kj-day .card h4,
+body.kj-day .card h5,
+body.kj-day .card h6{
+  color:#111827 !important;
+}
+
+/* Botão voltar outline com contraste */
+body.kj-day .btn-outline-secondary{
+  color:#111827 !important;
+  border-color:#9ca3af !important;
+}
+body.kj-day .btn-outline-secondary:hover{
+  background: rgba(17,24,39,.06) !important;
+}
+
+/* Tabela */
+body.kj-day .table{
+  color:#111827 !important;
+}
+
+body.kj-day .table thead th{
+  color:#111827 !important;
+  background:#f9fafb !important;
+  border-bottom-color:#e5e7eb !important;
+}
+
+body.kj-day .table td,
+body.kj-day .table th{
+  border-color:#eef2f7 !important;
+}
+
+/* Listras suaves */
+body.kj-day .table-striped > tbody > tr:nth-of-type(odd) > *{
+  background-color: rgba(17,24,39,.03) !important;
+}
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="m-0">{{ title }}</h3>
+  <a class="btn btn-outline-secondary" href="/financeiro/receber?senha={{ senha }}&mes={{ ano }}-01&conta={{ conta }}">Voltar</a>
+</div>
+
+<div class="card p-3 mb-3">
+  <div><strong>Ano:</strong> {{ ano }} • <strong>Conta:</strong> {{ conta }}</div>
+  <div class="mt-2"><strong>Total anual:</strong> {{ '%.2f'|format(total_ano) }}</div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-striped mb-0 align-middle">
+      <thead>
+        <tr>
+          <th>Mês</th>
+          <th class="text-end">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for mes_ref, v in totals.items() %}
+          <tr>
+            <td>{{ mes_ref }}</td>
+            <td class="text-end">{{ '%.2f'|format(v) }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,380 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+/* =========================================================
+   PATCH VISUAL — MODO DIA (NÃO ALTERA MODO NOITE)
+   (mantém seu padrão)
+   ========================================================= */
+
+body.kj-day{
+  background:#ffffff !important;
+  color:#111827 !important;
+}
+body.kj-day .card{
+  background:#ffffff !important;
+  border:1px solid #e5e7eb !important;
+  box-shadow:0 6px 18px rgba(0,0,0,.05);
+}
+body.kj-day .text-muted{ color:#6b7280 !important; }
+body.kj-day .border.rounded.p-2{
+  border-color:#e5e7eb !important;
+  background:#f9fafb !important;
+}
+body.kj-day .table{ color:#111827 !important; }
+body.kj-day .table thead th{
+  background:#f9fafb !important;
+  border-bottom-color:#e5e7eb !important;
+  color:#111827 !important;
+}
+body.kj-day .table td, body.kj-day .table th{ border-color:#eef2f7 !important; }
+body.kj-day .table-striped > tbody > tr:nth-of-type(odd) > *{
+  background-color: rgba(17,24,39,.03) !important;
+}
+body.kj-day .badge.bg-light{
+  background:#f3f4f6 !important;
+  color:#111827 !important;
+  border-color:#e5e7eb !important;
+}
+body.kj-day .btn-outline-secondary,
+body.kj-day .btn-outline-dark{
+  color:#111827 !important;
+  border-color:#9ca3af !important;
+}
+body.kj-day .btn-outline-secondary:hover,
+body.kj-day .btn-outline-dark:hover{
+  background:rgba(17,24,39,.06) !important;
+}
+
+/* =========================================================
+   ESTILO PROFISSIONAL NA TELA (e ajuda no print também)
+   ========================================================= */
+
+.report-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  margin-bottom:12px;
+}
+.report-top h3{ margin:0; }
+
+.report-head{
+  border:1px solid rgba(0,0,0,.12);
+  border-radius:14px;
+  padding:14px 16px;
+  background: rgba(255,255,255,.02);
+}
+.report-head .title{
+  font-weight:800;
+  letter-spacing:.2px;
+  font-size:1.05rem;
+}
+.report-head .sub{
+  opacity:.8;
+  font-size:.92rem;
+}
+.report-head .meta{
+  opacity:.8;
+  font-size:.85rem;
+}
+
+.kpi-grid{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap:10px;
+}
+@media (max-width: 992px){
+  .kpi-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.kpi{
+  border:1px solid rgba(0,0,0,.12);
+  border-radius:14px;
+  padding:12px 12px;
+  background: rgba(255,255,255,.02);
+}
+.kpi .label{ opacity:.75; font-size:.85rem; }
+.kpi .value{ font-weight:900; font-size:1.05rem; }
+.kpi .hint{ opacity:.75; font-size:.82rem; }
+
+.mono{ font-variant-numeric: tabular-nums; }
+.small-note{ font-size:.85rem; opacity:.85; }
+
+.badge-soft{
+  border:1px solid rgba(0,0,0,.18);
+  background: rgba(0,0,0,.05);
+  color: inherit;
+}
+
+/* =========================================================
+   IMPRESSÃO PROFISSIONAL (AQUI É O PULO DO GATO)
+   - imprime só o #print-area
+   - força texto preto / fundo branco
+   - ✅ FIX: força cor/opacity/text-fill para não sumir dados
+   ========================================================= */
+@media print{
+
+  @page{
+    size: A4 portrait;
+    margin: 12mm 10mm 12mm 10mm;
+  }
+
+  /* Imprime SOMENTE o #print-area */
+  body *{ visibility: hidden !important; }
+  #print-area, #print-area *{ visibility: visible !important; }
+  #print-area{
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+  }
+
+  /* Reset geral */
+  *{
+    box-shadow:none !important;
+    text-shadow:none !important;
+    filter:none !important;
+  }
+
+  body{
+    background:#fff !important;
+    color:#000 !important;
+  }
+
+  /* ✅ AQUI é o conserto: força cor/opacity para NÃO SUMIR texto */
+  #print-area{
+    background:#fff !important;
+    color:#000 !important;
+  }
+
+  #print-area,
+  #print-area *{
+    color:#000 !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: #000 !important; /* Chrome às vezes “some” texto por text-fill */
+  }
+
+  /* Tipografia de relatório */
+  html, body{ font-size: 12px !important; }
+
+  /* Blocos com borda real */
+  #print-area .card,
+  #print-area .report-head,
+  #print-area .kpi{
+    border:1px solid #d1d5db !important;
+    background:#fff !important;
+  }
+
+  /* Tabela limpa */
+  #print-area table{ width: 100% !important; }
+  #print-area .table{
+    font-size: 11px !important;
+    color:#000 !important;
+  }
+
+  /* Cabeçalho com leve destaque (reaplica fundo porque acima zeramos) */
+  #print-area .table thead th{
+    background:#f3f4f6 !important;
+    color:#000 !important;
+    border-color:#d1d5db !important;
+  }
+
+  #print-area .table td,
+  #print-area .table th{
+    border-color:#e5e7eb !important;
+    background: transparent !important;
+  }
+
+  /* Badges imprimíveis */
+  #print-area .badge,
+  #print-area .badge-soft{
+    background:#fff !important;
+    color:#000 !important;
+    border:1px solid #111 !important;
+  }
+
+  /* Repete cabeçalho em páginas */
+  thead{ display: table-header-group; }
+  tfoot{ display: table-footer-group; }
+
+  tr, td, th{
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Remove URL no topo */
+  a[href]:after{ content: "" !important; }
+}
+</style>
+
+{# =========================
+   PRÉ-CÁLCULOS (JINJA)
+   ========================= #}
+{% set ns = namespace(total_pendente=0, total_recebido=0, qtd_total=0, qtd_pendente=0, qtd_recebido=0) %}
+{% for r in rows %}
+  {% set v = (r.valor or 0) %}
+  {% set ns.qtd_total = ns.qtd_total + 1 %}
+  {% if r.recebido %}
+    {% set ns.total_recebido = ns.total_recebido + v %}
+    {% set ns.qtd_recebido = ns.qtd_recebido + 1 %}
+  {% else %}
+    {% set ns.total_pendente = ns.total_pendente + v %}
+    {% set ns.qtd_pendente = ns.qtd_pendente + 1 %}
+  {% endif %}
+{% endfor %}
+{% set total_calc = (ns.total_pendente + ns.total_recebido) %}
+{% set ticket_medio = (total_calc / ns.qtd_total) if ns.qtd_total else 0 %}
+{% set perc_recebido = ((ns.total_recebido * 100) / total_calc) if total_calc else 0 %}
+{% set perc_pendente = ((ns.total_pendente * 100) / total_calc) if total_calc else 0 %}
+
+<div class="report-top no-print">
+  <h3>Relatório Contas a Receber (Mês)</h3>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="/financeiro/receber?ym={{ ym }}">Voltar</a>
+    <button class="btn btn-outline-dark" type="button" onclick="window.print()">Imprimir</button>
+  </div>
+</div>
+
+{# ✅ TUDO que deve imprimir fica aqui dentro #}
+<div id="print-area">
+
+  <div class="report-head mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+      <div>
+        <div class="title">{{ empresa_nome if empresa_nome else "Relatório Financeiro" }}</div>
+        <div class="sub">
+          Contas a Receber — Mês <span class="mono fw-semibold">{{ ym }}</span>
+        </div>
+        <div class="meta mt-1">
+          Emitido em: <span class="mono">{{ emitido_em if emitido_em else "" }}</span>
+        </div>
+      </div>
+
+      <div class="text-end">
+        <div class="text-muted small">Total do mês</div>
+        <div class="fw-bold mono" style="font-size:1.15rem;">
+          {{ (total if total is not none else total_calc) | money_br }}
+        </div>
+        <div class="small-note mt-1">
+          {{ ns.qtd_total }} lançamento(s) • Ticket médio: <span class="mono fw-semibold">{{ ticket_medio | money_br }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-3 mb-3">
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="label">Pendente</div>
+        <div class="value mono">{{ ns.total_pendente | money_br }}</div>
+        <div class="hint">{{ ns.qtd_pendente }} item(ns) — {{ "%.1f"|format(perc_pendente) }}%</div>
+      </div>
+
+      <div class="kpi">
+        <div class="label">Recebido</div>
+        <div class="value mono">{{ ns.total_recebido | money_br }}</div>
+        <div class="hint">{{ ns.qtd_recebido }} item(ns) — {{ "%.1f"|format(perc_recebido) }}%</div>
+      </div>
+
+      <div class="kpi">
+        <div class="label">Total calculado</div>
+        <div class="value mono">{{ total_calc | money_br }}</div>
+        <div class="hint">Soma de pendentes + recebidos</div>
+      </div>
+
+      <div class="kpi">
+        <div class="label">Observação</div>
+        <div class="value">Conferência</div>
+        <div class="hint">Relatório para auditoria e impressão.</div>
+      </div>
+    </div>
+  </div>
+
+  {% if por_conta %}
+  <div class="card p-3 mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div class="fw-semibold">Totais por conta</div>
+      <div class="text-muted small">Distribuição do total no mês</div>
+    </div>
+
+    <div class="row g-2">
+      {% for c in por_conta %}
+        <div class="col-md-3">
+          <div class="border rounded p-2">
+            <div class="text-muted small">{{ c.label }}</div>
+            <div class="fw-bold mono">{{ c.total | money_br }}</div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-sm table-striped align-middle mb-0">
+        <thead>
+          <tr>
+            <th style="min-width: 280px;">Parte / Processo</th>
+            <th style="min-width: 220px;">Vara</th>
+            <th style="min-width: 140px;">Conta</th>
+            <th style="min-width: 120px;">Data prevista</th>
+            <th class="text-end" style="min-width: 120px;">Valor</th>
+            <th style="min-width: 110px;">Status</th>
+            <th style="min-width: 120px;">Recebido em</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for r in rows %}
+            <tr>
+              <td style="white-space:normal;">
+                <div class="fw-semibold">{{ r.parte_autora }}</div>
+                <div class="text-muted small mono">{{ r.numero_processo }}</div>
+                {% if r.obs %}
+                  <div class="text-muted small mt-1">{{ r.obs }}</div>
+                {% endif %}
+              </td>
+
+              <td style="white-space:normal;">{{ r.vara }}</td>
+
+              <td>
+                <span class="badge badge-soft mono">{{ r.conta }}</span>
+              </td>
+
+              <td class="mono">{{ r.data_prevista | date_br }}</td>
+
+              <td class="text-end fw-semibold mono">{{ (r.valor or 0) | money_br }}</td>
+
+              <td>
+                {% if r.recebido %}
+                  <span class="badge">Recebido</span>
+                {% else %}
+                  <span class="badge">Pendente</span>
+                {% endif %}
+              </td>
+
+              <td class="mono">{{ r.recebido_em | date_br }}</td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-4">
+                Nenhum recebimento lançado neste mês.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="small-note mt-3">
+    <span class="fw-semibold">Resumo:</span>
+    Total {{ (total if total is not none else total_calc) | money_br }},
+    Pendentes {{ ns.total_pendente | money_br }},
+    Recebidos {{ ns.total_recebido | money_br }}.
+  </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="m-0">Audiências Realizadas</h3>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="/audiencias">Voltar</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-striped align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Data/Hora</th>
+          <th>Processo</th>
+          <th>Partes</th>
+          <th style="width:260px;">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if performed_hearings %}
+          {% for p in performed_hearings %}
+            <tr>
+              <td>{% if p.starts_at %}{{ p.starts_at.strftime("%d/%m/%Y %H:%M") }}{% else %}-{% endif %}</td>
+              <td>{{ p.process_number or "-" }}</td>
+              <td>{{ p.promovente or "-" }} / {{ p.promovido or "-" }}</td>
+              <td class="text-nowrap">
+                <a class="btn btn-sm btn-outline-primary" href="/audiencias/{{ p.id }}/edit">Editar</a>
+
+                <form action="/audiencias/{{ p.id }}/unmark-performed" method="post" style="display:inline;">
+                  <button class="btn btn-sm btn-outline-secondary" type="submit">Restaurar</button>
+                </form>
+
+                <form action="/audiencias/{{ p.id }}/delete" method="post" style="display:inline;">
+                  <button class="btn btn-sm btn-outline-danger" type="submit"
+                          onclick="return confirm('Excluir esta audiência definitivamente?')">
+                    Excluir
+                  </button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="4" class="text-center py-4 text-muted">
+              Nenhuma audiência realizada.
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

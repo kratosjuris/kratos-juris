@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+/* =========================================================
+   PATCH VISUAL — MODO DIA (NÃO ALTERA MODO NOITE)
+   + garante canvas legível no dia
+   ========================================================= */
+
+body.kj-day{
+  background:#ffffff !important;
+  color:#111827 !important;
+}
+
+/* Cards claros */
+body.kj-day .card{
+  background:#ffffff !important;
+  border:1px solid #e5e7eb !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,.05);
+}
+
+/* Textos e labels */
+body.kj-day .card,
+body.kj-day .card h1,
+body.kj-day .card h2,
+body.kj-day .card h3,
+body.kj-day .card h4,
+body.kj-day .card h5,
+body.kj-day .card h6{
+  color:#111827 !important;
+}
+
+body.kj-day .text-muted{
+  color:#6b7280 !important;
+}
+
+/* Tabela */
+body.kj-day .table{
+  color:#111827 !important;
+}
+
+body.kj-day .table thead th{
+  color:#111827 !important;
+  background:#f9fafb !important;
+  border-bottom-color:#e5e7eb !important;
+}
+
+body.kj-day .table td,
+body.kj-day .table th{
+  border-color:#eef2f7 !important;
+}
+
+/* Listras suaves */
+body.kj-day .table-striped > tbody > tr:nth-of-type(odd) > *{
+  background-color: rgba(17,24,39,.03) !important;
+}
+
+/* Botão voltar outline com contraste */
+body.kj-day .btn-outline-secondary{
+  color:#111827 !important;
+  border-color:#9ca3af !important;
+}
+body.kj-day .btn-outline-secondary:hover{
+  background: rgba(17,24,39,.06) !important;
+}
+/* ✅ Botão Voltar 100% legível no modo dia */
+body.kj-day .btn-outline-secondary{
+  color:#111827 !important;
+  border-color:#9ca3af !important;
+  background:#ffffff !important;
+}
+body.kj-day .btn-outline-secondary:hover{
+  background: rgba(17,24,39,.06) !important;
+}
+body.kj-day .btn-outline-secondary:focus{
+  box-shadow: 0 0 0 .15rem rgba(17,24,39,.12) !important;
+}
+body.kj-day .btn-outline-secondary:active{
+  background: rgba(17,24,39,.10) !important;
+}
+
+/* Canvas: garante contraste no dia */
+body.kj-day #chart{
+  background:#ffffff;
+}
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="m-0">{{ title }}</h3>
+  <a class="btn btn-outline-secondary" href="/financeiro/receber?senha={{ senha }}&mes={{ mes_ref }}&conta={{ conta }}">Voltar</a>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <div class="card p-3">
+      <div class="text-muted">Conta: {{ conta }}</div>
+      <div class="text-muted">Total mês atual ({{ mes_ref }})</div>
+      <div class="fs-4"><strong id="atual">{{ '%.2f'|format(total) }}</strong></div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card p-3">
+      <div class="text-muted">Mês anterior ({{ prev_ref }})</div>
+      <div class="fs-4"><strong id="anterior">{{ '%.2f'|format(prev_total) }}</strong></div>
+      <div class="text-muted small mt-2">Comparativo simples: barras (atual x anterior).</div>
+    </div>
+  </div>
+</div>
+
+<div class="card p-3 mb-3">
+  <canvas id="chart" height="120"></canvas>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-striped mb-0 align-middle">
+      <thead>
+        <tr>
+          <th>Nº Processo</th>
+          <th>Parte Autora</th>
+          <th>Vara</th>
+          <th>Data provável</th>
+          <th>Conta</th>
+          <th class="text-end">Valor</th>
+          <th>Obs</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+          <tr>
+            <td>{{ r.numero_processo }}</td>
+            <td>{{ r.parte_autora }}</td>
+            <td>{{ r.vara }}</td>
+            <td>{{ r.data_prevista.strftime("%d/%m/%Y") if r.data_prevista else "" }}</td>
+            <td>{{ r.conta }}</td>
+            <td class="text-end">{{ '%.2f'|format(r.valor_previsto or 0) }}</td>
+            <td>{{ r.obs or "" }}</td>
+          </tr>
+        {% endfor %}
+        {% if rows|length == 0 %}
+          <tr><td colspan="7" class="text-center py-4">Sem lançamentos.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  // mini chart sem libs externas (barras simples)
+  const atual = parseFloat(document.getElementById("atual").innerText.replace(",", "."));
+  const anterior = parseFloat(document.getElementById("anterior").innerText.replace(",", "."));
+
+  const canvas = document.getElementById("chart");
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width = canvas.parentElement.clientWidth;
+  const h = canvas.height;
+
+  const maxV = Math.max(atual, anterior, 1);
+  const barW = 120;
+  const gap = 80;
+
+  const isDay = document.body.classList.contains("kj-day");
+
+  function bar(x, v, label) {
+    const bh = (v / maxV) * (h - 40);
+    ctx.fillRect(x, h - 20 - bh, barW, bh);
+    ctx.fillText(label + ": " + v.toFixed(2), x, h - 5);
+  }
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.font = "14px sans-serif";
+
+  // ✅ garante texto legível no modo dia (sem alterar o modo noite)
+  if (isDay) {
+    ctx.fillStyle = "#111827";     // texto e barras mais visíveis no branco
+  }
+
+  bar(60, anterior, "Anterior");
+  bar(60 + barW + gap, atual, "Atual");
+</script>
+
+{% endblock %}

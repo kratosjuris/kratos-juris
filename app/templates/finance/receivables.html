@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="m-0">{{ title }}</h3>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="/dashboard">Voltar</a>
+    <a class="btn btn-outline-primary" href="/financeiro/pagar?senha={{ senha }}">Ir para Contas a Pagar</a>
+  </div>
+</div>
+
+<div class="card p-3 mb-3">
+  <form class="row g-2 align-items-end" method="get" action="/financeiro/receber">
+    <input type="hidden" name="senha" value="{{ senha }}">
+    <div class="col-md-3">
+      <label class="form-label">Mês (YYYY-MM)</label>
+      <input class="form-control" name="mes" value="{{ mes_ref }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Conta</label>
+      <select class="form-select" name="conta">
+        {% for v, label in contas_opcoes %}
+          <option value="{{ v }}" {% if v == conta %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <button class="btn btn-primary w-100" type="submit">Consultar</button>
+    </div>
+    <div class="col-md-3 d-flex gap-2">
+      <a class="btn btn-success w-100" href="/financeiro/receber/relatorio-mensal?senha={{ senha }}&mes={{ mes_ref }}&conta={{ conta }}">Relatório mensal</a>
+      <a class="btn btn-outline-success w-100" href="/financeiro/receber/relatorio-anual?senha={{ senha }}&ano={{ mes_ref[:4] }}&conta={{ conta }}">Anual</a>
+    </div>
+  </form>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <div class="card p-3">
+      <div class="text-muted">Total previsto ({{ mes_ref }})</div>
+      <div class="fs-5"><strong>{{ '%.2f'|format(total) }}</strong></div>
+      <div class="text-muted mt-2">Recebidos (marcados)</div>
+      <div class="fs-6"><strong>{{ '%.2f'|format(total_recebidos) }}</strong></div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card p-3">
+      <div class="text-muted">Comparativo mês anterior ({{ prev_ref }})</div>
+      <div class="fs-6">Anterior: <strong>{{ '%.2f'|format(prev_total) }}</strong></div>
+      <div class="fs-6">Atual: <strong>{{ '%.2f'|format(total) }}</strong></div>
+      <div class="text-muted small mt-2">*gráfico completo no relatório mensal.</div>
+    </div>
+  </div>
+</div>
+
+<div class="card p-3 mb-3">
+  <h6 class="mb-2">Lançar recebimento</h6>
+  <form class="row g-2" method="post" action="/financeiro/receber/novo">
+    <input type="hidden" name="senha" value="{{ senha }}">
+    <input type="hidden" name="mes_ref" value="{{ mes_ref }}">
+
+    <div class="col-md-3">
+      <label class="form-label">Número do Processo</label>
+      <input class="form-control" name="numero_processo" required>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Nome da Parte Autora</label>
+      <input class="form-control" name="parte_autora" required>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Vara</label>
+      <input class="form-control" name="vara" required>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Data provável alvará/pagamento</label>
+      <input class="form-control" type="date" name="data_prevista">
+    </div>
+
+    <div class="col-md-3">
+      <label class="form-label">Conta informada</label>
+      <select class="form-select" name="conta">
+        {% for v, label in contas_opcoes %}
+          <option value="{{ v }}" {% if v == conta %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-3">
+      <label class="form-label">Valor previsto (opcional)</label>
+      <input class="form-control" name="valor_previsto" placeholder="Ex: 2500,00">
+    </div>
+
+    <div class="col-md-6">
+      <label class="form-label">Observação</label>
+      <input class="form-control" name="obs" placeholder="Ex: aguardando alvará, precatório, etc.">
+    </div>
+
+    <div class="col-12">
+      <button class="btn btn-primary" type="submit">Adicionar</button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-striped mb-0 align-middle">
+      <thead>
+        <tr>
+          <th>Recebido</th>
+          <th>Nº Processo</th>
+          <th>Parte Autora</th>
+          <th>Vara</th>
+          <th>Data provável</th>
+          <th>Conta</th>
+          <th class="text-end">Valor</th>
+          <th>Obs</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+          <tr class="{% if r.recebido %}table-success{% endif %}">
+            <td>
+              <form method="post" action="/financeiro/receber/{{ r.id }}/toggle-recebido">
+                <input type="hidden" name="senha" value="{{ senha }}">
+                <input type="hidden" name="mes_ref" value="{{ mes_ref }}">
+                <input type="hidden" name="conta" value="{{ conta }}">
+                <button class="btn btn-sm {% if r.recebido %}btn-success{% else %}btn-outline-secondary{% endif %}" type="submit">
+                  {% if r.recebido %}Recebido{% else %}Marcar{% endif %}
+                </button>
+              </form>
+            </td>
+            <td>{{ r.numero_processo }}</td>
+            <td>{{ r.parte_autora }}</td>
+            <td>{{ r.vara }}</td>
+            <td>{{ r.data_prevista.strftime("%d/%m/%Y") if r.data_prevista else "" }}</td>
+            <td>{{ r.conta }}</td>
+            <td class="text-end">{{ '%.2f'|format(r.valor_previsto or 0) }}</td>
+            <td>{{ r.obs or "" }}</td>
+          </tr>
+        {% endfor %}
+        {% if rows|length == 0 %}
+          <tr><td colspan="8" class="text-center py-4">Nenhum lançamento neste mês/conta.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  /* =========================================================
+     ✅ RELATÓRIOS — AJUSTE SOMENTE MODO DIA
+     (não mexe em nada do modo noite)
+     ========================================================= */
+
+  body.kj-day.page-relatorios h3{
+    color: #0b1b33 !important;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    margin-bottom: 1rem;
+  }
+
+  /* Cards mais “premium” no dia */
+  body.kj-day.page-relatorios .card{
+    background: #fff !important;
+    border: 1px solid rgba(37,99,235,.18) !important;
+    border-radius: 18px !important;
+    box-shadow: 0 16px 38px rgba(2,6,23,.06) !important;
+  }
+
+  body.kj-day.page-relatorios .fw-semibold{
+    color: #0b1b33 !important;
+    font-weight: 900 !important;
+  }
+
+  /* Botão do relatório no DIA: azul sólido */
+  body.kj-day.page-relatorios .btn.btn-outline-danger{
+    border-radius: 12px !important;
+    width: 100%;
+    border: 1px solid rgba(37,99,235,.28) !important;
+    background: linear-gradient(180deg, rgba(37,99,235,.98), rgba(29,78,216,.98)) !important;
+    color: rgba(255,255,255,.98) !important;
+    font-weight: 900 !important;
+    box-shadow: 0 14px 28px rgba(2,6,23,.10), 0 1px 0 rgba(255,255,255,.18) inset !important;
+    transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+  }
+
+  body.kj-day.page-relatorios .btn.btn-outline-danger:hover{
+    transform: translateY(-1px);
+    filter: brightness(.98) saturate(1.05);
+    box-shadow: 0 18px 36px rgba(2,6,23,.12), 0 1px 0 rgba(255,255,255,.22) inset !important;
+  }
+
+  body.kj-day.page-relatorios .btn.btn-outline-danger:focus{
+    box-shadow: 0 18px 36px rgba(2,6,23,.12), 0 0 0 .2rem rgba(37,99,235,.18) !important;
+  }
+</style>
+
+<h3 class="mb-4">Relatórios</h3>
+
+<div class="row g-3">
+
+  <div class="col-md-6 col-lg-4">
+    <div class="card p-3 h-100">
+      <div class="fw-semibold mb-2">Cadastro de Clientes</div>
+      <a class="btn btn-outline-danger w-100" href="/relatorios/clientes/pdf" target="_blank">
+        Gerar PDF
+      </a>
+    </div>
+  </div>
+
+  <div class="col-md-6 col-lg-4">
+    <div class="card p-3 h-100">
+      <div class="fw-semibold mb-2">Ações Procedentes</div>
+      <a class="btn btn-outline-danger w-100" href="/relatorios/processos/procedentes/pdf" target="_blank">
+        Gerar PDF
+      </a>
+    </div>
+  </div>
+
+  <div class="col-md-6 col-lg-4">
+    <div class="card p-3 h-100">
+      <div class="fw-semibold mb-2">Ações em Execução</div>
+      <a class="btn btn-outline-danger w-100" href="/relatorios/processos/execucao/pdf" target="_blank">
+        Gerar PDF
+      </a>
+    </div>
+  </div>
+
+  <div class="col-md-6 col-lg-4">
+    <div class="card p-3 h-100">
+      <div class="fw-semibold mb-2">Controle de Prazos</div>
+      <a class="btn btn-outline-danger w-100" href="/relatorios/prazos/pdf" target="_blank">
+        Gerar PDF
+      </a>
+    </div>
+  </div>
+
+  <div class="col-md-6 col-lg-4">
+    <div class="card p-3 h-100">
+      <div class="fw-semibold mb-2">Perícias & Diligências</div>
+      <a class="btn btn-outline-danger w-100" href="/relatorios/pericias/pdf" target="_blank">
+        Gerar PDF
+      </a>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

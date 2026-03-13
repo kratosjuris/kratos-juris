@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h3 class="mb-4">Painel Principal</h3>
+
+{# 🔔 ALERTA AUTOMÁTICO DE ANIVERSARIANTES DE HOJE #}
+{% if anivers_hoje and anivers_hoje|length > 0 %}
+  <div class="alert alert-warning d-flex justify-content-between align-items-center">
+    <div>
+      🎉 <strong>Aniversariantes de hoje:</strong>
+      {% for c in anivers_hoje %}
+        {{ c.nome }}{% if not loop.last %}, {% endif %}
+      {% endfor %}
+    </div>
+    <a class="btn btn-sm btn-outline-dark" href="/aniversarios">
+      Ver aniversariantes do mês
+    </a>
+  </div>
+{% endif %}
+
+{# 🔔 ALERTA DE PERÍCIAS / DILIGÊNCIAS (PRÓXIMOS 7 DIAS) #}
+{% if pericias_proximas and pericias_proximas|length > 0 %}
+  <div class="alert alert-danger">
+    <div class="fw-semibold mb-1">🔔 Perícias & Diligências próximas (7 dias)</div>
+
+    <ul class="mb-2">
+      {% for p in pericias_proximas %}
+        <li>
+          <strong>
+            {{ p.data_evento.strftime("%d/%m/%Y") if p.data_evento else "SEM DATA" }}
+          </strong>
+          — {{ p.nome_parte or "—" }}
+          <span class="text-muted">({{ p.numero_processo or "—" }})</span>
+          {% if p.local %}
+            <span class="text-muted"> — {{ p.local }}</span>
+          {% endif %}
+          {% if p.observacao %}
+            <div class="text-muted small">Obs: {{ p.observacao }}</div>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+
+    <a class="btn btn-sm btn-outline-dark" href="/pericias">
+      Abrir Perícias & Diligências
+    </a>
+  </div>
+{% endif %}
+
+<div class="row g-3">
+
+  <div class="col-md-4">
+    <a class="btn btn-primary w-100 py-3" href="/clientes">
+      Cadastro de Clientes
+    </a>
+  </div>
+
+  <div class="col-md-4">
+    <a class="btn btn-primary w-100 py-3" href="/processos?status=PROCEDENTE">
+      Ações Procedentes
+    </a>
+  </div>
+
+  <div class="col-md-4">
+    <a class="btn btn-primary w-100 py-3" href="/processos?status=EXECUCAO">
+      Ações em Execução
+    </a>
+  </div>
+
+  <div class="col-md-4">
+    <a class="btn btn-secondary w-100 py-3" href="/prazos">
+      Controle de Prazos
+    </a>
+  </div>
+
+  <div class="col-md-4">
+    <a class="btn btn-secondary w-100 py-3" href="/pericias">
+      Perícias & Diligências
+    </a>
+  </div>
+
+  <div class="col-md-4">
+    <a class="btn btn-warning w-100 py-3" href="/aniversarios">
+      🎂 Aniversariantes do mês
+    </a>
+  </div>
+
+  <div class="col-md-6">
+    <a class="btn btn-success w-100 py-3" href="/financeiro">
+      Financeiro
+    </a>
+  </div>
+
+  <div class="col-md-6">
+    <a class="btn btn-success w-100 py-3" href="/relatorios">
+      Relatórios
+    </a>
+  </div>
+
+</div>
+
+{% endblock %}

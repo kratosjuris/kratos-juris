@@ -1,0 +1,594 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  /* =========================================================
+     ✅ MIGRAÇÕES — ARQUITETURA
+     - Dark somente em body:not(.kj-day)
+     - Day somente em body.kj-day
+     - não altera nada no modo noite (fora deste arquivo)
+     ========================================================= */
+
+  /* =========================================================
+     🌙 DARK (NOITE) — KPIs NO ESTILO DO PRINT (SÓ MIGRAÇÕES)
+     ========================================================= */
+  body:not(.kj-day) .migracoes-page .kj-kpi-strip{
+    background:
+      radial-gradient(900px 260px at 10% 40%, rgba(231,198,106,.10), transparent 55%),
+      radial-gradient(800px 220px at 85% 0%, rgba(37,99,235,.10), transparent 55%),
+      linear-gradient(180deg, rgba(15,20,30,.88), rgba(10,14,22,.88));
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 18px;
+    padding: 14px 14px;
+    box-shadow: 0 18px 48px rgba(0,0,0,.35);
+    margin-bottom: 14px;
+  }
+
+  body:not(.kj-day) .migracoes-page .kj-kpi-row{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  body:not(.kj-day) .migracoes-page .kj-kpis{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+
+  body:not(.kj-day) .migracoes-page .kj-kpi{
+    min-width: 170px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(24,30,44,.86), rgba(16,20,30,.86));
+    border: 1px solid rgba(255,255,255,.10);
+    box-shadow:
+      0 12px 32px rgba(0,0,0,.32),
+      0 1px 0 rgba(255,255,255,.05) inset;
+  }
+
+  body:not(.kj-day) .migracoes-page .kj-kpi.kpi-gold{
+    border-color: rgba(231,198,106,.32);
+    box-shadow:
+      0 14px 38px rgba(0,0,0,.34),
+      0 0 0 1px rgba(231,198,106,.10) inset,
+      0 0 18px rgba(231,198,106,.10);
+  }
+
+  body:not(.kj-day) .migracoes-page .kj-kpi.kpi-blue{
+    border-color: rgba(37,99,235,.35);
+    box-shadow:
+      0 14px 38px rgba(0,0,0,.34),
+      0 0 0 1px rgba(37,99,235,.12) inset,
+      0 0 18px rgba(37,99,235,.10);
+  }
+
+  body:not(.kj-day) .migracoes-page .kj-kpi.kpi-red{
+    border-color: rgba(220,38,38,.40);
+    box-shadow:
+      0 14px 38px rgba(0,0,0,.34),
+      0 0 0 1px rgba(220,38,38,.12) inset,
+      0 0 18px rgba(220,38,38,.10);
+  }
+
+  body:not(.kj-day) .migracoes-page .kj-kpi-num{
+    font-weight: 1000;
+    font-size: 22px;
+    line-height: 1.05;
+    color: #f3f6ff;
+    letter-spacing: -0.02em;
+  }
+
+  body:not(.kj-day) .migracoes-page .kj-kpi-label{
+    margin-top: 2px;
+    font-size: 11px;
+    color: rgba(230,235,255,.70);
+    letter-spacing: .02em;
+  }
+
+  body:not(.kj-day) .migracoes-page .kj-kpi-actions{
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+
+  /* =========================================================
+     ☀️ DAY (MODO DIA) — SEU PADRÃO KJ (branco + azul suave)
+     ========================================================= */
+
+  /* Base */
+  body.kj-day .migracoes-page{
+    color: #0b1b33 !important;
+  }
+
+  body.kj-day .migracoes-page h3{
+    color: #0b1b33 !important;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
+
+  /* ✅ KPIs (modo dia) — igual estrutura do print, porém claro */
+  body.kj-day .migracoes-page .kj-kpi-strip{
+    background: #fff !important;
+    border: 1px solid rgba(37,99,235,.16) !important;
+    border-radius: 18px !important;
+    padding: 14px 14px !important;
+    box-shadow: 0 14px 34px rgba(2,6,23,.06) !important;
+    margin-bottom: 14px !important;
+  }
+
+  body.kj-day .migracoes-page .kj-kpi-row{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  body.kj-day .migracoes-page .kj-kpis{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+
+  body.kj-day .migracoes-page .kj-kpi{
+    min-width: 170px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: #fff !important;
+    border: 1px solid rgba(37,99,235,.16) !important;
+    box-shadow: 0 12px 26px rgba(2,6,23,.05) !important;
+  }
+
+  body.kj-day .migracoes-page .kj-kpi.kpi-gold{
+    border-color: rgba(37,99,235,.20) !important;
+  }
+
+  body.kj-day .migracoes-page .kj-kpi.kpi-blue{
+    border-color: rgba(37,99,235,.22) !important;
+  }
+
+  body.kj-day .migracoes-page .kj-kpi.kpi-red{
+    border-color: rgba(220,38,38,.25) !important;
+  }
+
+  body.kj-day .migracoes-page .kj-kpi-num{
+    font-weight: 1000;
+    font-size: 22px;
+    line-height: 1.05;
+    color: #0b1b33 !important;
+    letter-spacing: -0.02em;
+  }
+
+  body.kj-day .migracoes-page .kj-kpi-label{
+    margin-top: 2px;
+    font-size: 11px;
+    color: rgba(11,27,51,.66) !important;
+    letter-spacing: .02em;
+  }
+
+  body.kj-day .migracoes-page .kj-kpi-actions{
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  /* Alerts (deixa legível no dia) */
+  body.kj-day .migracoes-page .alert{
+    border-radius: 14px !important;
+    box-shadow: 0 10px 22px rgba(2,6,23,.05) !important;
+  }
+  body.kj-day .migracoes-page .alert-warning{
+    background: rgba(245,158,11,.10) !important;
+    border: 1px solid rgba(245,158,11,.22) !important;
+    color: #0b1b33 !important;
+  }
+  body.kj-day .migracoes-page .alert-danger{
+    background: rgba(220,38,38,.10) !important;
+    border: 1px solid rgba(220,38,38,.22) !important;
+    color: #0b1b33 !important;
+  }
+
+  /* Caixa “duplicar migração” (bg-light vira branco elegante) */
+  body.kj-day .migracoes-page .kj-dupbox{
+    background: #fff !important;
+    border: 1px solid rgba(37,99,235,.18) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 12px 28px rgba(2,6,23,.05) !important;
+  }
+  body.kj-day .migracoes-page .kj-dupbox .text-muted{
+    color: rgba(11,27,51,.65) !important;
+  }
+
+  /* Inputs/selects */
+  body.kj-day .migracoes-page .form-control,
+  body.kj-day .migracoes-page .form-select{
+    background: #fff !important;
+    color: #0b1b33 !important;
+    border: 1px solid rgba(37,99,235,.22) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 10px 22px rgba(2,6,23,.04) !important;
+  }
+  body.kj-day .migracoes-page .form-control:focus,
+  body.kj-day .migracoes-page .form-select:focus{
+    border-color: rgba(37,99,235,.55) !important;
+    box-shadow: 0 0 0 .2rem rgba(37,99,235,.18) !important;
+  }
+
+  /* Tabela */
+  body.kj-day .migracoes-page .table-responsive{
+    border-radius: 18px !important;
+  }
+
+  body.kj-day .migracoes-page table.table{
+    background: #fff !important;
+    color: #0b1b33 !important;
+    border-color: rgba(37,99,235,.14) !important;
+  }
+
+  body.kj-day .migracoes-page table.table thead th{
+    background: rgba(37,99,235,.08) !important;
+    color: #0b1b33 !important;
+    border-bottom: 1px solid rgba(37,99,235,.18) !important;
+  }
+
+  body.kj-day .migracoes-page table.table td,
+  body.kj-day .migracoes-page table.table th{
+    border-color: rgba(37,99,235,.12) !important;
+    color: #0b1b33 !important;
+    vertical-align: middle;
+  }
+
+  /* ✅ Zebra AZUL MAIS FRACA (bem suave) */
+  body.kj-day .migracoes-page table.table tbody tr:nth-of-type(odd):not(.table-danger) > *{
+    background-color: rgba(37,99,235,.018) !important;
+  }
+
+  /* Hover suave */
+  body.kj-day .migracoes-page table.table tbody tr:hover:not(.table-danger) > *{
+    background-color: rgba(37,99,235,.040) !important;
+  }
+
+  /* DUP HOJE / duplicados: força vermelho sem zebra */
+  body.kj-day .migracoes-page tr.table-danger > *{
+    background-color: rgba(220,38,38,.12) !important;
+    border-color: rgba(220,38,38,.22) !important;
+    color: #0b1b33 !important;
+  }
+
+  /* Badge DUP HOJE (mantém destaque) */
+  body.kj-day .migracoes-page .badge.bg-danger{
+    background: #dc2626 !important;
+  }
+
+  /* Botões (padroniza e impede “dourado”) */
+  body.kj-day .migracoes-page .btn{
+    border-radius: 12px !important;
+    font-weight: 800 !important;
+  }
+
+  /* Primary */
+  body.kj-day .migracoes-page .btn.btn-primary{
+    border: 1px solid rgba(37,99,235,.28) !important;
+    background: linear-gradient(180deg, rgba(37,99,235,.98), rgba(29,78,216,.98)) !important;
+    color: #fff !important;
+    box-shadow: 0 14px 28px rgba(2,6,23,.10), 0 1px 0 rgba(255,255,255,.18) inset !important;
+  }
+
+  /* Success */
+  body.kj-day .migracoes-page .btn.btn-success{
+    border: 1px solid rgba(34,197,94,.35) !important;
+    background: linear-gradient(180deg, rgba(34,197,94,.95), rgba(22,163,74,.95)) !important;
+    color: #fff !important;
+    box-shadow: 0 14px 28px rgba(2,6,23,.10), 0 1px 0 rgba(255,255,255,.18) inset !important;
+  }
+
+  /* Outline-danger */
+  body.kj-day .migracoes-page .btn.btn-outline-danger{
+    background: transparent !important;
+    color: #dc2626 !important;
+    border: 1px solid rgba(220,38,38,.55) !important;
+    box-shadow: none !important;
+  }
+  body.kj-day .migracoes-page .btn.btn-outline-danger:hover{
+    background: rgba(220,38,38,.08) !important;
+  }
+
+  /* Outline-secondary */
+  body.kj-day .migracoes-page .btn.btn-outline-secondary{
+    background: #fff !important;
+    color: rgba(11,27,51,.92) !important;
+    border: 1px solid rgba(37,99,235,.22) !important;
+    box-shadow: 0 10px 22px rgba(2,6,23,.04) !important;
+  }
+  body.kj-day .migracoes-page .btn.btn-outline-secondary:hover{
+    background: rgba(37,99,235,.06) !important;
+  }
+
+  /* Outline primary */
+  body.kj-day .migracoes-page .btn.btn-outline-primary{
+    background: #fff !important;
+    color: #2563eb !important;
+    border: 1px solid rgba(37,99,235,.35) !important;
+    box-shadow: none !important;
+  }
+  body.kj-day .migracoes-page .btn.btn-outline-primary:hover{
+    background: rgba(37,99,235,.08) !important;
+    border-color: rgba(37,99,235,.55) !important;
+    color: #1d4ed8 !important;
+  }
+
+  /* =========================================================
+     🔧 CORREÇÃO: "Última migração" texto preto no modo dia
+     ========================================================= */
+  body.kj-day .migracoes-page .alert-warning strong{
+    color: #000000 !important;
+  }
+  body.kj-day .migracoes-page .alert-warning{
+    color: #000000 !important;
+  }
+</style>
+
+<div class="migracoes-page">
+
+  <!-- ✅ BARRA DE CONTADORES NO ESTILO DO PRINT -->
+  <div class="kj-kpi-strip">
+    <div class="kj-kpi-row">
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <h3 class="m-0">Migrações</h3>
+      </div>
+
+      <div class="kj-kpis">
+        <!-- Pendentes -->
+        <div class="kj-kpi kpi-blue">
+          <div class="kj-kpi-num" id="kpiPendentes">{{ pendentes|length if pendentes else 0 }}</div>
+          <div class="kj-kpi-label">Pendentes</div>
+        </div>
+
+        <!-- Selecionados (JS) -->
+        <div class="kj-kpi kpi-gold">
+          <div class="kj-kpi-num" id="kpiSelecionados">0</div>
+          <div class="kj-kpi-label">Selecionados</div>
+        </div>
+
+        <!-- Duplicados Hoje -->
+        <div class="kj-kpi kpi-red">
+          <div class="kj-kpi-num" id="kpiDups">{{ dup_nums|length if dup_nums else 0 }}</div>
+          <div class="kj-kpi-label">Duplicados hoje</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if msg %}
+    <div class="alert alert-warning">{{ msg }}</div>
+  {% endif %}
+
+  <div class="alert alert-warning">
+    <strong>⏱ Última migração:</strong>
+    {% if last_batch and last_batch.periodo_inicio and last_batch.periodo_fim %}
+      Período: {{ last_batch.periodo_inicio | br_date }} até {{ last_batch.periodo_fim | br_date }}
+    {% else %}
+      (ainda não há período registrado)
+    {% endif %}
+  </div>
+
+  <form method="post" action="/migracoes/upload" enctype="multipart/form-data" class="mb-3">
+    <div class="d-flex gap-2 align-items-center mb-2">
+      <input class="form-control" type="file" name="files" multiple required>
+      <button class="btn btn-primary" type="submit">Migrar Planilhas</button>
+    </div>
+
+    <div class="border rounded p-2 kj-dupbox">
+      <div class="fw-semibold mb-1">Deseja duplicar a migração?</div>
+
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="dup_hoje" id="dupNao" value="nao" checked>
+        <label class="form-check-label" for="dupNao">Não</label>
+      </div>
+
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="dup_hoje" id="dupSim" value="sim">
+        <label class="form-check-label" for="dupSim">Sim</label>
+      </div>
+
+      <div class="text-muted mt-2" style="font-size: 13px;">
+        • Dentro do mesmo upload, o sistema nunca duplica.<br>
+        • Se você marcar <strong>Sim</strong>, ele permite duplicar registros já migrados <strong>hoje</strong> e destaca em vermelho.
+      </div>
+    </div>
+  </form>
+
+  {% if dup_nums and (dup_nums|length) > 0 %}
+    <div class="alert alert-danger">
+      Atenção: existem processos duplicados de hoje na lista (destacados em vermelho).
+    </div>
+  {% endif %}
+
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" id="checkAll" onchange="toggleAll(this)">
+      <label class="form-check-label" for="checkAll">Selecionar todos</label>
+    </div>
+
+    <div class="d-flex gap-2">
+      <form id="formExcluirLote" method="post" action="/migracoes/pendente/excluir-lote"
+            onsubmit="return confirm('Deseja excluir os itens selecionados da migração?');">
+        <input type="hidden" name="ids" id="idsExcluir" value="">
+        <button class="btn btn-outline-danger" type="submit">Excluir selecionados</button>
+      </form>
+
+      <form id="formSalvarLote" method="post" action="/migracoes/salvar-lote"
+            onsubmit="return confirm('Deseja salvar (migrar) os itens selecionados?');">
+        <button class="btn btn-success" type="submit">Salvar selecionados</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-bordered table-sm align-middle">
+      <thead>
+        <tr>
+          <th style="width:38px;"></th>
+          <th>Disponibilização</th>
+          <th>Publicação</th>
+          <th>Nº Processo</th>
+          <th>Nome do Cliente</th>
+          <th>Vara de Tramitação</th>
+          <th>Observação</th>
+          <th style="width:90px;">Rompe em</th>
+          <th style="min-width:210px;">Enviar Para</th>
+          <th style="width:120px;">Ações</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% if not pendentes %}
+          <tr>
+            <td colspan="10" class="text-center text-muted">Nenhum processo pendente para migração.</td>
+          </tr>
+        {% endif %}
+
+        {% for p in pendentes %}
+        <tr class="{% if p.numero_processo in (dup_nums|default([])) %}table-danger{% endif %}">
+          <td class="text-center">
+            <input class="form-check-input rowCheck"
+                   type="checkbox"
+                   value="{{ p.id }}"
+                   onchange="syncIds()"
+                   name="selected_ids"
+                   form="formSalvarLote">
+          </td>
+
+          <td>{{ p.data_disponibilizacao | br_date }}</td>
+          <td>{{ p.data_publicacao | br_date }}</td>
+
+          <td style="white-space:nowrap;">
+            {{ p.numero_processo }}
+            {% if p.numero_processo in (dup_nums|default([])) %}
+              <span class="badge bg-danger ms-1">DUP HOJE</span>
+            {% endif %}
+          </td>
+
+          <td>
+            <input class="form-control form-control-sm"
+                   id="cliente_{{ p.id }}"
+                   name="cliente_{{ p.id }}"
+                   form="formSalvarLote"
+                   value="{{ p.cliente or '' }}">
+          </td>
+
+          <td>
+            <input class="form-control form-control-sm"
+                   id="vara_{{ p.id }}"
+                   name="vara_{{ p.id }}"
+                   form="formSalvarLote"
+                   value="{{ p.vara_tramitacao or '' }}">
+          </td>
+
+          <td>
+            <input class="form-control form-control-sm"
+                   id="obs_{{ p.id }}"
+                   name="obs_{{ p.id }}"
+                   form="formSalvarLote"
+                   value="{{ p.observacao or '' }}">
+          </td>
+
+          <td>
+            <input class="form-control form-control-sm"
+                   style="max-width:80px;"
+                   type="number" min="1"
+                   id="rompe_{{ p.id }}"
+                   name="rompe_{{ p.id }}"
+                   form="formSalvarLote"
+                   value="{{ p.rompe_em_dias or '' }}">
+          </td>
+
+          <td>
+            <select class="form-select form-select-sm"
+                    id="dest_{{ p.id }}"
+                    name="dest_{{ p.id }}"
+                    form="formSalvarLote"
+                    style="min-width:200px;">
+              <option value="PRAZOS" {% if (p.enviar_para or '') == 'PRAZOS' %}selected{% endif %}>Controle de Prazos</option>
+              <option value="PROCEDENTE" {% if (p.enviar_para or '') == 'PROCEDENTE' %}selected{% endif %}>Ações Procedentes</option>
+              <option value="EXECUCAO" {% if (p.enviar_para or '') == 'EXECUCAO' %}selected{% endif %}>Ações em Execução</option>
+            </select>
+          </td>
+
+          <td class="text-center d-flex gap-1 justify-content-center">
+            <button class="btn btn-sm btn-primary" type="button" onclick="saveRow({{ p.id }})">
+              Salvar
+            </button>
+
+            <form method="post" action="/migracoes/pendente/{{ p.id }}/excluir"
+                  onsubmit="return confirm('Excluir este item da migração?');">
+              <button class="btn btn-sm btn-outline-danger" type="submit">Excluir</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <form id="formSalvarIndividual" method="post" style="display:none;">
+    <input type="hidden" name="cliente" id="f_cliente">
+    <input type="hidden" name="vara_tramitacao" id="f_vara">
+    <input type="hidden" name="observacao" id="f_obs">
+    <input type="hidden" name="rompe_em" id="f_rompe">
+    <input type="hidden" name="enviar_para" id="f_dest">
+  </form>
+
+  <script>
+  function toggleAll(master){
+    document.querySelectorAll(".rowCheck").forEach(cb => cb.checked = master.checked);
+    syncIds();
+  }
+
+  function syncIds(){
+    const ids = Array.from(document.querySelectorAll(".rowCheck:checked")).map(cb => cb.value);
+    const el = document.getElementById("idsExcluir");
+    if (el) el.value = ids.join(",");
+
+    // ✅ contador "Selecionados"
+    const kSel = document.getElementById("kpiSelecionados");
+    if (kSel) kSel.textContent = String(ids.length);
+  }
+
+  function saveRow(id){
+    if(!confirm("Deseja salvar (migrar) este item?")) return;
+
+    const cliente = document.getElementById("cliente_" + id)?.value || "";
+    const vara = document.getElementById("vara_" + id)?.value || "";
+    const obs = document.getElementById("obs_" + id)?.value || "";
+    const rompe = document.getElementById("rompe_" + id)?.value || "0";
+    const dest = document.getElementById("dest_" + id)?.value || "PRAZOS";
+
+    document.getElementById("f_cliente").value = cliente;
+    document.getElementById("f_vara").value = vara;
+    document.getElementById("f_obs").value = obs;
+    document.getElementById("f_rompe").value = rompe;
+    document.getElementById("f_dest").value = dest;
+
+    const form = document.getElementById("formSalvarIndividual");
+    form.action = "/migracoes/salvar/" + id;
+    form.submit();
+  }
+
+  // inicia contador corretamente
+  syncIds();
+  </script>
+
+</div>
+
+{% endblock %}

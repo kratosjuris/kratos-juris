@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="m-0">Perícias e Diligências</h3>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="/dashboard">Voltar</a>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNovo">+ Novo</button>
+  </div>
+</div>
+
+<form method="get" action="/pericias" class="card p-3 mb-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label">Status</label>
+      <select class="form-select" name="status">
+        <option value="" {% if not status %}selected{% endif %}>Todos</option>
+        <option value="Pendente" {% if status=='Pendente' %}selected{% endif %}>Pendente</option>
+        <option value="Concluida" {% if status=='Concluida' %}selected{% endif %}>Concluída</option>
+      </select>
+    </div>
+
+    <div class="col-md-6">
+      <label class="form-label">Buscar</label>
+      <input class="form-control" name="q" value="{{ q or '' }}"
+             placeholder="Processo / Parte / Local / Observação">
+    </div>
+
+    <div class="col-md-3">
+      <button class="btn btn-outline-dark w-100" type="submit">Filtrar</button>
+    </div>
+  </div>
+</form>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th style="min-width:200px;">Processo</th>
+          <th style="min-width:220px;">Parte</th>
+          <th style="min-width:260px;">Observação</th>
+          <th style="min-width:220px;">Local</th>
+          <th style="min-width:140px;">Data</th>
+          <th style="min-width:120px;">Status</th>
+          <th class="text-end" style="min-width:260px;">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in rows %}
+        <tr class="{% if p.concluido %}table-success{% elif p.em_atraso %}table-danger{% endif %}">
+          <td class="fw-semibold">{{ p.numero_processo }}</td>
+          <td>{{ p.nome_parte }}</td>
+          <td class="text-muted">{{ p.observacao or "—" }}</td>
+          <td>{{ p.local or "—" }}</td>
+          <td>
+            <span class="{% if p.em_atraso and not p.concluido %}fw-bold{% endif %}">
+              {{ p.data_evento.strftime("%d/%m/%Y") }}
+            </span>
+          </td>
+          <td>
+            {% if p.concluido %}
+              <span class="badge bg-success">Concluída</span>
+            {% else %}
+              {% if p.em_atraso %}
+                <span class="badge bg-danger">Atrasada</span>
+              {% else %}
+                <span class="badge bg-primary">Pendente</span>
+              {% endif %}
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <div class="btn-group">
+              <form method="post" action="/pericias/{{ p.id }}/toggle">
+                <button class="btn btn-sm {% if p.concluido %}btn-outline-secondary{% else %}btn-outline-success{% endif %}" type="submit">
+                  {% if p.concluido %}Reabrir{% else %}Concluir{% endif %}
+                </button>
+              </form>
+
+              <form method="post" action="/pericias/{{ p.id }}/excluir" onsubmit="return confirm('Excluir este item?');">
+                <button class="btn btn-sm btn-outline-danger" type="submit">Excluir</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="text-center text-muted py-4">Nenhuma perícia/diligência cadastrada.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL NOVO -->
+<div class="modal fade" id="modalNovo" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" action="/pericias/novo">
+        <div class="modal-header">
+          <h5 class="modal-title">Novo registro</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Número do Processo</label>
+              <input class="form-control" name="numero_processo" required>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Nome da parte</label>
+              <input class="form-control" name="nome_parte" required>
+            </div>
+
+            <div class="col-md-12">
+              <label class="form-label">Observação</label>
+              <textarea class="form-control" name="observacao" rows="3"></textarea>
+            </div>
+
+            <div class="col-md-8">
+              <label class="form-label">Local</label>
+              <input class="form-control" name="local">
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Data</label>
+              <input type="date" class="form-control" name="data_evento" required>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock %}

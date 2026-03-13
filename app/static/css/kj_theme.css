@@ -1,0 +1,719 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800;900&display=swap');
+
+:root{
+  --kj-obsidian: #070a10;
+  --kj-obsidian-2: #0b0f19;
+
+  --kj-gold-1: #f7e7a8;
+  --kj-gold-2: #e7c66a;
+  --kj-gold-3: #caa24a;
+  --kj-gold-4: #8a5a00;
+
+  --kj-silver-1: #f2f4f7;
+  --kj-silver-2: #d7dde6;
+
+  --kj-radius: 18px;
+  --kj-border: rgba(255,255,255,.08);
+}
+
+/* =========================================================
+   ✅ DARK (MODO NOITE) — SOMENTE quando NÃO estiver em kj-day
+   ========================================================= */
+
+body.kj-theme:not(.kj-day){
+  background:
+    radial-gradient(1200px 800px at 12% 8%, rgba(231,198,106,.10), transparent 55%),
+    radial-gradient(900px 700px at 85% 0%, rgba(155,171,205,.08), transparent 55%),
+    radial-gradient(1100px 900px at 55% 92%, rgba(231,198,106,.07), transparent 55%),
+    linear-gradient(180deg, var(--kj-obsidian), var(--kj-obsidian-2) 55%, #070a12);
+  min-height: 100vh;
+  color: rgba(242,244,247,.92);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* links */
+body.kj-theme:not(.kj-day) a{ color: rgba(242,244,247,.92); }
+body.kj-theme:not(.kj-day) a:hover{ color: var(--kj-gold-1); }
+
+/* muted */
+body.kj-theme:not(.kj-day) .text-muted{ color: rgba(242,244,247,.70) !important; }
+
+/* cards genéricos */
+body.kj-theme:not(.kj-day) .card,
+body.kj-theme:not(.kj-day) .soft-card{
+  border: 1px solid var(--kj-border);
+  border-radius: var(--kj-radius);
+  background:
+    radial-gradient(900px 700px at 10% 0%, rgba(255,255,255,.08), transparent 45%),
+    linear-gradient(180deg, rgba(18,24,38,.88), rgba(10,14,24,.90));
+  box-shadow:
+    0 18px 44px rgba(0,0,0,.55),
+    0 1px 0 rgba(255,255,255,.08) inset,
+    0 0 0 1px rgba(231,198,106,.06) inset;
+  color: rgba(242,244,247,.92);
+}
+
+/* tabelas */
+body.kj-theme:not(.kj-day) .table{
+  color: rgba(242,244,247,.92);
+}
+body.kj-theme:not(.kj-day) .table thead th{
+  color: rgba(242,244,247,.92);
+  border-color: rgba(255,255,255,.10);
+}
+body.kj-theme:not(.kj-day) .table td,
+body.kj-theme:not(.kj-day) .table th{
+  border-color: rgba(255,255,255,.08);
+}
+body.kj-theme:not(.kj-day) .table-striped>tbody>tr:nth-of-type(odd)>*{
+  color: rgba(242,244,247,.92);
+  background-color: rgba(255,255,255,.03);
+}
+
+/* inputs */
+body.kj-theme:not(.kj-day) .form-control,
+body.kj-theme:not(.kj-day) .form-select{
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.10);
+  color: rgba(242,244,247,.92);
+}
+body.kj-theme:not(.kj-day) .form-control::placeholder{
+  color: rgba(242,244,247,.55);
+}
+body.kj-theme:not(.kj-day) .form-control:focus,
+body.kj-theme:not(.kj-day) .form-select:focus{
+  border-color: rgba(231,198,106,.35);
+  box-shadow: 0 0 0 .2rem rgba(231,198,106,.12);
+}
+
+/* botões base (mantém seu btn-soft do dashboard funcionando em qualquer página) */
+body.kj-theme:not(.kj-day) .btn-soft{
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+  color: rgba(242,244,247,.90);
+  box-shadow:
+    0 12px 24px rgba(0,0,0,.40),
+    0 1px 0 rgba(255,255,255,.08) inset;
+}
+body.kj-theme:not(.kj-day) .btn-soft:hover{
+  border-color: rgba(231,198,106,.22);
+  color: rgba(242,244,247,.96);
+}
+
+/* botão “primário” vira dourado (somente NOITE) */
+body.kj-theme:not(.kj-day) .btn-primary{
+  border: 1px solid rgba(231,198,106,.35) !important;
+  background: linear-gradient(180deg, rgba(247,231,168,.32), rgba(202,162,74,.22)) !important;
+  color: rgba(242,244,247,.96) !important;
+  box-shadow:
+    0 18px 34px rgba(0,0,0,.45),
+    0 1px 0 rgba(255,255,255,.10) inset,
+    0 0 18px rgba(231,198,106,.10);
+}
+body.kj-theme:not(.kj-day) .btn-primary:hover{
+  filter: saturate(1.12);
+  transform: translateY(-1px);
+}
+
+/* badges */
+body.kj-theme:not(.kj-day) .badge-soft-warn{
+  background: rgba(231,198,106,.16);
+  color: var(--kj-gold-1);
+  border: 1px solid rgba(231,198,106,.35);
+  font-weight: 850;
+}
+body.kj-theme:not(.kj-day) .badge-soft{
+  background: rgba(229, 83, 83, .14);
+  color: #ffb4b4;
+  border: 1px solid rgba(229, 83, 83, .30);
+  font-weight: 800;
+}
+
+/* navbar no tema */
+body.kj-theme:not(.kj-day) .navbar.navbar-dark.bg-dark{
+  background: linear-gradient(180deg, rgba(18,24,38,.92), rgba(10,14,24,.92)) !important;
+  border-bottom: 1px solid rgba(231,198,106,.14);
+  box-shadow: 0 10px 26px rgba(0,0,0,.45);
+}
+body.kj-theme:not(.kj-day) .navbar-brand{
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+body.kj-theme:not(.kj-day) .navbar-brand::before{
+  background: rgba(231,198,106,.95);
+  box-shadow: 0 0 0 4px rgba(231,198,106,.14);
+}
+body.kj-theme:not(.kj-day) .navbar-dark .navbar-nav .nav-link{
+  color: rgba(242,244,247,.72) !important;
+}
+body.kj-theme:not(.kj-day) .navbar-dark .navbar-nav .nav-link:hover{
+  background: rgba(231,198,106,.10);
+  color: rgba(242,244,247,.96) !important;
+}
+body.kj-theme:not(.kj-day) .navbar-dark .navbar-nav .nav-link.active{
+  background: rgba(231,198,106,.16);
+  box-shadow: 0 0 0 1px rgba(231,198,106,.14) inset;
+  color: rgba(242,244,247,.98) !important;
+}
+
+/* sair */
+body.kj-theme:not(.kj-day) .navbar .ms-auto .nav-link.text-danger{
+  background: rgba(239,68,68,.15);
+  border: 1px solid rgba(239,68,68,.35);
+  color: rgba(242,244,247,.96) !important;
+}
+
+/* =========================================================
+   PATCH — TABELAS / CARDS (resolve “partes claras”) (NOITE)
+   ========================================================= */
+
+/* garante que o container da página não volte pro claro */
+body.kj-theme:not(.kj-day) main.container{
+  color: rgba(242,244,247,.92);
+}
+
+/* bootstrap card (às vezes vem com bg branco por variáveis) */
+body.kj-theme:not(.kj-day) .card{
+  background-color: transparent !important;
+}
+body.kj-theme:not(.kj-day) .card,
+body.kj-theme:not(.kj-day) .card-body{
+  color: rgba(242,244,247,.92);
+}
+
+/* ====== TABELAS via variáveis do Bootstrap 5.3 ====== */
+body.kj-theme:not(.kj-day) .table{
+  --bs-table-color: rgba(242,244,247,.92);
+  --bs-table-bg: transparent;
+  --bs-table-border-color: rgba(255,255,255,.10);
+
+  --bs-table-striped-color: rgba(242,244,247,.92);
+  --bs-table-striped-bg: rgba(255,255,255,.035);
+
+  --bs-table-hover-color: rgba(242,244,247,.98);
+  --bs-table-hover-bg: rgba(231,198,106,.06);
+
+  color: var(--bs-table-color) !important;
+  background-color: transparent !important;
+}
+
+/* Header da tabela escuro (pra não ficar branco) */
+body.kj-theme:not(.kj-day) .table thead th{
+  background: rgba(255,255,255,.04) !important;
+  color: rgba(242,244,247,.96) !important;
+  border-color: rgba(255,255,255,.10) !important;
+}
+
+/* Corpo da tabela */
+body.kj-theme:not(.kj-day) .table tbody td,
+body.kj-theme:not(.kj-day) .table tbody th{
+  border-color: rgba(255,255,255,.08) !important;
+}
+
+/* Wrapper (quando a tabela está dentro de card) */
+body.kj-theme:not(.kj-day) .table-responsive{
+  background: transparent !important;
+}
+
+/* ====== Reinterpreta table-warning/danger/success no DARK ====== */
+body.kj-theme:not(.kj-day) tr.table-warning > *{
+  background: rgba(231,198,106,.10) !important;
+  color: rgba(242,244,247,.96) !important;
+  border-color: rgba(231,198,106,.18) !important;
+}
+body.kj-theme:not(.kj-day) tr.table-danger > *{
+  background: rgba(239,68,68,.11) !important;
+  color: rgba(242,244,247,.96) !important;
+  border-color: rgba(239,68,68,.18) !important;
+}
+body.kj-theme:not(.kj-day) tr.table-success > *{
+  background: rgba(34,197,94,.11) !important;
+  color: rgba(242,244,247,.96) !important;
+  border-color: rgba(34,197,94,.18) !important;
+}
+/* =========================================================
+   ✅ FIX DEFINITIVO — remove AZUL do Bootstrap no MODO NOITE
+   (table-primary / table-info estavam causando fundo azul)
+   ========================================================= */
+
+/* PRIMARY (Bootstrap azul forte) */
+body.kj-theme:not(.kj-day) .table-primary{
+  --bs-table-bg: rgba(255,255,255,.02) !important;
+  --bs-table-striped-bg: rgba(255,255,255,.03) !important;
+  --bs-table-hover-bg: rgba(231,198,106,.06) !important;
+  --bs-table-color: rgba(242,244,247,.96) !important;
+}
+
+body.kj-theme:not(.kj-day) tr.table-primary > td,
+body.kj-theme:not(.kj-day) tr.table-primary > th,
+body.kj-theme:not(.kj-day) .table > :not(caption) > .table-primary > *{
+  background-color: rgba(255,255,255,.02) !important;
+  color: rgba(242,244,247,.96) !important;
+  border-color: rgba(255,255,255,.10) !important;
+}
+
+/* INFO (Bootstrap azul claro/ciano) */
+body.kj-theme:not(.kj-day) .table-info{
+  --bs-table-bg: rgba(255,255,255,.02) !important;
+  --bs-table-striped-bg: rgba(255,255,255,.03) !important;
+  --bs-table-hover-bg: rgba(231,198,106,.06) !important;
+  --bs-table-color: rgba(242,244,247,.96) !important;
+}
+
+body.kj-theme:not(.kj-day) tr.table-info > td,
+body.kj-theme:not(.kj-day) tr.table-info > th,
+body.kj-theme:not(.kj-day) .table > :not(caption) > .table-info > *{
+  background-color: rgba(255,255,255,.02) !important;
+  color: rgba(242,244,247,.96) !important;
+  border-color: rgba(255,255,255,.10) !important;
+}
+
+/* SECONDARY (cinza bootstrap) */
+body.kj-theme:not(.kj-day) .table-secondary{
+  --bs-table-bg: rgba(255,255,255,.02) !important;
+  --bs-table-striped-bg: rgba(255,255,255,.03) !important;
+  --bs-table-hover-bg: rgba(231,198,106,.06) !important;
+  --bs-table-color: rgba(242,244,247,.96) !important;
+}
+
+body.kj-theme:not(.kj-day) tr.table-secondary > td,
+body.kj-theme:not(.kj-day) tr.table-secondary > th,
+body.kj-theme:not(.kj-day) .table > :not(caption) > .table-secondary > *{
+  background-color: rgba(255,255,255,.02) !important;
+  color: rgba(242,244,247,.96) !important;
+  border-color: rgba(255,255,255,.10) !important;
+}
+/* inputs dentro de tabelas (select de status) */
+body.kj-theme:not(.kj-day) .table .form-select,
+body.kj-theme:not(.kj-day) .table .form-control{
+  background: rgba(255,255,255,.06) !important;
+  border-color: rgba(255,255,255,.12) !important;
+  color: rgba(242,244,247,.92) !important;
+}
+
+/* =========================================================
+   PATCH DEFINITIVO — remove o “bege” do table-warning no dark
+   ========================================================= */
+
+body.kj-theme:not(.kj-day) .table-warning{
+  --bs-table-bg: rgba(231,198,106,.10) !important;
+  --bs-table-striped-bg: rgba(231,198,106,.06) !important;
+  --bs-table-hover-bg: rgba(231,198,106,.12) !important;
+
+  --bs-table-bg-state: rgba(231,198,106,.10) !important;
+  --bs-table-color-state: rgba(242,244,247,.96) !important;
+}
+
+body.kj-theme:not(.kj-day) .table-danger{
+  --bs-table-bg: rgba(239,68,68,.11) !important;
+  --bs-table-striped-bg: rgba(239,68,68,.06) !important;
+  --bs-table-hover-bg: rgba(239,68,68,.12) !important;
+
+  --bs-table-bg-state: rgba(239,68,68,.11) !important;
+  --bs-table-color-state: rgba(242,244,247,.96) !important;
+}
+
+body.kj-theme:not(.kj-day) .table-success{
+  --bs-table-bg: rgba(34,197,94,.11) !important;
+  --bs-table-striped-bg: rgba(34,197,94,.06) !important;
+  --bs-table-hover-bg: rgba(34,197,94,.12) !important;
+
+  --bs-table-bg-state: rgba(34,197,94,.11) !important;
+  --bs-table-color-state: rgba(242,244,247,.96) !important;
+}
+
+/* força no “alvo real” do Bootstrap: aplica em cada célula */
+body.kj-theme:not(.kj-day) .table > :not(caption) > .table-warning > *{
+  background-color: rgba(231,198,106,.10) !important;
+  color: rgba(242,244,247,.96) !important;
+}
+body.kj-theme:not(.kj-day) .table > :not(caption) > .table-danger > *{
+  background-color: rgba(239,68,68,.11) !important;
+  color: rgba(242,244,247,.96) !important;
+}
+body.kj-theme:not(.kj-day) .table > :not(caption) > .table-success > *{
+  background-color: rgba(34,197,94,.11) !important;
+  color: rgba(242,244,247,.96) !important;
+}
+
+/* se o warning estiver no <tr>, garante também */
+body.kj-theme:not(.kj-day) tr.table-warning > td,
+body.kj-theme:not(.kj-day) tr.table-warning > th{
+  background-color: rgba(231,198,106,.10) !important;
+  color: rgba(242,244,247,.96) !important;
+}
+body.kj-theme:not(.kj-day) tr.table-danger > td,
+body.kj-theme:not(.kj-day) tr.table-danger > th{
+  background-color: rgba(239,68,68,.11) !important;
+  color: rgba(242,244,247,.96) !important;
+}
+body.kj-theme:not(.kj-day) tr.table-success > td,
+body.kj-theme:not(.kj-day) tr.table-success > th{
+  background-color: rgba(34,197,94,.11) !important;
+  color: rgba(242,244,247,.96) !important;
+}
+
+/* =========================================================
+   PATCH — FORM / FILTRO (select, input, button) no tema dark
+   ========================================================= */
+
+body.kj-theme:not(.kj-day) .form-control,
+body.kj-theme:not(.kj-day) .form-select{
+  background: rgba(255,255,255,.06) !important;
+  border: 1px solid rgba(255,255,255,.14) !important;
+  color: rgba(242,244,247,.92) !important;
+  box-shadow: 0 10px 18px rgba(0,0,0,.35);
+}
+
+body.kj-theme:not(.kj-day) .form-control::placeholder{
+  color: rgba(242,244,247,.55) !important;
+}
+
+body.kj-theme:not(.kj-day) .form-control:focus,
+body.kj-theme:not(.kj-day) .form-select:focus{
+  border-color: rgba(231,198,106,.35) !important;
+  box-shadow:
+    0 0 0 .25rem rgba(231,198,106,.12) !important,
+    0 14px 24px rgba(0,0,0,.45) !important;
+}
+
+body.kj-theme:not(.kj-day) .form-select option{
+  color: #0b0f19;
+  background: #f2f4f7;
+}
+
+body.kj-theme:not(.kj-day) .form-label,
+body.kj-theme:not(.kj-day) .form-text{
+  color: rgba(242,244,247,.72) !important;
+}
+
+body.kj-theme:not(.kj-day) .btn-primary{
+  border: 1px solid rgba(231,198,106,.35) !important;
+  background: linear-gradient(180deg, rgba(247,231,168,.28), rgba(202,162,74,.18)) !important;
+  color: rgba(242,244,247,.96) !important;
+  box-shadow:
+    0 16px 26px rgba(0,0,0,.42),
+    0 1px 0 rgba(255,255,255,.10) inset,
+    0 0 18px rgba(231,198,106,.10);
+}
+
+body.kj-theme:not(.kj-day) .btn-primary:hover{
+  border-color: rgba(231,198,106,.55) !important;
+  box-shadow:
+    0 20px 34px rgba(0,0,0,.55),
+    0 1px 0 rgba(255,255,255,.12) inset,
+    0 0 22px rgba(231,198,106,.14);
+}
+
+/* =========================================================
+   Kratos — linhas com fundo neutro + barra lateral (NOITE)
+   ========================================================= */
+
+body.kj-theme:not(.kj-day) tr.kj-row-danger > td,
+body.kj-theme:not(.kj-day) tr.kj-row-warn > td,
+body.kj-theme:not(.kj-day) tr.kj-row-ok > td{
+  background: rgba(255,255,255,.02) !important;
+  color: rgba(242,244,247,.92) !important;
+}
+
+body.kj-theme:not(.kj-day) tr.kj-row-danger,
+body.kj-theme:not(.kj-day) tr.kj-row-warn,
+body.kj-theme:not(.kj-day) tr.kj-row-ok{
+  position: relative;
+}
+
+body.kj-theme:not(.kj-day) tr.kj-row-danger::before,
+body.kj-theme:not(.kj-day) tr.kj-row-warn::before,
+body.kj-theme:not(.kj-day) tr.kj-row-ok::before{
+  content:"";
+  position:absolute;
+  left:0; top:0; bottom:0;
+  width:3px;
+  border-radius:2px;
+}
+
+body.kj-theme:not(.kj-day) tr.kj-row-danger::before{
+  background: linear-gradient(180deg, rgba(239,68,68,.90), rgba(239,68,68,.40));
+}
+body.kj-theme:not(.kj-day) tr.kj-row-warn::before{
+  background: linear-gradient(180deg, rgba(231,198,106,.95), rgba(231,198,106,.40));
+}
+body.kj-theme:not(.kj-day) tr.kj-row-ok::before{
+  background: linear-gradient(180deg, rgba(34,197,94,.85), rgba(34,197,94,.35));
+}
+
+body.kj-theme:not(.kj-day) .table tbody tr:hover > *{
+  background-color: rgba(231,198,106,.05) !important;
+}
+
+/* =========================================================
+   Processos — Coluna AÇÕES sem cortar (NOITE)
+   ========================================================= */
+
+body.kj-theme:not(.kj-day) .th-acoes{
+  width: 420px;
+  min-width: 420px;
+}
+body.kj-theme:not(.kj-day) .td-acoes{
+  width: 420px;
+  min-width: 420px;
+  white-space: normal;
+  vertical-align: top;
+}
+body.kj-theme:not(.kj-day) .acoes-wrap{
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  align-items: center;
+}
+body.kj-theme:not(.kj-day) .td-acoes .form-select{
+  max-width: 220px;
+}
+body.kj-theme:not(.kj-day) .table-responsive{
+  overflow-x: auto;
+}
+
+/* =========================================================
+   ✅ MODO DIA — AQUI entra sua paleta clara (corrige dourado)
+   ========================================================= */
+
+body.kj-day{
+  --kj-day-text: #111827;
+  --kj-day-muted: #6b7280;
+  --kj-day-border: #e5e7eb;
+  --kj-day-border-2: #d1d5db;
+  --kj-day-hover: rgba(17,24,39,.06);
+}
+
+/* (mantém seus ajustes do dia) */
+body.kj-day a,
+body.kj-day .nav-link,
+body.kj-day .btn,
+body.kj-day .btn:focus,
+body.kj-day .btn:active{
+  color: var(--kj-day-text) !important;
+}
+
+/* outlines do dia */
+body.kj-day .btn-outline-dark,
+body.kj-day .btn-outline-secondary,
+body.kj-day .btn-outline-light{
+  color: var(--kj-day-text) !important;
+  border-color: #9ca3af !important;
+  background: transparent !important;
+}
+body.kj-day .btn-outline-dark:hover,
+body.kj-day .btn-outline-secondary:hover,
+body.kj-day .btn-outline-light:hover{
+  background: var(--kj-day-hover) !important;
+}
+
+/* primary outline */
+body.kj-day .btn-outline-primary{
+  background: transparent !important;
+  color: #0d6efd !important;
+  border-color: #0d6efd !important;
+}
+body.kj-day .btn-outline-primary:hover{
+  background: rgba(13,110,253,.10) !important;
+}
+
+/* success outline */
+body.kj-day .btn-outline-success{
+  background: transparent !important;
+  color: #198754 !important;
+  border-color: #198754 !important;
+}
+body.kj-day .btn-outline-success:hover{
+  background: rgba(25,135,84,.10) !important;
+}
+
+/* danger outline */
+body.kj-day .btn-outline-danger{
+  background: transparent !important;
+  color: #dc3545 !important;
+  border-color: #dc3545 !important;
+}
+body.kj-day .btn-outline-danger:hover{
+  background: rgba(220,53,69,.10) !important;
+}
+
+/* textos */
+body.kj-day .text-primary{ color: var(--kj-day-text) !important; }
+body.kj-day .text-warning{ color: #92400e !important; }
+
+/* badges claras */
+body.kj-day .badge.bg-light{
+  background:#f3f4f6 !important;
+  color: var(--kj-day-text) !important;
+  border-color: var(--kj-day-border) !important;
+}
+
+/* inputs do dia */
+body.kj-day .form-control,
+body.kj-day .form-select{
+  background:#fff !important;
+  color: var(--kj-day-text) !important;
+  border-color: var(--kj-day-border-2) !important;
+}
+body.kj-day .form-control:focus,
+body.kj-day .form-select:focus{
+  border-color:#9ca3af !important;
+  box-shadow: 0 0 0 .15rem rgba(17,24,39,.08) !important;
+}
+
+/* cards/tabelas do dia */
+body.kj-day .card{
+  background:#fff !important;
+  border-color: var(--kj-day-border) !important;
+}
+body.kj-day .table{
+  color: var(--kj-day-text) !important;
+}
+
+/* =========================================================
+   🚨 HOTFIX ABSOLUTO (DIA) — remove qualquer resquício de gold
+   ========================================================= */
+body.kj-day .btn,
+body.kj-day .badge,
+body.kj-day .table-success,
+body.kj-day .btn:focus,
+body.kj-day .btn:active,
+body.kj-day .btn:disabled{
+  background-image: none !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  filter: none !important;
+}
+/* =========================================================
+   ✅ PATCH FINAL — MODO DIA (funciona se kj-day estiver no body,
+   no html OU em um wrapper .kj-day)
+   Cole no FINAL do kj_theme.css
+   ========================================================= */
+
+/* Detectores de modo dia (3 cenários) */
+body.kj-day,
+html.kj-day body,
+.kj-day body{
+  --day-text:#111827;
+  --day-border:#9ca3af;
+  --day-hover:rgba(17,24,39,.06);
+  --day-primary:#0d6efd;
+  --day-success:#198754;
+  --day-danger:#dc3545;
+}
+
+/* RESET ABSOLUTO (remove glow/gradiente dourado herdado do kj-theme) */
+body.kj-day :is(.btn,.badge),
+html.kj-day body :is(.btn,.badge),
+.kj-day body :is(.btn,.badge){
+  background-image:none !important;
+  box-shadow:none !important;
+  text-shadow:none !important;
+  filter:none !important;
+}
+
+/* OUTLINE que está virando “bege/ouro” */
+body.kj-day :is(.btn-outline-secondary,.btn-outline-dark),
+html.kj-day body :is(.btn-outline-secondary,.btn-outline-dark),
+.kj-day body :is(.btn-outline-secondary,.btn-outline-dark){
+  background: transparent !important;
+  border-color: var(--day-border) !important;
+  color: var(--day-text) !important;
+}
+body.kj-day :is(.btn-outline-secondary,.btn-outline-dark):hover,
+html.kj-day body :is(.btn-outline-secondary,.btn-outline-dark):hover,
+.kj-day body :is(.btn-outline-secondary,.btn-outline-dark):hover{
+  background: var(--day-hover) !important;
+}
+
+/* OUTLINE PRIMARY/SUCCESS/DANGER */
+body.kj-day .btn-outline-primary,
+html.kj-day body .btn-outline-primary,
+.kj-day body .btn-outline-primary{
+  background: transparent !important;
+  border-color: var(--day-primary) !important;
+  color: var(--day-primary) !important;
+}
+body.kj-day .btn-outline-success,
+html.kj-day body .btn-outline-success,
+.kj-day body .btn-outline-success{
+  background: transparent !important;
+  border-color: var(--day-success) !important;
+  color: var(--day-success) !important;
+}
+body.kj-day .btn-outline-danger,
+html.kj-day body .btn-outline-danger,
+.kj-day body .btn-outline-danger{
+  background: transparent !important;
+  border-color: var(--day-danger) !important;
+  color: var(--day-danger) !important;
+}
+
+/* BOTÕES SÓLIDOS (no dia não pode virar dourado) */
+body.kj-day .btn-primary,
+html.kj-day body .btn-primary,
+.kj-day body .btn-primary{
+  background: var(--day-primary) !important;
+  border-color: var(--day-primary) !important;
+  color:#fff !important;
+}
+body.kj-day .btn-success,
+html.kj-day body .btn-success,
+.kj-day body .btn-success{
+  background: var(--day-success) !important;
+  border-color: var(--day-success) !important;
+  color:#fff !important;
+}
+body.kj-day .btn-danger,
+html.kj-day body .btn-danger,
+.kj-day body .btn-danger{
+  background: var(--day-danger) !important;
+  border-color: var(--day-danger) !important;
+  color:#fff !important;
+}
+
+/* BOTÕES “apagados” que parecem dourado claro (ex: Voltar/Filtrar) */
+body.kj-day .btn:disabled,
+html.kj-day body .btn:disabled,
+.kj-day body .btn:disabled{
+  opacity:.55 !important;
+}
+
+/* (Extra) garante que o Financeiro nunca herde dourado por seletor */
+body.kj-day :is(a.btn[href^="/financeiro"], form[action^="/financeiro"] .btn),
+html.kj-day body :is(a.btn[href^="/financeiro"], form[action^="/financeiro"] .btn),
+.kj-day body :is(a.btn[href^="/financeiro"], form[action^="/financeiro"] .btn){
+  background-image:none !important;
+  box-shadow:none !important;
+}
+/* =========================================================
+   PATCH DARK — neutraliza o table-info (Bootstrap) no modo noite
+   Cole no FINAL do kj_theme.css
+   ========================================================= */
+
+body.kj-theme:not(.kj-day) .table-info{
+  --bs-table-bg: rgba(255,255,255,.02) !important;
+  --bs-table-striped-bg: rgba(255,255,255,.03) !important;
+  --bs-table-hover-bg: rgba(231,198,106,.05) !important;
+
+  --bs-table-bg-state: rgba(255,255,255,.02) !important;
+  --bs-table-color-state: rgba(242,244,247,.96) !important;
+}
+
+/* alvo real do Bootstrap (é isso que estava ganhando de você) */
+body.kj-theme:not(.kj-day) .table > :not(caption) > .table-info > *{
+  background-color: rgba(255,255,255,.02) !important;
+  color: rgba(242,244,247,.96) !important;
+  border-color: rgba(255,255,255,.10) !important;
+}
+
+/* se vier como <tr class="table-info"> também garante */
+body.kj-theme:not(.kj-day) tr.table-info > td,
+body.kj-theme:not(.kj-day) tr.table-info > th{
+  background-color: rgba(255,255,255,.02) !important;
+  color: rgba(242,244,247,.96) !important;
+  border-color: rgba(255,255,255,.10) !important;
+}

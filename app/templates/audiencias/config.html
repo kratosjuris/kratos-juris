@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="m-0">Configurar envio (advogados/assistentes)</h3>
+  <a class="btn btn-outline-secondary" href="/audiencias">Voltar</a>
+</div>
+
+<form class="card p-3 mb-3" method="post" action="/audiencias/config/add">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-5">
+      <label class="form-label">Nome</label>
+      <input class="form-control" name="name" required>
+    </div>
+    <div class="col-md-5">
+      <label class="form-label">Telefone (WhatsApp)</label>
+      <input class="form-control" name="phone" placeholder="(DDD) 9...." required>
+    </div>
+    <div class="col-md-2 d-grid">
+      <button class="btn btn-primary">Adicionar</button>
+    </div>
+  </div>
+</form>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-striped align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>Telefone</th>
+          <th>Status</th>
+          <th style="width:220px;">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for c in contacts %}
+        <tr>
+          <td>{{c.name}}</td>
+          <td>{{c.phone}}</td>
+          <td>{{ "Ativo" if c.is_enabled else "Inativo" }}</td>
+          <td class="text-nowrap">
+            <form method="post" action="/audiencias/config/{{c.id}}/toggle" style="display:inline;">
+              <button class="btn btn-sm btn-outline-primary" type="submit">
+                {{ "Desativar" if c.is_enabled else "Ativar" }}
+              </button>
+            </form>
+            <form method="post" action="/audiencias/config/{{c.id}}/delete" style="display:inline;">
+              <button class="btn btn-sm btn-outline-danger" type="submit"
+                      onclick="return confirm('Remover contato?')">Excluir</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

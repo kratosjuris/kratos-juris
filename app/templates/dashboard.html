@@ -1,0 +1,1152 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800;900&display=swap');
+
+  :root{
+    --kj-obsidian: #070a10;
+    --kj-obsidian-2: #0b0f19;
+
+    --kj-gold-1: #f7e7a8;
+    --kj-gold-2: #e7c66a;
+    --kj-gold-3: #caa24a;
+    --kj-gold-4: #8a5a00;
+
+    --kj-silver-1: #f2f4f7;
+    --kj-silver-2: #d7dde6;
+
+    --kj-radius: 18px;
+  }
+
+  /* =========================================================
+     ✅ APLICAR DARK SOMENTE NO MODO NOITE
+     (evita brigar com o Modo Dia do base.html)
+     ========================================================= */
+  body:not(.kj-day){
+    background:
+      radial-gradient(1200px 800px at 12% 8%, rgba(231,198,106,.10), transparent 55%),
+      radial-gradient(900px 700px at 85% 0%, rgba(155,171,205,.08), transparent 55%),
+      radial-gradient(1100px 900px at 55% 92%, rgba(231,198,106,.07), transparent 55%),
+      linear-gradient(180deg, var(--kj-obsidian), var(--kj-obsidian-2) 55%, #070a12);
+    min-height: 100vh;
+  }
+
+  /* =========================================================
+     ✅ ESCOPAR TUDO NO DASHBOARD (não vaza estilos)
+     ========================================================= */
+  #kj-dashboard .dash-sub { color: rgba(242,244,247,.70); font-size: .95rem; }
+
+  #kj-dashboard .brand-wrap{
+    display:flex;
+    align-items:center;
+    gap: 16px;
+    line-height:1;
+  }
+
+  #kj-dashboard .dash-logo{
+    height: 104px;
+    width: auto;
+    object-fit: contain;
+    display:block;
+    filter:
+      drop-shadow(0 18px 36px rgba(0,0,0,.55))
+      drop-shadow(0 0 18px rgba(231,198,106,.20));
+  }
+
+  #kj-dashboard .brand-name{
+    font-family: "Cinzel", "Trajan Pro", "Times New Roman", Georgia, serif;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    font-size: 2.25rem;
+    white-space: nowrap;
+
+    background: linear-gradient(180deg,
+      var(--kj-silver-1) 0%,
+      var(--kj-gold-1) 20%,
+      var(--kj-gold-2) 42%,
+      var(--kj-gold-3) 70%,
+      var(--kj-silver-2) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+
+    text-shadow:
+      0 1px 0 rgba(255,255,255,.22),
+      0 2px 0 rgba(0,0,0,.35),
+      0 6px 18px rgba(0,0,0,.55),
+      0 0 18px rgba(231,198,106,.12);
+  }
+
+  @media (max-width: 1200px){
+    #kj-dashboard .dash-logo{ height: 92px; }
+    #kj-dashboard .brand-name{ font-size: 2.05rem; }
+  }
+  @media (max-width: 992px){
+    #kj-dashboard .dash-logo{ height: 82px; }
+    #kj-dashboard .brand-name{ font-size: 1.85rem; }
+    #kj-dashboard .brand-wrap{ gap: 14px; }
+  }
+  @media (max-width: 576px){
+    #kj-dashboard .dash-logo{ height: 70px; }
+    #kj-dashboard .brand-name{ font-size: 1.45rem; }
+    #kj-dashboard .brand-wrap{ gap: 12px; }
+  }
+
+  /* ============================
+     SVG: ouro real (efeito metal)
+     ============================ */
+  #kj-dashboard .kj-svg{
+    display: inline-block;
+    vertical-align: -0.15em;
+    filter:
+      drop-shadow(0 10px 16px rgba(0,0,0,.55))
+      drop-shadow(0 0 10px rgba(231,198,106,.14));
+  }
+  #kj-dashboard .kj-stroke{ stroke: url(#kjGoldStroke); }
+  #kj-dashboard .kj-fill{ fill: url(#kjGoldFill); }
+
+  /* =========================================================
+     NIGHT (padrão) — seus cards originais
+     (⚠️ NÃO ALTERADO)
+     ========================================================= */
+  #kj-dashboard .soft-card {
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: var(--kj-radius);
+    background:
+      radial-gradient(900px 700px at 10% 0%, rgba(255,255,255,.08), transparent 45%),
+      linear-gradient(180deg, rgba(18,24,38,.88), rgba(10,14,24,.90));
+    box-shadow:
+      0 18px 44px rgba(0,0,0,.55),
+      0 1px 0 rgba(255,255,255,.08) inset,
+      0 0 0 1px rgba(231,198,106,.06) inset;
+    color: var(--kj-silver-1);
+    backdrop-filter: blur(6px);
+  }
+
+  #kj-dashboard .kpi{
+    position: relative;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: var(--kj-radius);
+    background:
+      radial-gradient(900px 700px at 10% 0%, rgba(255,255,255,.08), transparent 45%),
+      linear-gradient(180deg, rgba(18,24,38,.86), rgba(9,12,20,.92));
+    box-shadow:
+      0 18px 44px rgba(0,0,0,.55),
+      0 1px 0 rgba(255,255,255,.08) inset,
+      0 0 0 1px rgba(231,198,106,.06) inset;
+    transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+    overflow: hidden;
+    color: var(--kj-silver-1);
+  }
+  #kj-dashboard .kpi:before{
+    content:"";
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    background:
+      radial-gradient(1200px 1200px at 12% 0%, rgba(231,198,106,.18), transparent 45%),
+      radial-gradient(900px 900px at 92% 10%, rgba(155,171,205,.10), transparent 45%);
+    opacity:.70;
+  }
+  #kj-dashboard .kpi:hover{
+    transform: translateY(-1px);
+    border-color: rgba(231,198,106,.20);
+    box-shadow:
+      0 22px 56px rgba(0,0,0,.62),
+      0 1px 0 rgba(255,255,255,.10) inset,
+      0 0 0 1px rgba(231,198,106,.10) inset;
+  }
+
+  #kj-dashboard .kpi .kpi-icon{
+    width: 48px; height: 48px;
+    border-radius: 16px;
+    display:flex; align-items:center; justify-content:center;
+    background: linear-gradient(180deg, rgba(247,231,168,.16), rgba(202,162,74,.10)) !important;
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,.10),
+      0 16px 26px rgba(0,0,0,.45),
+      0 0 18px rgba(231,198,106,.14);
+  }
+
+  #kj-dashboard .kpi .kpi-value{
+    font-size: 1.42rem;
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    color: var(--kj-silver-1);
+    text-shadow: 0 10px 22px rgba(0,0,0,.55);
+  }
+  #kj-dashboard .kpi .kpi-label{
+    color: rgba(242,244,247,.70);
+    font-size: .86rem;
+    font-weight: 650;
+  }
+
+  #kj-dashboard .badge-soft{
+    background: rgba(229, 83, 83, .14);
+    color: #ffb4b4;
+    border: 1px solid rgba(229, 83, 83, .30);
+    font-weight: 800;
+  }
+  #kj-dashboard .badge-soft-warn{
+    background: rgba(231,198,106,.16);
+    color: var(--kj-gold-1);
+    border: 1px solid rgba(231,198,106,.35);
+    font-weight: 850;
+  }
+  #kj-dashboard .badge-soft-dark{
+    background: rgba(155,171,205,.10);
+    color: rgba(242,244,247,.88);
+    border: 1px solid rgba(155,171,205,.22);
+    font-weight: 800;
+  }
+
+  #kj-dashboard .section-title { font-weight: 850; font-size: 1.05rem; color: var(--kj-silver-1); display:flex; align-items:center; gap:.5rem; }
+  #kj-dashboard .section-sub { color: rgba(242,244,247,.68); font-size: .9rem; }
+
+  #kj-dashboard .list-clean .list-group-item{
+    border: 0;
+    border-top: 1px solid rgba(255,255,255,.08);
+    padding-left: 0;
+    padding-right: 0;
+    background: transparent;
+    color: rgba(242,244,247,.92);
+  }
+
+  #kj-dashboard .text-muted{ color: rgba(242,244,247,.70) !important; }
+
+  #kj-dashboard .tile{
+    position: relative;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 20px;
+    background:
+      radial-gradient(900px 700px at 12% 0%, rgba(255,255,255,.08), transparent 45%),
+      linear-gradient(180deg, rgba(18,24,38,.86), rgba(9,12,20,.92));
+    box-shadow:
+      0 18px 44px rgba(0,0,0,.55),
+      0 1px 0 rgba(255,255,255,.08) inset,
+      0 0 0 1px rgba(231,198,106,.06) inset;
+    transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+    text-decoration: none;
+    color: rgba(242,244,247,.92);
+    overflow: hidden;
+  }
+  #kj-dashboard .tile:before{
+    content:"";
+    position:absolute;
+    top:0; left:0; right:0;
+    height: 3px;
+    background: linear-gradient(90deg, rgba(231,198,106,.25), rgba(231,198,106,.65), rgba(231,198,106,.25));
+  }
+  #kj-dashboard .tile:after{
+    content:"";
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    background:
+      radial-gradient(1000px 1000px at 15% 0%, rgba(231,198,106,.16), transparent 50%),
+      radial-gradient(900px 900px at 90% 10%, rgba(155,171,205,.10), transparent 55%);
+    opacity:.65;
+  }
+  #kj-dashboard .tile:hover{
+    transform: translateY(-1px);
+    border-color: rgba(231,198,106,.20);
+    box-shadow:
+      0 22px 56px rgba(0,0,0,.62),
+      0 1px 0 rgba(255,255,255,.10) inset,
+      0 0 0 1px rgba(231,198,106,.10) inset;
+  }
+
+  #kj-dashboard .tile .tile-icon{
+    width: 52px; height: 52px;
+    border-radius: 18px;
+    display:flex; align-items:center; justify-content:center;
+    background: linear-gradient(180deg, rgba(247,231,168,.16), rgba(202,162,74,.10)) !important;
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,.10),
+      0 18px 28px rgba(0,0,0,.45),
+      0 0 18px rgba(231,198,106,.14);
+    transition: transform .14s ease, filter .14s ease;
+  }
+  #kj-dashboard .tile:hover .tile-icon{
+    transform: translateY(-1px);
+    filter: saturate(1.22);
+  }
+
+  #kj-dashboard .tile .fw-semibold{
+    font-weight: 850 !important;
+    color: rgba(242,244,247,.96);
+    letter-spacing: -0.01em;
+    text-shadow: 0 10px 22px rgba(0,0,0,.45);
+  }
+
+  #kj-dashboard .btn-soft{
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+    color: rgba(242,244,247,.90);
+    box-shadow:
+      0 12px 24px rgba(0,0,0,.40),
+      0 1px 0 rgba(255,255,255,.08) inset;
+  }
+  #kj-dashboard .btn-soft:hover{
+    border-color: rgba(231,198,106,.22);
+    color: rgba(242,244,247,.96);
+    box-shadow:
+      0 16px 34px rgba(0,0,0,.50),
+      0 1px 0 rgba(255,255,255,.10) inset;
+  }
+
+  /* =========================================================
+     ✅ MODO DIA: melhora geral + ÍCONES CAIXINHA AZUL (interior branco)
+     ========================================================= */
+
+  body.kj-day #kj-dashboard .dash-sub{
+    color: rgba(11,27,51,.62) !important;
+  }
+
+  body.kj-day #kj-dashboard .dash-logo{
+    filter:
+      drop-shadow(0 14px 26px rgba(2,6,23,.10))
+      drop-shadow(0 0 10px rgba(37,99,235,.10));
+  }
+
+  /* ✅ MODO DIA — KRATOS JURIS (IMONENTE) */
+  body.kj-day #kj-dashboard .brand-name{
+    background: linear-gradient(180deg,
+      #ffe89a 0%,
+      #f1c24b 20%,
+      #d39a22 45%,
+      #b27612 65%,
+      #5f3800 100%
+    ) !important;
+
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    color: transparent !important;
+
+    -webkit-text-stroke: 0.5px rgba(70,40,0,.28);
+
+    text-shadow:
+      0 1px 0 rgba(255,255,255,.55),
+      0 6px 16px rgba(0,0,0,.22) !important;
+
+    letter-spacing: 0.6px;
+    filter: none !important;
+  }
+
+  /* ✅ (1) ÍCONES dos TÍTULOS DAS SEÇÕES no dia: deixam de ser dourados */
+  body.kj-day #kj-dashboard .section-title .kj-stroke{
+    stroke: rgba(37,99,235,.95) !important;
+  }
+  body.kj-day #kj-dashboard .section-title .kj-fill{
+    fill: rgba(37,99,235,.14) !important;
+  }
+  body.kj-day #kj-dashboard .section-title .kj-svg{
+    filter: drop-shadow(0 6px 12px rgba(2,6,23,.08)) !important;
+  }
+
+  /* Cards / KPIs / tiles no dia */
+  body.kj-day #kj-dashboard .soft-card,
+  body.kj-day #kj-dashboard .kpi,
+  body.kj-day #kj-dashboard .tile{
+    border: 1px solid rgba(37,99,235,.18) !important;
+    background: #ffffff !important;
+    color: rgba(11,27,51,.92) !important;
+    box-shadow: 0 16px 38px rgba(2,6,23,.08) !important;
+    backdrop-filter: none !important;
+  }
+
+  body.kj-day #kj-dashboard .section-title,
+  body.kj-day #kj-dashboard .section-sub,
+  body.kj-day #kj-dashboard .tile .fw-semibold{
+    color: rgba(11,27,51,.92) !important;
+    text-shadow: none !important;
+  }
+  body.kj-day #kj-dashboard .text-muted{
+    color: rgba(11,27,51,.62) !important;
+  }
+
+  body.kj-day #kj-dashboard .list-clean .list-group-item{
+    border-top: 1px solid rgba(37,99,235,.14) !important;
+    color: rgba(11,27,51,.92) !important;
+  }
+
+  /* KPI icon + tile icon: fundo azul / ícone branco */
+  body.kj-day #kj-dashboard .kpi .kpi-icon,
+  body.kj-day #kj-dashboard .tile .tile-icon{
+    background: linear-gradient(180deg, rgba(37,99,235,.98), rgba(29,78,216,.98)) !important;
+    box-shadow:
+      0 14px 24px rgba(2,6,23,.10),
+      0 1px 0 rgba(255,255,255,.18) inset !important;
+  }
+
+  /* Wrapper para ícones dentro de botões */
+  body.kj-day #kj-dashboard .kj-ico-box{
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    background: linear-gradient(180deg, rgba(37,99,235,.98), rgba(29,78,216,.98)) !important;
+    box-shadow:
+      0 12px 22px rgba(2,6,23,.10),
+      0 1px 0 rgba(255,255,255,.18) inset !important;
+    flex: 0 0 auto;
+  }
+
+  /* Recolorir os SVGs para branco DENTRO das caixinhas */
+  body.kj-day #kj-dashboard .kpi-icon .kj-stroke,
+  body.kj-day #kj-dashboard .tile-icon .kj-stroke,
+  body.kj-day #kj-dashboard .kj-ico-box .kj-stroke{
+    stroke: rgba(255,255,255,.98) !important;
+  }
+  body.kj-day #kj-dashboard .kpi-icon .kj-fill,
+  body.kj-day #kj-dashboard .tile-icon .kj-fill,
+  body.kj-day #kj-dashboard .kj-ico-box .kj-fill{
+    fill: rgba(255,255,255,.16) !important;
+  }
+
+  /* KPI valores */
+  body.kj-day #kj-dashboard .kpi .kpi-value{
+    color: rgba(11,27,51,.92) !important;
+    text-shadow: none !important;
+  }
+  body.kj-day #kj-dashboard .kpi .kpi-label{
+    color: rgba(11,27,51,.62) !important;
+  }
+
+  /* Badges no dia: azul */
+  body.kj-day #kj-dashboard .badge-soft,
+  body.kj-day #kj-dashboard .badge-soft-warn,
+  body.kj-day #kj-dashboard .badge-soft-dark{
+    background: rgba(37,99,235,.12) !important;
+    color: rgba(11,27,51,.92) !important;
+    border: 1px solid rgba(37,99,235,.22) !important;
+    font-weight: 900 !important;
+  }
+
+  /* Linha superior do tile no dia: azul */
+  body.kj-day #kj-dashboard .tile:before{
+    background: linear-gradient(90deg,
+      rgba(37,99,235,.18),
+      rgba(37,99,235,.60),
+      rgba(37,99,235,.18)
+    ) !important;
+  }
+
+  /* Botões “soft” do dashboard no dia */
+  body.kj-day #kj-dashboard .btn-soft{
+    border: 1px solid rgba(37,99,235,.20) !important;
+    background: rgba(37,99,235,.06) !important;
+    color: rgba(11,27,51,.92) !important;
+    box-shadow: 0 12px 22px rgba(2,6,23,.06) !important;
+  }
+  body.kj-day #kj-dashboard .btn-soft:hover{
+    transform: translateY(-1px);
+    background: rgba(37,99,235,.08) !important;
+    box-shadow: 0 18px 34px rgba(2,6,23,.08) !important;
+  }
+
+  /* ✅ (2) Botão superior "Financeiro" no dia: para de ficar “ouro” e fica igual aos demais */
+  body.kj-day #kj-dashboard a.btn-success{
+    border: 1px solid rgba(37,99,235,.20) !important;
+    background: rgba(37,99,235,.06) !important;
+    color: rgba(11,27,51,.92) !important;
+    box-shadow: 0 12px 22px rgba(2,6,23,.06) !important;
+    font-weight: 500 !important;
+  }
+  body.kj-day #kj-dashboard a.btn-success span{
+    font-weight: 500 !important;
+    color: rgba(11,27,51,.92) !important;
+  }
+  body.kj-day #kj-dashboard a.btn-success:hover{
+    transform: translateY(-1px);
+    background: rgba(37,99,235,.08) !important;
+    box-shadow: 0 18px 34px rgba(2,6,23,.08) !important;
+  }
+
+  /* =========================================================
+     ✅ WHATSAPP
+     - NOITE: dourado (mantido)
+     - DIA: azul (coerente)
+     ========================================================= */
+  #kj-dashboard .wa-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(231,198,106,.38);
+    background: linear-gradient(180deg, rgba(247,231,168,.28), rgba(202,162,74,.18));
+    text-decoration:none;
+    font-weight: 850;
+    line-height: 1;
+    box-shadow:
+      0 14px 26px rgba(0,0,0,.40),
+      0 1px 0 rgba(255,255,255,.10) inset,
+      0 0 18px rgba(231,198,106,.10);
+    color: rgba(242,244,247,.95);
+  }
+  #kj-dashboard .wa-btn{
+    padding: 5px 9px;
+  }
+  #kj-dashboard .wa-btn span{
+    font-size: 0.80rem;
+    font-weight: 700;
+  }
+  #kj-dashboard .wa-btn:hover{
+    transform: translateY(-1px);
+    border-color: rgba(231,198,106,.60);
+    background: linear-gradient(180deg, rgba(247,231,168,.34), rgba(202,162,74,.24));
+    box-shadow:
+      0 18px 34px rgba(0,0,0,.50),
+      0 1px 0 rgba(255,255,255,.12) inset,
+      0 0 22px rgba(231,198,106,.14);
+  }
+  #kj-dashboard .wa-ico{
+    width: 16px;
+    height: 16px;
+    display:inline-block;
+    vertical-align: -0.1em;
+  }
+  #kj-dashboard .wa-ico path{
+    fill: rgba(242,244,247,.95);
+  }
+
+  body.kj-day #kj-dashboard .wa-btn{
+    border: 1px solid rgba(37,99,235,.22) !important;
+    background: linear-gradient(180deg, rgba(37,99,235,.98), rgba(29,78,216,.98)) !important;
+    color: rgba(255,255,255,.98) !important;
+    box-shadow: 0 12px 22px rgba(2,6,23,.10) !important;
+  }
+  body.kj-day #kj-dashboard .wa-ico path{
+    fill: rgba(255,255,255,.98) !important;
+  }
+</style>
+
+<!-- Defs do “ouro real” (uma vez só) -->
+<svg width="0" height="0" style="position:absolute; left:-9999px; top:-9999px;">
+  <defs>
+    <linearGradient id="kjGoldStroke" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#f2f4f7" stop-opacity="0.95"/>
+      <stop offset="22%" stop-color="#f7e7a8" stop-opacity="0.95"/>
+      <stop offset="52%" stop-color="#e7c66a" stop-opacity="0.98"/>
+      <stop offset="78%" stop-color="#caa24a" stop-opacity="0.98"/>
+      <stop offset="100%" stop-color="#8a5a00" stop-opacity="0.95"/>
+    </linearGradient>
+
+    <linearGradient id="kjGoldFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"  stop-color="#f2f4f7" stop-opacity="0.18"/>
+      <stop offset="35%" stop-color="#f7e7a8" stop-opacity="0.26"/>
+      <stop offset="65%" stop-color="#e7c66a" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#8a5a00" stop-opacity="0.22"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+{# Macro de ícones SVG #}
+{% macro kj_icon(kind, size=18) %}
+  {% if kind == "briefcase" %}
+    <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
+      <rect class="kj-fill" x="3.5" y="7" width="17" height="12.5" rx="2"></rect>
+      <path class="kj-stroke" d="M9 7V5.8A1.8 1.8 0 0 1 10.8 4h2.4A1.8 1.8 0 0 1 15 5.8V7" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="kj-stroke" d="M3.5 12h17" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="kj-stroke" d="M10.5 12.2h3" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+  {% elif kind == "bolt" %}
+    <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="kj-fill" d="M13 2 4 14h7l-1 8 10-14h-7l0-6Z"></path>
+      <path class="kj-stroke" d="M13 2 4 14h7l-1 8 10-14h-7l0-6Z" fill="none" stroke-width="1.2" stroke-linejoin="round"/>
+    </svg>
+  {% elif kind == "cash" %}
+    <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
+      <rect class="kj-fill" x="3.5" y="6.5" width="17" height="11" rx="2"></rect>
+      <path class="kj-stroke" d="M3.5 9c2.2 0 2.6-2.5 4-2.5h9c1.4 0 1.8 2.5 4 2.5" fill="none" stroke-width="1.6" stroke-linecap="round"/>
+      <path class="kj-stroke" d="M3.5 15c2.2 0 2.6 2.5 4 2.5h9c1.4 0 1.8-2.5 4-2.5" fill="none" stroke-width="1.6" stroke-linecap="round"/>
+      <circle class="kj-stroke" cx="12" cy="12" r="2.2" fill="none" stroke-width="1.6"/>
+    </svg>
+  {% elif kind == "bell" %}
+    <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="kj-stroke" d="M12 21a2.2 2.2 0 0 0 2.2-2.2H9.8A2.2 2.2 0 0 0 12 21Z" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="kj-stroke" d="M18 9a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7Z" fill="none" stroke-width="1.8" stroke-linejoin="round"/>
+    </svg>
+  {% elif kind == "gift" %}
+    <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
+      <rect class="kj-fill" x="4" y="10" width="16" height="10" rx="2"></rect>
+      <path class="kj-stroke" d="M4 10h16" fill="none" stroke-width="1.8"/>
+      <path class="kj-stroke" d="M12 10v10" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="kj-stroke" d="M12 10c-1.8 0-3.5-1-3.5-2.5S10 5 12 7c2-2 3.5-.5 3.5.5S13.8 10 12 10Z" fill="none" stroke-width="1.8" stroke-linejoin="round"/>
+    </svg>
+  {% elif kind == "calendar_x" %}
+    <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
+      <rect class="kj-fill" x="4" y="5" width="16" height="15" rx="2"></rect>
+      <path class="kj-stroke" d="M8 3v4M16 3v4M4 9h16" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="kj-stroke" d="M9.2 12.2l5.6 5.6M14.8 12.2l-5.6 5.6" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+  {% elif kind == "users" %}
+    <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="kj-stroke" d="M16 11a3.2 3.2 0 1 0-3.2-3.2A3.2 3.2 0 0 0 16 11Z" fill="none" stroke-width="1.8"/>
+      <path class="kj-stroke" d="M8.5 11a2.8 2.8 0 1 0-2.8-2.8A2.8 2.8 0 0 0 8.5 11Z" fill="none" stroke-width="1.8"/>
+      <path class="kj-stroke" d="M12.5 20c.3-3 2.5-5 6-5 1.3 0 2.4.2 3.2.6" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="kj-stroke" d="M2.8 19.6c.4-2.9 2.4-4.6 5.7-4.6 2.8 0 4.8 1.1 5.6 3.2" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+  {% elif kind == "triangle" %}
+    <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="kj-fill" d="M12 3.6 2.8 20.2a1.5 1.5 0 0 0 1.3 2.2h15.8a1.5 1.5 0 0 0 1.3-2.2L12 3.6Z"></path>
+      <path class="kj-stroke" d="M12 9v5" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="kj-stroke" d="M12 17.5h.01" fill="none" stroke-width="2.2" stroke-linecap="round"/>
+      <path class="kj-stroke" d="M12 3.6 2.8 20.2a1.5 1.5 0 0 0 1.3 2.2h15.8a1.5 1.5 0 0 0 1.3-2.2L12 3.6Z" fill="none" stroke-width="1.2" stroke-linejoin="round"/>
+    </svg>
+  {% elif kind == "arrow_right" %}
+    <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="kj-stroke" d="M10 6l6 6-6 6" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  {% elif kind == "repeat" %}
+    <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="kj-stroke" d="M7 7h10a3 3 0 0 1 3 3v1" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="kj-stroke" d="M17 17H7a3 3 0 0 1-3-3v-1" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="kj-stroke" d="M20 8l-2-2-2 2" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="kj-stroke" d="M4 16l2 2 2-2" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  {% elif kind == "file" %}
+    <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="kj-fill" d="M7 3.8h7l3 3V20a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5.8a2 2 0 0 1 2-2Z"></path>
+      <path class="kj-stroke" d="M14 3.8V7h3" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="kj-stroke" d="M8 12h8M8 15h8M8 18h6" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="kj-stroke" d="M7 3.8h7l3 3V20a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5.8a2 2 0 0 1 2-2Z" fill="none" stroke-width="1.2" stroke-linejoin="round"/>
+    </svg>
+  {% elif kind == "audi" %}
+    <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="kj-fill" d="M14.5 3.8h4.2a1.2 1.2 0 0 1 1.2 1.2v4.2a1.2 1.2 0 0 1-1.2 1.2h-4.2a1.2 1.2 0 0 1-1.2-1.2V5a1.2 1.2 0 0 1 1.2-1.2Z"></path>
+      <path class="kj-stroke" d="M13.3 5l6.6 6.6" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="kj-stroke" d="M8 21h10" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="kj-stroke" d="M12.5 12.5 6.4 18.6" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+  {% else %}
+    <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
+      <circle class="kj-stroke" cx="12" cy="12" r="8" fill="none" stroke-width="1.8"/>
+    </svg>
+  {% endif %}
+{% endmacro %}
+
+{# ✅ Fallbacks para evitar erro se algo não vier no contexto #}
+{% set aud_hoje = audiencias_hoje if audiencias_hoje is defined and audiencias_hoje else [] %}
+{% set aud_prox = audiencias_proximo if audiencias_proximo is defined and audiencias_proximo else [] %}
+
+<div id="kj-dashboard">
+
+  <div class="d-flex align-items-start justify-content-between mb-3">
+    <div>
+      <div class="brand-wrap">
+        <img src="/static/img/logo_kratos.png" alt="Kratos Juris" class="dash-logo"/>
+        <div class="brand-name">Kratos Juris</div>
+      </div>
+
+      <div class="dash-sub mt-2">
+        {% if hoje %}{{ hoje.strftime("%d/%m/%Y") }} • {% endif %}
+        Visão geral do escritório
+      </div>
+    </div>
+
+    <div class="d-none d-md-flex gap-2">
+      <a class="btn btn-soft btn-sm d-inline-flex align-items-center gap-2" href="/processos?status=PROCEDENTE">
+        <span class="kj-ico-box">{{ kj_icon("briefcase", 18) }}</span>
+        <span>Procedentes</span>
+      </a>
+      <a class="btn btn-soft btn-sm d-inline-flex align-items-center gap-2" href="/processos?status=EXECUCAO">
+        <span class="kj-ico-box">{{ kj_icon("bolt", 18) }}</span>
+        <span>Execução</span>
+      </a>
+      <a class="btn btn-success btn-sm d-inline-flex align-items-center gap-2" href="/financeiro">
+        <span class="kj-ico-box">{{ kj_icon("cash", 18) }}</span>
+        <span>Financeiro</span>
+      </a>
+    </div>
+  </div>
+
+  {% set total_pericias_7d = (pericias_proximas|length if pericias_proximas else 0) %}
+  {% set total_bday_mes = (bday_mes_total if bday_mes_total is defined and bday_mes_total is not none else 0) %}
+  {% set total_rompendo_semana = (prazos_rompendo_semana_total if prazos_rompendo_semana_total is defined and prazos_rompendo_semana_total is not none else 0) %}
+  {% set total_clientes = (clientes_total if clientes_total is defined and clientes_total is not none else 0) %}
+
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="kpi p-3 h-100">
+        <div class="d-flex align-items-center gap-3">
+          <div class="kpi-icon">
+            {{ kj_icon("bell", 20) }}
+          </div>
+          <div class="flex-grow-1">
+            <div class="kpi-value">{{ total_pericias_7d }}</div>
+            <div class="kpi-label">Perícias (7 dias)</div>
+          </div>
+          {% if total_pericias_7d > 0 %}
+            <span class="badge badge-soft">Atenção</span>
+          {% else %}
+            <span class="badge text-bg-light">OK</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="kpi p-3 h-100">
+        <div class="d-flex align-items-center gap-3">
+          <div class="kpi-icon">
+            {{ kj_icon("gift", 20) }}
+          </div>
+          <div class="flex-grow-1">
+            <div class="kpi-value">{{ total_bday_mes }}</div>
+            <div class="kpi-label">Aniversários (mês)</div>
+          </div>
+          {% if total_bday_mes > 0 %}
+            <span class="badge badge-soft-warn">Mês</span>
+          {% else %}
+            <span class="badge text-bg-light">—</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="kpi p-3 h-100">
+        <div class="d-flex align-items-center gap-3">
+          <div class="kpi-icon">
+            {{ kj_icon("calendar_x", 20) }}
+          </div>
+          <div class="flex-grow-1">
+            <div class="kpi-value">{{ total_rompendo_semana }}</div>
+            <div class="kpi-label">Vence essa semana (Prazo)</div>
+          </div>
+          {% if total_rompendo_semana > 0 %}
+            <span class="badge badge-soft">Urgente</span>
+          {% else %}
+            <span class="badge text-bg-light">OK</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="kpi p-3 h-100">
+        <div class="d-flex align-items-center gap-3">
+          <div class="kpi-icon">
+            {{ kj_icon("users", 20) }}
+          </div>
+          <div class="flex-grow-1">
+            <div class="kpi-value">{{ total_clientes }}</div>
+            <div class="kpi-label">Clientes cadastrados</div>
+          </div>
+          <span class="badge badge-soft-dark">Total</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ AUDIÊNCIAS (HOJE + PRÓXIMO DIA ÚTIL) -->
+  <div class="row g-3 mb-3">
+    <div class="col-12">
+      <div class="soft-card p-3">
+        <div class="d-flex align-items-start justify-content-between">
+          <div>
+            <div class="section-title">
+              {{ kj_icon("audi", 18) }}
+              <span>Audiências</span>
+            </div>
+            <div class="section-sub">
+              {% if hoje %}Hoje: {{ hoje.strftime("%d/%m/%Y") }}{% endif %}
+              {% if next_day is defined and next_day %} • Próximo dia útil: {{ next_day.strftime("%d/%m/%Y") }}{% endif %}
+            </div>
+          </div>
+          <a class="btn btn-soft btn-sm d-inline-flex align-items-center gap-2" href="/audiencias">
+            <span>Abrir</span>
+            <span class="kj-ico-box">{{ kj_icon("arrow_right", 18) }}</span>
+          </a>
+        </div>
+
+        {# ==========================
+           LISTA: HOJE
+           ========================== #}
+        <div class="mt-2">
+          <div class="fw-semibold mb-1">Audiências de Hoje</div>
+
+          {% if aud_hoje and aud_hoje|length > 0 %}
+            <div class="list-group list-group-flush list-clean">
+              {% for h in aud_hoje[:10] %}
+                <div class="list-group-item">
+                  <div class="d-flex justify-content-between align-items-start">
+                    <div class="fw-semibold">
+                      {{ h.starts_at.strftime("%d/%m/%Y") }}
+                      <span class="text-muted fw-normal">— {{ h.starts_at.strftime("%H:%M") }}</span>
+                      {% if h.client %}
+                        <span class="text-muted"> • {{ h.client.nome }}</span>
+                      {% elif h.client_name_guess %}
+                        <span class="text-muted"> • {{ h.client_name_guess }}</span>
+                      {% endif %}
+                      {% if h.process_number %}
+                        <span class="text-muted"> ({{ h.process_number }})</span>
+                      {% endif %}
+                    </div>
+                    <span class="badge badge-soft-warn">Hoje</span>
+                  </div>
+
+                  <div class="text-muted small mt-1 d-flex justify-content-between flex-wrap gap-2">
+                    <div>
+                      {% if h.modalidade %}<span>Modalidade: <strong>{{ h.modalidade }}</strong></span>{% endif %}
+                      {% if h.extension_code %}<span class="text-muted"> • Código: {{ h.extension_code }}</span>{% endif %}
+                    </div>
+                    <div class="text-muted">
+                      {% if h.promovido %}Em face de: {{ h.promovido }}{% endif %}
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="text-muted small">
+              Nenhuma audiência para hoje (ou as de hoje já passaram do horário).
+            </div>
+          {% endif %}
+        </div>
+
+        {# ==========================
+           LISTA: PRÓXIMO DIA ÚTIL
+           ========================== #}
+        <div class="mt-3">
+          <div class="fw-semibold mb-1">
+            Audiências do Próximo Dia Útil
+            {% if next_day is defined and next_day %}<span class="text-muted fw-normal">({{ next_day.strftime("%d/%m/%Y") }})</span>{% endif %}
+          </div>
+
+          {% if aud_prox and aud_prox|length > 0 %}
+            <div class="list-group list-group-flush list-clean">
+              {% for h in aud_prox[:10] %}
+                <div class="list-group-item">
+                  <div class="d-flex justify-content-between align-items-start">
+                    <div class="fw-semibold">
+                      {{ h.starts_at.strftime("%d/%m/%Y") }}
+                      <span class="text-muted fw-normal">— {{ h.starts_at.strftime("%H:%M") }}</span>
+                      {% if h.client %}
+                        <span class="text-muted"> • {{ h.client.nome }}</span>
+                      {% elif h.client_name_guess %}
+                        <span class="text-muted"> • {{ h.client_name_guess }}</span>
+                      {% endif %}
+                      {% if h.process_number %}
+                        <span class="text-muted"> ({{ h.process_number }})</span>
+                      {% endif %}
+                    </div>
+                    <span class="badge badge-soft-dark">Agenda</span>
+                  </div>
+
+                  <div class="text-muted small mt-1 d-flex justify-content-between flex-wrap gap-2">
+                    <div>
+                      {% if h.modalidade %}<span>Modalidade: <strong>{{ h.modalidade }}</strong></span>{% endif %}
+                      {% if h.extension_code %}<span class="text-muted"> • Código: {{ h.extension_code }}</span>{% endif %}
+                    </div>
+                    <div class="text-muted">
+                      {% if h.promovido %}Em face de: {{ h.promovido }}{% endif %}
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="text-muted small">
+              Não há audiências cadastradas para o próximo dia útil.
+            </div>
+          {% endif %}
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-lg-7">
+      <div class="soft-card p-3">
+        <div class="d-flex align-items-start justify-content-between">
+          <div>
+            <div class="section-title">
+              {{ kj_icon("triangle", 18) }}
+              <span>Perícias &amp; Diligências próximas</span>
+            </div>
+            <div class="section-sub">Próximos 7 dias</div>
+          </div>
+          <a class="btn btn-soft btn-sm d-inline-flex align-items-center gap-2" href="/pericias">
+            <span>Abrir</span>
+            <span class="kj-ico-box">{{ kj_icon("arrow_right", 18) }}</span>
+          </a>
+        </div>
+
+        {% if pericias_proximas and pericias_proximas|length > 0 %}
+          <div class="list-group list-group-flush list-clean mt-2">
+            {% for p in pericias_proximas[:6] %}
+              <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start">
+                  <div class="fw-semibold">
+                    {{ p.data_evento.strftime("%d/%m/%Y") }}
+                    <span class="text-muted fw-normal">— {{ p.cliente }}</span>
+                    {% if p.processo_numero %}<span class="text-muted"> ({{ p.processo_numero }})</span>{% endif %}
+                  </div>
+                  <span class="badge badge-soft">Alerta</span>
+                </div>
+                <div class="text-muted small">
+                  {% if p.vara %}{{ p.vara }}{% endif %}
+                  {% if p.local %}{% if p.vara %} • {% endif %}{{ p.local }}{% endif %}
+                  {% if p.observacao %}<div class="text-muted small mt-1">Obs: {{ p.observacao }}</div>{% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-muted small mt-2">Nenhuma perícia/diligência nos próximos 7 dias.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-5">
+      <div class="soft-card p-3 h-100">
+        <div class="d-flex align-items-start justify-content-between">
+          <div>
+            <div class="section-title">
+              {{ kj_icon("gift", 18) }}
+              <span>Aniversários de hoje</span>
+            </div>
+            <div class="section-sub">
+              {% if hoje %}{{ hoje.strftime("%d/%m/%Y") }}{% endif %}
+            </div>
+          </div>
+          <a class="btn btn-soft btn-sm d-inline-flex align-items-center gap-2" href="/aniversarios">
+            <span>Abrir</span>
+            <span class="kj-ico-box">{{ kj_icon("arrow_right", 18) }}</span>
+          </a>
+        </div>
+
+        {% if bday_itens and bday_itens|length > 0 %}
+          <div class="list-group list-group-flush list-clean mt-2">
+            {% for item in bday_itens[:6] %}
+              {% set c = item.c %}
+              <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start">
+                  <div class="fw-semibold">
+                    {{ c.nascimento.strftime("%d/%m") }}
+                    <span class="text-muted fw-normal">— {{ c.nome }}</span>
+                  </div>
+                  <span class="badge badge-soft-warn">Hoje</span>
+                </div>
+
+                <div class="d-flex gap-2 mt-1 align-items-center">
+                  {% if c.telefone %}
+                    <span class="text-muted small">Telefone: {{ c.telefone }}</span>
+                  {% endif %}
+
+                  {% if item.wa %}
+                    <a class="ms-auto wa-btn" href="{{ item.wa }}" target="_blank" rel="noopener">
+                      <svg class="wa-ico" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                        <path d="M19.1 17.6c-.3-.1-1.7-.8-2-1s-.5-.1-.7.1-.8 1-.9 1.2-.3.2-.6.1-1.2-.4-2.3-1.3c-.8-.7-1.4-1.6-1.6-1.9s0-.5.1-.6c.1-.1.3-.3.4-.5.1-.2.2-.3.3-.5.1-.2.1-.4 0-.5s-.7-1.7-1-2.3c-.3-.6-.6-.5-.7-.5h-.6c-.2 0-.5.1-.7.4s-.9.9-.9 2.2 1 2.5 1.1 2.7c.1.2 2 3.1 4.9 4.4.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.7-.7 2-1.3.2-.6.2-1.2.2-1.3s-.2-.2-.5-.3z"/>
+                        <path d="M26.7 5.3C23.8 2.3 20 0.7 16 0.7 7.9 0.7 1.3 7.3 1.3 15.4c0 2.6.7 5.1 1.9 7.3L1 31.3l8.8-2.3c2.1 1.2 4.6 1.9 7.2 1.9 8.1 0 14.7-6.6 14.7-14.7 0-3.9-1.5-7.7-4-10.9zM16 28.3c-2.3 0-4.5-.6-6.5-1.7l-.5-.3-5.2 1.4 1.4-5.1-.3-.5c-1.2-2-1.8-4.2-1.8-6.6C3.1 8.7 9 2.8 16 2.8c3.4 0 6.6 1.3 9 3.7s3.7 5.6 3.7 9c0 7-5.7 12.8-12.8 12.8z"/>
+                      </svg>
+                      <span>WhatsApp</span>
+                    </a>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-muted small mt-2">Nenhum aniversariante hoje.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-12">
+      <div class="soft-card p-3">
+        <div class="d-flex align-items-start justify-content-between">
+          <div>
+            <div class="section-title">
+              {{ kj_icon("cash", 18) }}
+              <span>Contas a pagar: vencem hoje ou atrasadas</span>
+            </div>
+            <div class="section-sub">
+              {% if hoje %}{{ hoje.strftime("%d/%m/%Y") }}{% endif %}
+            </div>
+          </div>
+          <a class="btn btn-soft btn-sm d-inline-flex align-items-center gap-2" href="/financeiro">
+            <span>Abrir</span>
+            <span class="kj-ico-box">{{ kj_icon("arrow_right", 18) }}</span>
+          </a>
+        </div>
+
+        {% if payables_alert_itens and payables_alert_itens|length > 0 %}
+          <div class="list-group list-group-flush list-clean mt-2">
+            {% for item in payables_alert_itens[:10] %}
+              {% set p = item.p %}
+              <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start">
+                  <div class="fw-semibold">
+                    {% if p.vencimento %}{{ p.vencimento.strftime("%d/%m/%Y") }}{% else %}—{% endif %}
+                    <span class="text-muted fw-normal">— {{ p.descricao }}</span>
+                    {% if p.tipo %}<span class="text-muted"> ({{ p.tipo }})</span>{% endif %}
+                  </div>
+
+                  {% if item.badge == "Atrasada" %}
+                    <span class="badge badge-soft">Atrasada{% if item.dias_atraso and item.dias_atraso > 0 %} • {{ item.dias_atraso }}d{% endif %}</span>
+                  {% else %}
+                    <span class="badge badge-soft-warn">Hoje</span>
+                  {% endif %}
+                </div>
+
+                <div class="text-muted small mt-1 d-flex justify-content-between">
+                  <div>
+                    Valor: <strong>{{ p.valor|money_br }}</strong>
+                  </div>
+                  <div class="text-muted">
+                    {% if p.ym %}Competência: {{ p.ym }}{% endif %}
+                  </div>
+                </div>
+
+                {% if p.obs %}
+                  <div class="text-muted small mt-1">Obs: {{ p.obs }}</div>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-muted small mt-2">Nenhuma conta a pagar vencendo hoje ou em atraso.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12 col-md-6 col-xl-4">
+      <a class="tile p-3 d-block h-100" href="/clientes">
+        <div class="d-flex align-items-center gap-3">
+          <div class="tile-icon">{{ kj_icon("users", 22) }}</div>
+          <div>
+            <div class="fw-semibold">Clientes</div>
+            <div class="text-muted small">Cadastro e gestão</div>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-4">
+      <a class="tile p-3 d-block h-100" href="/processos?status=PRAZOS&filtro=PENDENTES">
+        <div class="d-flex align-items-center gap-3">
+          <div class="tile-icon">{{ kj_icon("calendar_x", 22) }}</div>
+          <div>
+            <div class="fw-semibold">Controle de Prazos</div>
+            <div class="text-muted small">Pendentes e cumpridos</div>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-4">
+      <a class="tile p-3 d-block h-100" href="/processos?status=PROCEDENTE">
+        <div class="d-flex align-items-center gap-3">
+          <div class="tile-icon">{{ kj_icon("briefcase", 22) }}</div>
+          <div>
+            <div class="fw-semibold">Ações Procedentes</div>
+            <div class="text-muted small">Separação por status</div>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-4">
+      <a class="tile p-3 d-block h-100" href="/processos?status=EXECUCAO">
+        <div class="d-flex align-items-center gap-3">
+          <div class="tile-icon">{{ kj_icon("bolt", 22) }}</div>
+          <div>
+            <div class="fw-semibold">Ações em Execução</div>
+            <div class="text-muted small">Cumprimento e cálculos</div>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-4">
+      <a class="tile p-3 d-block h-100" href="/pericias">
+        <div class="d-flex align-items-center gap-3">
+          <div class="tile-icon">{{ kj_icon("bell", 22) }}</div>
+          <div>
+            <div class="fw-semibold">Perícias &amp; Diligências</div>
+            <div class="text-muted small">Agenda e alertas</div>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-4">
+      <a class="tile p-3 d-block h-100" href="/migracoes">
+        <div class="d-flex align-items-center gap-3">
+          <div class="tile-icon">{{ kj_icon("repeat", 22) }}</div>
+          <div>
+            <div class="fw-semibold">Migrações</div>
+            <div class="text-muted small">Importação e Diário</div>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-4">
+      <a class="tile p-3 d-block h-100" href="/aniversarios">
+        <div class="d-flex align-items-center gap-3">
+          <div class="tile-icon">{{ kj_icon("gift", 22) }}</div>
+          <div>
+            <div class="fw-semibold">Aniversários</div>
+            <div class="text-muted small">Lista por mês</div>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-4">
+      <a class="tile p-3 d-block h-100" href="/audiencias">
+        <div class="d-flex align-items-center gap-3">
+          <div class="tile-icon">{{ kj_icon("audi", 22) }}</div>
+          <div>
+            <div class="fw-semibold">Audiências</div>
+            <div class="text-muted small">Importação, agenda e avisos</div>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-4">
+      <a class="tile p-3 d-block h-100" href="/financeiro">
+        <div class="d-flex align-items-center gap-3">
+          <div class="tile-icon">{{ kj_icon("cash", 22) }}</div>
+          <div>
+            <div class="fw-semibold">Financeiro</div>
+            <div class="text-muted small">Receber e pagar</div>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <div class="col-12 col-md-6 col-xl-4">
+      <a class="tile p-3 d-block h-100" href="/relatorios">
+        <div class="d-flex align-items-center gap-3">
+          <div class="tile-icon">{{ kj_icon("file", 22) }}</div>
+          <div>
+            <div class="fw-semibold">Relatórios</div>
+            <div class="text-muted small">KPIs e exportações</div>
+          </div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

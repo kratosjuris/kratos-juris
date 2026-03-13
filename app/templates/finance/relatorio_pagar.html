@@ -1,0 +1,424 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+/* =========================================================
+   PATCH VISUAL — MODO DIA (NÃO ALTERA MODO NOITE)
+   Relatório Contas a Pagar (mesmo estilo do Receber)
+   ========================================================= */
+
+body.kj-day{
+  background:#ffffff !important;
+  color:#111827 !important;
+}
+body.kj-day .card{
+  background:#ffffff !important;
+  border:1px solid #e5e7eb !important;
+  box-shadow:0 6px 18px rgba(0,0,0,.05);
+}
+body.kj-day .text-muted{ color:#6b7280 !important; }
+body.kj-day .border.rounded.p-2{
+  border-color:#e5e7eb !important;
+  background:#f9fafb !important;
+}
+body.kj-day .table{ color:#111827 !important; }
+body.kj-day .table thead th{
+  background:#f9fafb !important;
+  border-bottom-color:#e5e7eb !important;
+  color:#111827 !important;
+}
+body.kj-day .table td,
+body.kj-day .table th{ border-color:#eef2f7 !important; }
+body.kj-day .table-striped > tbody > tr:nth-of-type(odd) > *{
+  background-color: rgba(17,24,39,.03) !important;
+}
+body.kj-day .table-success > *{
+  background-color: rgba(34,197,94,.12) !important;
+  color:#111827 !important;
+}
+body.kj-day .badge.bg-light{
+  background:#f3f4f6 !important;
+  color:#111827 !important;
+  border-color:#e5e7eb !important;
+}
+body.kj-day .btn-outline-secondary,
+body.kj-day .btn-outline-dark{
+  color:#111827 !important;
+  border-color:#9ca3af !important;
+}
+body.kj-day .btn-outline-secondary:hover,
+body.kj-day .btn-outline-dark:hover{
+  background:rgba(17,24,39,.06) !important;
+}
+
+/* =========================================================
+   ESTILO PROFISSIONAL
+   ========================================================= */
+
+.report-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  margin-bottom:12px;
+}
+.report-top h3{ margin:0; }
+
+.report-head{
+  border:1px solid rgba(0,0,0,.12);
+  border-radius:14px;
+  padding:14px 16px;
+  background: rgba(255,255,255,.02);
+}
+.report-head .title{
+  font-weight:800;
+  letter-spacing:.2px;
+  font-size:1.05rem;
+}
+.report-head .sub{
+  opacity:.8;
+  font-size:.92rem;
+}
+.report-head .meta{
+  opacity:.8;
+  font-size:.85rem;
+}
+
+.kpi-grid{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap:10px;
+}
+@media (max-width: 992px){
+  .kpi-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.kpi{
+  border:1px solid rgba(0,0,0,.12);
+  border-radius:14px;
+  padding:12px 12px;
+  background: rgba(255,255,255,.02);
+}
+.kpi .label{ opacity:.75; font-size:.85rem; }
+.kpi .value{ font-weight:900; font-size:1.05rem; }
+.kpi .hint{ opacity:.75; font-size:.82rem; }
+
+.mono{ font-variant-numeric: tabular-nums; }
+.small-note{ font-size:.85rem; opacity:.85; }
+
+.badge-soft{
+  border:1px solid rgba(0,0,0,.18);
+  background: rgba(0,0,0,.05);
+  color: inherit;
+}
+
+/* =========================================================
+   DESTAQUES (Total do mês + Saldo inicial/final)
+   ========================================================= */
+
+.summary-grid{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap:10px;
+}
+@media (max-width: 992px){
+  .summary-grid{ grid-template-columns: repeat(1, minmax(0, 1fr)); }
+}
+
+.summary-box{
+  border:1px solid rgba(0,0,0,.14);
+  border-radius:14px;
+  padding:12px 12px;
+  background: rgba(255,255,255,.02);
+}
+.summary-box .label{
+  opacity:.75;
+  font-size:.85rem;
+}
+.summary-box .value{
+  font-weight:900;
+  font-size:1.18rem;
+}
+.summary-box .hint{
+  opacity:.75;
+  font-size:.82rem;
+  margin-top:2px;
+}
+body.kj-day .summary-box{
+  background:#f9fafb !important;
+  border-color:#e5e7eb !important;
+}
+
+/* =========================================================
+   IMPRESSÃO PROFISSIONAL
+   ✅ FIX DO PDF: forçar topo em 3 colunas no PRINT
+   ========================================================= */
+@media print{
+
+  @page{
+    size: A4 portrait;
+    margin: 12mm 10mm 12mm 10mm;
+  }
+
+  body *{ visibility: hidden !important; }
+  #print-area, #print-area *{ visibility: visible !important; }
+  #print-area{
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+  }
+
+  *{
+    box-shadow:none !important;
+    text-shadow:none !important;
+    filter:none !important;
+  }
+
+  body{
+    background:#fff !important;
+    color:#000 !important;
+  }
+
+  #print-area{
+    background:#fff !important;
+    color:#000 !important;
+  }
+  #print-area,
+  #print-area *{
+    color:#000 !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: #000 !important;
+  }
+
+  html, body{ font-size: 12px !important; }
+
+  #print-area .card,
+  #print-area .report-head,
+  #print-area .kpi,
+  #print-area .summary-box{
+    border:1px solid #d1d5db !important;
+    background:#fff !important;
+  }
+
+  /* ✅ AQUI O FIX: não deixa o topo virar “mobile” no PDF */
+  #print-area .summary-grid{
+    grid-template-columns: 1fr 1fr 1fr !important;
+    gap: 8px !important;
+  }
+  #print-area .summary-box{
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    min-width: 0 !important;
+  }
+
+  /* também ajuda o Chrome a não quebrar flex/grid */
+  #print-area .report-head,
+  #print-area .card{
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  #print-area table{ width: 100% !important; }
+  #print-area .table{
+    font-size: 11px !important;
+    color:#000 !important;
+  }
+  #print-area .table thead th{
+    background:#f3f4f6 !important;
+    color:#000 !important;
+    border-color:#d1d5db !important;
+  }
+  #print-area .table td,
+  #print-area .table th{
+    border-color:#e5e7eb !important;
+    background: transparent !important;
+  }
+
+  #print-area .badge,
+  #print-area .badge-soft{
+    background:#fff !important;
+    color:#000 !important;
+    border:1px solid #111 !important;
+  }
+
+  #print-area .table-success > *{
+    background: transparent !important;
+  }
+
+  thead{ display: table-header-group; }
+  tfoot{ display: table-footer-group; }
+
+  tr, td, th{
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  a[href]:after{ content: "" !important; }
+}
+</style>
+
+{# =========================================================
+   PRÉ-CÁLCULOS (JINJA)
+   ========================================================= #}
+{% set ns = namespace(total_pendente=0, total_pago_calc=0, qtd_total=0, qtd_pendente=0, qtd_pago=0) %}
+{% for p in payables %}
+  {% set v = (p.valor or 0) %}
+  {% set ns.qtd_total = ns.qtd_total + 1 %}
+  {% if p.pago %}
+    {% set ns.total_pago_calc = ns.total_pago_calc + v %}
+    {% set ns.qtd_pago = ns.qtd_pago + 1 %}
+  {% else %}
+    {% set ns.total_pendente = ns.total_pendente + v %}
+    {% set ns.qtd_pendente = ns.qtd_pendente + 1 %}
+  {% endif %}
+{% endfor %}
+
+{% set total_mes = (total_despesas if total_despesas is not none else (ns.total_pendente + ns.total_pago_calc)) %}
+{% set total_pago_kpi = (total_pago if total_pago is not none else ns.total_pago_calc) %}
+{% set saldo_final_calc = (saldo_inicial or 0) - (total_mes or 0) %}
+
+{% set total_calc = (ns.total_pendente + ns.total_pago_calc) %}
+{% set ticket_medio = (total_calc / ns.qtd_total) if ns.qtd_total else 0 %}
+{% set perc_pago = ((ns.total_pago_calc * 100) / total_calc) if total_calc else 0 %}
+{% set perc_pendente = ((ns.total_pendente * 100) / total_calc) if total_calc else 0 %}
+
+<div class="report-top no-print">
+  <h3>Relatório Contas a Pagar (Mês)</h3>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="/financeiro/pagar?ym={{ ym }}">Voltar</a>
+    <button class="btn btn-outline-dark" type="button" onclick="window.print()">Imprimir</button>
+  </div>
+</div>
+
+<div id="print-area">
+
+  <div class="report-head mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+      <div>
+        <div class="title">{{ empresa_nome if empresa_nome else "Relatório Financeiro" }}</div>
+        <div class="sub">
+          Contas a Pagar — Mês <span class="mono fw-semibold">{{ ym }}</span>
+        </div>
+        <div class="meta mt-1">
+          Emitido em: <span class="mono">{{ emitido_em if emitido_em else "" }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-3 mb-3">
+    <div class="summary-grid">
+      <div class="summary-box">
+        <div class="label">Total de despesas do mês </div>
+        <div class="value mono">{{ total_mes | money_br }}</div>
+        <div class="hint">{{ ns.qtd_total }} lançamento(s) • Ticket médio: <span class="mono fw-semibold">{{ ticket_medio | money_br }}</span></div>
+      </div>
+
+      <div class="summary-box">
+        <div class="label">Faturamento do mês </div>
+        <div class="value mono">{{ saldo_inicial | money_br }}</div>
+        <div class="hint">Base do início do mês</div>
+      </div>
+
+      <div class="summary-box">
+        <div class="label">Saldo final (Faturamento do mês − despesas)</div>
+        <div class="value mono">{{ saldo_final_calc | money_br }}</div>
+        <div class="hint">Cálculo automático no relatório</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-3 mb-3">
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="label">Pendente</div>
+        <div class="value mono">{{ ns.total_pendente | money_br }}</div>
+        <div class="hint">{{ ns.qtd_pendente }} item(ns) — {{ "%.1f"|format(perc_pendente) }}%</div>
+      </div>
+
+      <div class="kpi">
+        <div class="label">Pago</div>
+        <div class="value mono">{{ total_pago_kpi | money_br }}</div>
+        <div class="hint">{{ ns.qtd_pago }} item(ns) — {{ "%.1f"|format(perc_pago) }}%</div>
+      </div>
+
+      <div class="kpi">
+        <div class="label">Total calculado</div>
+        <div class="value mono">{{ total_calc | money_br }}</div>
+        <div class="hint">Soma de pendentes + pagos</div>
+      </div>
+
+      <div class="kpi">
+        <div class="label">Observação</div>
+        <div class="value">Conferência</div>
+        <div class="hint">Relatório para auditoria e impressão.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-sm table-striped align-middle mb-0">
+        <thead>
+          <tr>
+            <th style="min-width: 110px;">Status</th>
+            <th style="min-width: 260px;">Descrição</th>
+            <th style="min-width: 140px;">Tipo</th>
+            <th style="min-width: 140px;">Vencimento</th>
+            <th class="text-end" style="min-width: 120px;">Valor</th>
+            <th style="min-width: 240px;">Observação</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in payables %}
+            <tr class="{% if p.pago %}table-success{% endif %}">
+              <td>
+                {% if p.pago %}
+                  <span class="badge">Pago</span>
+                {% else %}
+                  <span class="badge">Pendente</span>
+                {% endif %}
+              </td>
+
+              <td class="fw-semibold" style="white-space:normal;">
+                {{ p.descricao }}
+              </td>
+
+              <td>
+                <span class="badge badge-soft mono">{{ p.tipo }}</span>
+              </td>
+
+              <td class="mono">
+                {{ p.vencimento | date_br }}
+              </td>
+
+              <td class="text-end fw-semibold mono">
+                {{ (p.valor or 0) | money_br }}
+              </td>
+
+              <td style="white-space:normal;">
+                <span class="text-muted">{{ p.obs or "" }}</span>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="6" class="text-center text-muted py-4">Nenhuma despesa neste mês.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="small-note mt-3">
+    <span class="fw-semibold">Resumo:</span>
+    Total {{ total_mes | money_br }},
+    Pendentes {{ ns.total_pendente | money_br }},
+    Pagos {{ total_pago_kpi | money_br }},
+    Saldo final {{ saldo_final_calc | money_br }}.
+  </div>
+
+</div>
+
+{% endblock %}

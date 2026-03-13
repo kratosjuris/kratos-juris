@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  /* =========================================================
+     ✅ FINANCEIRO / LOGIN — MODO DIA (escopado)
+     - não altera modo noite
+     - corrige "Voltar" herdando dourado/sombra do base
+     ========================================================= */
+
+  body.kj-day .fin-login{
+    color: #0b1b33 !important;
+  }
+
+  body.kj-day .fin-login h3{
+    color: #0b1b33 !important;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
+
+  body.kj-day .fin-login .card{
+    background: #fff !important;
+    border: 1px solid rgba(37,99,235,.16) !important;
+    border-radius: 18px !important;
+    box-shadow: 0 16px 38px rgba(2,6,23,.06) !important;
+  }
+
+  body.kj-day .fin-login .form-label{
+    color: #0b1b33 !important;
+    font-weight: 750;
+  }
+
+  body.kj-day .fin-login .form-control{
+    background: #fff !important;
+    color: #0b1b33 !important;
+    border: 1px solid rgba(37,99,235,.22) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 10px 22px rgba(2,6,23,.04) !important;
+  }
+  body.kj-day .fin-login .form-control:focus{
+    border-color: rgba(37,99,235,.55) !important;
+    box-shadow: 0 0 0 .2rem rgba(37,99,235,.18) !important;
+  }
+
+  /* ✅ Botão Entrar (substitui btn-dark no modo dia) */
+  body.kj-day .fin-login .btn.btn-dark{
+    border-radius: 12px !important;
+    border: 1px solid rgba(37,99,235,.28) !important;
+    background: linear-gradient(180deg, rgba(37,99,235,.96), rgba(29,78,216,.96)) !important;
+    color: rgba(255,255,255,.98) !important;
+    font-weight: 900 !important;
+    box-shadow: 0 14px 28px rgba(2,6,23,.10), 0 1px 0 rgba(255,255,255,.18) inset !important;
+    transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+  }
+  body.kj-day .fin-login .btn.btn-dark:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 18px 36px rgba(2,6,23,.12), 0 1px 0 rgba(255,255,255,.22) inset !important;
+    filter: brightness(.98) saturate(1.05);
+  }
+
+  /* =========================================================
+     ✅ CORREÇÃO DO "VOLTAR" (outline-secondary) NO MODO DIA
+     - neutraliza qualquer dourado/sombra herdada do base
+     ========================================================= */
+  body.kj-day .fin-login .btn.btn-outline-secondary{
+    border-radius: 12px !important;
+    background: #ffffff !important;
+    color: #0b1b33 !important;
+    border: 1px solid rgba(15,23,42,.22) !important;
+    box-shadow: none !important;
+    font-weight: 800 !important;
+  }
+  body.kj-day .fin-login .btn.btn-outline-secondary:hover{
+    background: rgba(15,23,42,.06) !important;
+    border-color: rgba(15,23,42,.32) !important;
+  }
+  body.kj-day .fin-login .btn.btn-outline-secondary:focus{
+    box-shadow: 0 0 0 .2rem rgba(15,23,42,.10) !important;
+  }
+  body.kj-day .fin-login .btn.btn-outline-secondary:active{
+    background: rgba(15,23,42,.10) !important;
+  }
+
+</style>
+
+<div class="fin-login">
+  <h3 class="mb-3">Acesso ao Financeiro</h3>
+
+  {% if erro %}
+    <div class="alert alert-danger">{{ erro }}</div>
+  {% endif %}
+
+  <form method="post" action="/financeiro/login" class="card p-3" style="max-width: 520px;">
+    <input type="hidden" name="next" value="{{ next }}">
+
+    <div class="mb-3">
+      <label class="form-label">Senha</label>
+      <input type="password" name="senha" class="form-control" required>
+    </div>
+
+    <button class="btn btn-dark" type="submit">Entrar</button>
+    <a class="btn btn-outline-secondary mt-2" href="/dashboard">Voltar</a>
+  </form>
+</div>
+
+{% endblock %}

@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  /* =========================================================
+     ✅ ANIVERSÁRIOS — MODO DIA (somente aqui)
+     - força texto preto/legível
+     - zebra com azul bem suave
+     - não altera modo noite
+     ========================================================= */
+
+  /* Base de texto */
+  body.kj-day .aniversarios-page{
+    color: #0b1b33 !important;
+  }
+
+  body.kj-day .aniversarios-page h3{
+    color: #0b1b33 !important;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
+
+  body.kj-day .aniversarios-page .text-muted{
+    color: rgba(11,27,51,.65) !important;
+  }
+
+  /* Card */
+  body.kj-day .aniversarios-page .card{
+    border: 1px solid rgba(37,99,235,.18) !important;
+    border-radius: 18px !important;
+    overflow: hidden;
+    box-shadow: 0 16px 38px rgba(2,6,23,.06) !important;
+    background: #fff !important;
+  }
+
+  /* Tabela */
+  body.kj-day .aniversarios-page .table{
+    color: #0b1b33 !important;
+    background: #fff !important;
+    margin-bottom: 0 !important;
+  }
+
+  body.kj-day .aniversarios-page .table thead th{
+    background: rgba(37,99,235,.07) !important;
+    color: #0b1b33 !important;
+    border-bottom: 1px solid rgba(37,99,235,.18) !important;
+  }
+
+  body.kj-day .aniversarios-page .table td,
+  body.kj-day .aniversarios-page .table th{
+    border-color: rgba(37,99,235,.10) !important;
+    color: #0b1b33 !important;
+    vertical-align: middle !important;
+  }
+
+  /* Zebra: azul bem fraco (mais suave) */
+  body.kj-day .aniversarios-page .table-striped>tbody>tr:nth-of-type(odd) > *{
+    background-color: rgba(37,99,235,.018) !important;
+  }
+
+  /* Hover leve */
+  body.kj-day .aniversarios-page .table-hover>tbody>tr:hover > *{
+    background-color: rgba(37,99,235,.035) !important;
+  }
+
+  /* Botões */
+  body.kj-day .aniversarios-page .btn{
+    border-radius: 12px !important;
+    font-weight: 900 !important;
+  }
+
+  /* WhatsApp (verde coerente e legível) */
+  body.kj-day .aniversarios-page .btn.btn-success{
+    background: linear-gradient(180deg, rgba(34,197,94,.98), rgba(22,163,74,.98)) !important;
+    border: 1px solid rgba(34,197,94,.35) !important;
+    color: rgba(255,255,255,.98) !important;
+    box-shadow: 0 14px 28px rgba(2,6,23,.10), 0 1px 0 rgba(255,255,255,.18) inset !important;
+  }
+
+  /* Editar (azul padrão do seu modo dia) */
+  body.kj-day .aniversarios-page .btn.btn-outline-primary{
+    border: 1px solid rgba(37,99,235,.35) !important;
+    color: rgba(37,99,235,.98) !important;
+    background: #fff !important;
+  }
+  body.kj-day .aniversarios-page .btn.btn-outline-primary:hover{
+    background: rgba(37,99,235,.06) !important;
+  }
+
+  /* Coluna ações alinhada */
+  body.kj-day .aniversarios-page .td-acoes{
+    min-width: 260px;
+    white-space: nowrap;
+  }
+</style>
+
+<div class="aniversarios-page">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="m-0">Aniversariantes do mês</h3>
+    <div class="text-muted">Mês: {{ hoje.strftime("%m/%Y") }}</div>
+  </div>
+
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover mb-0 align-middle">
+        <thead>
+          <tr>
+            <th>Dia</th>
+            <th>Nome</th>
+            <th>Telefone</th>
+            <th>Aniversário</th>
+            <th style="width: 260px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in itens %}
+            {% set c = item.c %}
+            <tr>
+              <td>{{ c.nascimento.strftime("%d") }}</td>
+              <td>{{ c.nome }}</td>
+              <td>{{ c.telefone or "" }}</td>
+              <td>{{ c.nascimento.strftime("%d/%m/%Y") }}</td>
+
+              <td class="td-acoes d-flex gap-2">
+                {% if item.wa %}
+                  <a class="btn btn-sm btn-success" target="_blank" href="{{ item.wa }}">
+                    Enviar WhatsApp
+                  </a>
+                {% else %}
+                  <span class="text-muted small">Sem telefone</span>
+                {% endif %}
+
+                <a class="btn btn-sm btn-outline-primary" href="/clientes/{{ c.id }}/editar">
+                  Editar
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+
+          {% if itens|length == 0 %}
+            <tr>
+              <td colspan="5" class="text-center py-4">
+                Nenhum aniversariante neste mês.
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  /* =========================================================
+     ✅ PERÍCIAS/LIST — ARQUITETURA CORRETA
+     - Night: não altera nada
+     - Day: branco + texto preto + azul suave + legibilidade total
+     ========================================================= */
+
+  /* Wrapper para escopo */
+  .pericias-page{ }
+
+  /* ============== DAY (MODO DIA) ============== */
+  body.kj-day .pericias-page{
+    color: #0b1b33 !important;
+  }
+
+  body.kj-day .pericias-page h3,
+  body.kj-day .pericias-page h5{
+    color: #0b1b33 !important;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    text-shadow: none !important;
+  }
+
+  /* Cards no modo dia */
+  body.kj-day .pericias-page .card{
+    background: #ffffff !important;
+    color: #0b1b33 !important;
+    border: 1px solid rgba(37,99,235,.14) !important;
+    border-radius: 18px !important;
+    box-shadow: 0 16px 38px rgba(2,6,23,.06) !important;
+  }
+
+  /* Labels e textos */
+  body.kj-day .pericias-page .form-label{
+    color: #0b1b33 !important;
+    font-weight: 800 !important;
+  }
+  body.kj-day .pericias-page .text-muted,
+  body.kj-day .pericias-page .form-text{
+    color: rgba(11,27,51,.65) !important;
+  }
+
+  /* Inputs/Selects */
+  body.kj-day .pericias-page .form-control,
+  body.kj-day .pericias-page .form-select,
+  body.kj-day .pericias-page textarea,
+  body.kj-day .pericias-page input{
+    background: #fff !important;
+    color: #0b1b33 !important;
+    border: 1px solid rgba(37,99,235,.18) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 10px 22px rgba(2,6,23,.04) !important;
+  }
+  body.kj-day .pericias-page .form-control:focus,
+  body.kj-day .pericias-page .form-select:focus,
+  body.kj-day .pericias-page textarea:focus,
+  body.kj-day .pericias-page input:focus{
+    border-color: rgba(37,99,235,.55) !important;
+    box-shadow: 0 0 0 .2rem rgba(37,99,235,.16) !important;
+  }
+
+  /* Tabela */
+  body.kj-day .pericias-page .table{
+    color: #0b1b33 !important;
+    background: #fff !important;
+    margin-bottom: 0;
+  }
+  body.kj-day .pericias-page .table thead th{
+    background: rgba(37,99,235,.06) !important;   /* ✅ cabeçalho suave */
+    color: #0b1b33 !important;
+    border-bottom: 1px solid rgba(37,99,235,.14) !important;
+  }
+  body.kj-day .pericias-page .table td,
+  body.kj-day .pericias-page .table th{
+    border-color: rgba(37,99,235,.10) !important;
+    color: #0b1b33 !important;
+    vertical-align: middle;
+  }
+
+  /* Zebra azul MAIS SUAVE (bem discreta) */
+  body.kj-day .pericias-page .table-striped>tbody>tr:nth-of-type(odd) > *{
+    background-color: rgba(37,99,235,.015) !important; /* ✅ bem fraco */
+  }
+
+  /* Hover suave */
+  body.kj-day .pericias-page .table-hover>tbody>tr:hover > *{
+    background-color: rgba(37,99,235,.03) !important;
+  }
+
+  /* Linha concluída (table-success) — discreta e elegante */
+  body.kj-day .pericias-page tr.table-success > *{
+    background-color: rgba(34,197,94,.10) !important;
+    border-color: rgba(34,197,94,.18) !important;
+    color: #0b1b33 !important;
+  }
+
+  /* Botões (modo dia) */
+  body.kj-day .pericias-page .btn{
+    border-radius: 12px !important;
+    font-weight: 900 !important;
+  }
+
+  /* Primário padrão do modo dia */
+  body.kj-day .pericias-page .btn.btn-primary{
+    border: 1px solid rgba(37,99,235,.28) !important;
+    background: linear-gradient(180deg, rgba(37,99,235,.98), rgba(29,78,216,.98)) !important;
+    color: rgba(255,255,255,.98) !important;
+    box-shadow: 0 14px 28px rgba(2,6,23,.10), 0 1px 0 rgba(255,255,255,.18) inset !important;
+  }
+
+  /* Sucesso (status) — mantém verde legível sem gritar */
+  body.kj-day .pericias-page .btn.btn-success{
+    border: 1px solid rgba(34,197,94,.28) !important;
+    background: linear-gradient(180deg, rgba(34,197,94,.95), rgba(22,163,74,.95)) !important;
+    color: rgba(255,255,255,.98) !important;
+    box-shadow: 0 12px 24px rgba(2,6,23,.08), 0 1px 0 rgba(255,255,255,.18) inset !important;
+  }
+
+  /* Outline success (pendente) — claro e elegante */
+  body.kj-day .pericias-page .btn.btn-outline-success{
+    background: #fff !important;
+    color: rgba(22,163,74,.98) !important;
+    border: 1px solid rgba(34,197,94,.35) !important;
+  }
+  body.kj-day .pericias-page .btn.btn-outline-success:hover{
+    background: rgba(34,197,94,.08) !important;
+  }
+
+  /* Voltar/secondary */
+  body.kj-day .pericias-page .btn.btn-outline-secondary{
+    background: #fff !important;
+    color: #0b1b33 !important;
+    border: 1px solid rgba(37,99,235,.18) !important;
+  }
+
+  /* Danger */
+  body.kj-day .pericias-page .btn.btn-outline-danger{
+    background: #fff !important;
+    color: rgba(220,38,38,.98) !important;
+    border: 1px solid rgba(220,38,38,.35) !important;
+  }
+  body.kj-day .pericias-page .btn.btn-outline-danger:hover{
+    background: rgba(220,38,38,.08) !important;
+  }
+
+  /* Collapse row (edição) — fundo neutro no modo dia */
+  body.kj-day .pericias-page tr.collapse td{
+    background: #fff !important;
+  }
+    /* =========================================================
+   🔧 CORREÇÃO: botão "Editar" dourado no modo dia
+   Escopo apenas em Perícias
+   ========================================================= */
+
+body.kj-day .pericias-page .btn.btn-outline-primary{
+  background: #ffffff !important;
+  color: #2563eb !important;
+  border: 1px solid rgba(37,99,235,.35) !important;
+  box-shadow: none !important;
+}
+
+body.kj-day .pericias-page .btn.btn-outline-primary:hover{
+  background: rgba(37,99,235,.08) !important;
+  color: #1d4ed8 !important;
+  border-color: rgba(37,99,235,.55) !important;
+}
+
+body.kj-day .pericias-page .btn.btn-outline-primary::before,
+body.kj-day .pericias-page .btn.btn-outline-primary::after{
+  display: none !important;
+}
+</style>
+
+<div class="pericias-page">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="m-0">Perícias & Diligências</h3>
+    <a class="btn btn-outline-secondary" href="/dashboard">Voltar</a>
+  </div>
+
+  <div class="card p-3 mb-3">
+    <form method="get" action="/pericias" class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label">Filtro</label>
+        <select class="form-select" name="status">
+          <option value="PENDENTE" {% if status == "PENDENTE" %}selected{% endif %}>Pendentes</option>
+          <option value="CONCLUIDA" {% if status == "CONCLUIDA" %}selected{% endif %}>Concluídas</option>
+          <option value="TODAS" {% if status == "TODAS" %}selected{% endif %}>Todas</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <button class="btn btn-primary" type="submit">Aplicar</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card p-3 mb-3">
+    <h5 class="mb-3">Novo registro</h5>
+
+    <form method="post" action="/pericias/novo">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label">Número do Processo</label>
+          <input class="form-control" name="numero_processo" required>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Nome da parte</label>
+          <input class="form-control" name="nome_parte" required>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Local</label>
+          <input class="form-control" name="local">
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Data</label>
+          <input type="date" class="form-control" name="data_evento">
+        </div>
+
+        <div class="col-md-12">
+          <label class="form-label">Observação</label>
+          <input class="form-control" name="observacao" placeholder="Observação da perícia/diligência">
+        </div>
+
+        <div class="col-md-3">
+          <button class="btn btn-success" type="submit">Salvar</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover mb-0 align-middle">
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Nº Processo</th>
+            <th>Parte</th>
+            <th>Observação</th>
+            <th>Local</th>
+            <th>Data</th>
+            <th style="width: 320px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in rows %}
+            <tr class="{% if p.concluido %}table-success{% endif %}">
+              <td>
+                <form method="post" action="/pericias/{{ p.id }}/toggle">
+                  <button class="btn btn-sm {% if p.concluido %}btn-success{% else %}btn-outline-success{% endif %}" type="submit">
+                    {% if p.concluido %}Concluída{% else %}Pendente{% endif %}
+                  </button>
+                </form>
+              </td>
+
+              <td>{{ p.numero_processo }}</td>
+              <td>{{ p.nome_parte }}</td>
+              <td>{{ p.observacao or "" }}</td>
+              <td>{{ p.local or "" }}</td>
+              <td>{{ p.data_evento.strftime("%d/%m/%Y") if p.data_evento else "" }}</td>
+
+              <td class="d-flex flex-wrap gap-2">
+                <button class="btn btn-sm btn-outline-primary" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#edit{{ p.id }}">
+                  Editar
+                </button>
+
+                <form method="post" action="/pericias/{{ p.id }}/excluir"
+                      onsubmit="return confirm('Excluir este registro?');">
+                  <button class="btn btn-sm btn-outline-danger" type="submit">Excluir</button>
+                </form>
+              </td>
+            </tr>
+
+            <tr class="collapse" id="edit{{ p.id }}">
+              <td colspan="7">
+                <div class="p-3">
+                  <form method="post" action="/pericias/{{ p.id }}/editar" class="row g-2">
+                    <div class="col-md-3">
+                      <label class="form-label">Número do Processo</label>
+                      <input class="form-control" name="numero_processo" value="{{ p.numero_processo }}" required>
+                    </div>
+
+                    <div class="col-md-3">
+                      <label class="form-label">Nome da parte</label>
+                      <input class="form-control" name="nome_parte" value="{{ p.nome_parte }}" required>
+                    </div>
+
+                    <div class="col-md-3">
+                      <label class="form-label">Local</label>
+                      <input class="form-control" name="local" value="{{ p.local or '' }}">
+                    </div>
+
+                    <div class="col-md-3">
+                      <label class="form-label">Data</label>
+                      <input type="date" class="form-control" name="data_evento"
+                             value="{{ p.data_evento.strftime('%Y-%m-%d') if p.data_evento else '' }}">
+                    </div>
+
+                    <div class="col-md-10">
+                      <label class="form-label">Observação</label>
+                      <input class="form-control" name="observacao" value="{{ p.observacao or '' }}">
+                    </div>
+
+                    <div class="col-md-2 d-flex align-items-end">
+                      <button class="btn btn-primary w-100" type="submit">Salvar</button>
+                    </div>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+
+          {% if rows|length == 0 %}
+            <tr><td colspan="7" class="text-center py-4">Nenhum registro encontrado.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}
