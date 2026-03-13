@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Request, UploadFile, File, Form
 from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, func  # ✅ NOVO: func para contadores
+from sqlalchemy.exc import IntegrityError  # ✅ CORREÇÃO: proteção no commit
 
 from app.core.database import get_db
 from app.models.hearing import Hearing
@@ -428,6 +429,10 @@ async def import_files(
     filenames: List[str] = []
     has_flag = _has_is_performed()
 
+    # ✅ CORREÇÃO:
+    # evita duplicidade dentro do mesmo lote de importação
+    batch_seen_keys: set[tuple[str, datetime]] = set()
+
     for f in files:
         b = await f.read()
         name = (f.filename or "").lower().strip()
@@ -442,15 +447,33 @@ async def import_files(
         filenames.append(f.filename or "arquivo")
 
         for it in extracted:
+            process_number = _safe_strip(it.get("process_number"))
+            starts_at = it.get("starts_at")
+
+            if not process_number or not starts_at:
+                continue
+
+            key = (process_number, starts_at)
+
+            # ✅ CORREÇÃO 1:
+            # se já apareceu no mesmo lote/arquivo, ignora
+            if key in batch_seen_keys:
+                duplicated += 1
+                continue
+
+            batch_seen_keys.add(key)
+
             client = _find_client_by_name(db, it.get("client_name_guess") or "")
             if client:
                 it["client_id"] = client.id
 
+            it["process_number"] = process_number
+
             exists = (
                 db.query(Hearing)
                 .filter(
-                    Hearing.process_number == it["process_number"],
-                    Hearing.starts_at == it["starts_at"],
+                    Hearing.process_number == process_number,
+                    Hearing.starts_at == starts_at,
                 )
                 .first()
             )
@@ -464,7 +487,27 @@ async def import_files(
             db.add(Hearing(**it))
             inserted += 1
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # ✅ CORREÇÃO 2:
+        # segurança extra se ainda houver conflito por concorrência/race condition
+        db.rollback()
+        try:
+            request.session["audiencias_import_stats"] = {
+                "arquivos": files_ok,
+                "extraidas": extracted_total,
+                "inseridas": inserted,
+                "duplicadas": duplicated,
+                "filenames": filenames,
+            }
+            request.session["audiencias_import_msg"] = (
+                "Importação concluída com conflito de duplicidade. "
+                "O sistema ignorou registros repetidos já existentes."
+            )
+        except Exception:
+            pass
+        return RedirectResponse(url="/audiencias", status_code=303)
 
     stats = {
         "arquivos": files_ok,
