@@ -15,5 +15,13 @@ SessionLocal = sessionmaker(
 Base = declarative_base()
 
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 def create_tables():
     Base.metadata.create_all(bind=engine)
