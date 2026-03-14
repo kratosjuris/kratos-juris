@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, Request, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
@@ -42,7 +42,7 @@ def _log_action(db: Session, actor: User | None, action: str, module: str, descr
 def users_list(request: Request, db: Session = Depends(get_db)):
     try:
         require_permission(request, "usuarios.view")
-    except PermissionError:
+    except HTTPException:
         return _redirect_denied()
 
     users = db.query(User).order_by(User.nome.asc()).all()
@@ -61,7 +61,7 @@ def users_list(request: Request, db: Session = Depends(get_db)):
 def users_new_page(request: Request, db: Session = Depends(get_db)):
     try:
         require_permission(request, "usuarios.create")
-    except PermissionError:
+    except HTTPException:
         return _redirect_denied()
 
     return templates.TemplateResponse(
@@ -91,7 +91,7 @@ def users_new_submit(
 ):
     try:
         actor = require_permission(request, "usuarios.create")
-    except PermissionError:
+    except HTTPException:
         return _redirect_denied()
 
     nome = nome.strip()
@@ -160,7 +160,7 @@ def users_new_submit(
 def users_edit_page(user_id: int, request: Request, db: Session = Depends(get_db)):
     try:
         require_permission(request, "usuarios.edit")
-    except PermissionError:
+    except HTTPException:
         return _redirect_denied()
 
     user_obj = db.query(User).filter(User.id == user_id).first()
@@ -193,7 +193,7 @@ def users_edit_submit(
 ):
     try:
         actor = require_permission(request, "usuarios.edit")
-    except PermissionError:
+    except HTTPException:
         return _redirect_denied()
 
     user_obj = db.query(User).filter(User.id == user_id).first()
@@ -248,7 +248,7 @@ def users_edit_submit(
 def users_inactivate(user_id: int, request: Request, db: Session = Depends(get_db)):
     try:
         actor = require_permission(request, "usuarios.delete")
-    except PermissionError:
+    except HTTPException:
         return _redirect_denied()
 
     user_obj = db.query(User).filter(User.id == user_id).first()
@@ -271,7 +271,7 @@ def users_inactivate(user_id: int, request: Request, db: Session = Depends(get_d
 def users_reset_password_page(user_id: int, request: Request, db: Session = Depends(get_db)):
     try:
         require_permission(request, "usuarios.reset_password")
-    except PermissionError:
+    except HTTPException:
         return _redirect_denied()
 
     user_obj = db.query(User).filter(User.id == user_id).first()
@@ -300,7 +300,7 @@ def users_reset_password_submit(
 ):
     try:
         actor = require_permission(request, "usuarios.reset_password")
-    except PermissionError:
+    except HTTPException:
         return _redirect_denied()
 
     user_obj = db.query(User).filter(User.id == user_id).first()
@@ -333,7 +333,7 @@ def users_reset_password_submit(
 def users_permissions_page(user_id: int, request: Request, db: Session = Depends(get_db)):
     try:
         require_permission(request, "usuarios.permissions")
-    except PermissionError:
+    except HTTPException:
         return _redirect_denied()
 
     user_obj = (
@@ -376,7 +376,7 @@ async def users_permissions_submit(
 ):
     try:
         actor = require_permission(request, "usuarios.permissions")
-    except PermissionError:
+    except HTTPException:
         return _redirect_denied()
 
     user_obj = db.query(User).filter(User.id == user_id).first()

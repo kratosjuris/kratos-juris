@@ -2,51 +2,115 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Permissões</title>
   <link rel="stylesheet" href="/static/css/users.css">
+  <link rel="stylesheet" href="/static/css/users_permissions.css">
 </head>
 <body>
-  <div class="page-wrap">
-    <div class="panel">
-      <h1>Permissões de {{ user_obj.nome }}</h1>
-      <p><strong>Usuário:</strong> {{ user_obj.username }}</p>
+  <div class="perm-page">
+    <div class="perm-shell">
+
+      <div class="perm-hero">
+        <div class="perm-hero-left">
+          <div class="perm-kicker">Administração</div>
+          <h1>Permissões de {{ user_obj.nome }}</h1>
+          <p>
+            Gerencie os acessos deste usuário aos módulos do Kratos Juris.
+          </p>
+
+          <div class="perm-user-meta">
+            <span class="meta-chip">
+              <strong>Usuário:</strong> {{ user_obj.username }}
+            </span>
+
+            {% if user_obj.is_active %}
+              <span class="meta-chip success">Ativo</span>
+            {% else %}
+              <span class="meta-chip danger">Inativo</span>
+            {% endif %}
+
+            {% if user_obj.is_superuser %}
+              <span class="meta-chip gold">Superadministrador</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
 
       {% if user_obj.is_superuser %}
-        <div class="alert-info">
-          Este usuário é superadministrador e possui acesso total automático.
+        <div class="perm-alert info">
+          Este usuário é <strong>superadministrador</strong> e possui acesso total automático.
+          As permissões abaixo são exibidas apenas para consulta.
         </div>
       {% endif %}
 
       <form method="post" action="/usuarios/{{ user_obj.id }}/permissoes">
-        {% for module, perms in grouped_permissions.items() %}
-          <div class="perm-group">
-            <h3>{{ module|capitalize }}</h3>
-            <div class="perm-grid">
-              {% for perm in perms %}
-                <label class="perm-item">
-                  <input
-                    type="checkbox"
-                    name="permission_ids"
-                    value="{{ perm.id }}"
-                    {% if perm.id in selected_ids %}checked{% endif %}
-                    {% if user_obj.is_superuser %}disabled{% endif %}
-                  >
-                  <span>{{ perm.name }} <small>({{ perm.code }})</small></span>
-                </label>
-              {% endfor %}
+        {% if grouped_permissions %}
+          <div class="perm-toolbar">
+            <div>
+              <h2>Módulos e acessos</h2>
+              <p>Marque apenas o que este usuário realmente poderá acessar.</p>
+            </div>
+
+            <div class="perm-toolbar-actions">
+              <a class="btn-secondary" href="/usuarios">Voltar</a>
+              {% if not user_obj.is_superuser %}
+                <button type="submit" class="btn-primary">Salvar permissões</button>
+              {% endif %}
             </div>
           </div>
-        {% endfor %}
 
-        {% if not user_obj.is_superuser %}
-        <div class="form-actions">
-          <button type="submit" class="btn-primary">Salvar permissões</button>
-          <a class="btn-secondary" href="/usuarios">Voltar</a>
-        </div>
+          <div class="perm-modules">
+            {% for module, perms in grouped_permissions.items() %}
+              <section class="perm-card">
+                <div class="perm-card-head">
+                  <div>
+                    <div class="perm-module-label">Módulo</div>
+                    <h3>{{ module|replace("_", " ")|title }}</h3>
+                  </div>
+                  <span class="perm-badge">{{ perms|length }} permissões</span>
+                </div>
+
+                <div class="perm-list">
+                  {% for perm in perms %}
+                    <label class="perm-row">
+                      <div class="perm-row-check">
+                        <input
+                          type="checkbox"
+                          name="permission_ids"
+                          value="{{ perm.id }}"
+                          {% if perm.id in selected_ids %}checked{% endif %}
+                          {% if user_obj.is_superuser %}disabled{% endif %}
+                        >
+                      </div>
+
+                      <div class="perm-row-content">
+                        <div class="perm-row-title">{{ perm.name }}</div>
+                        <div class="perm-row-code">{{ perm.code }}</div>
+                      </div>
+                    </label>
+                  {% endfor %}
+                </div>
+              </section>
+            {% endfor %}
+          </div>
+
+          <div class="perm-bottom-actions">
+            <a class="btn-secondary" href="/usuarios">Voltar</a>
+            {% if not user_obj.is_superuser %}
+              <button type="submit" class="btn-primary">Salvar permissões</button>
+            {% endif %}
+          </div>
         {% else %}
-        <div class="form-actions">
-          <a class="btn-secondary" href="/usuarios">Voltar</a>
-        </div>
+          <div class="perm-empty">
+            <div class="perm-empty-icon">🔐</div>
+            <h3>Nenhuma permissão cadastrada</h3>
+            <p>
+              O sistema ainda não possui permissões salvas na tabela
+              <strong>permissions</strong>.
+            </p>
+            <a class="btn-secondary" href="/usuarios">Voltar</a>
+          </div>
         {% endif %}
       </form>
     </div>

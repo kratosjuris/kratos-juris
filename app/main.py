@@ -15,6 +15,7 @@ from app.core.config import (
     SECURE_COOKIES,
 )
 from app.core.database import create_tables, SessionLocal
+from app.core.permission_seed import seed_permissions
 from app.core.session_manager import get_session_user_id
 from app.models.user import User
 from app.models.user_permission import UserPermission
@@ -110,10 +111,12 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
 
 app = FastAPI(title="Sistema do Escritório")
 
+
 # =========================================================
 # STATIC
 # =========================================================
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
 
 # =========================================================
 # MIDDLEWARES
@@ -139,11 +142,22 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     create_tables()
+
     print("=" * 70)
     print("APP STARTUP")
     print(f"SESSION_COOKIE_NAME = {SESSION_COOKIE_NAME}")
     print(f"SESSION_MAX_AGE     = {SESSION_MAX_AGE}")
     print(f"SECURE_COOKIES      = {SECURE_COOKIES}")
+
+    db = SessionLocal()
+    try:
+        created, existing = seed_permissions(db)
+        print(f"[PERMISSIONS] criadas={created} existentes={existing}")
+    except Exception as e:
+        print(f"[PERMISSIONS] erro ao aplicar seed: {e}")
+    finally:
+        db.close()
+
     print("=" * 70)
 
 

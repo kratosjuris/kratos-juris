@@ -6,16 +6,13 @@
   <title>{{ title if title else "Sistema do Escritório" }}</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- ✅ Bootstrap Icons -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <!-- ✅ TEMA GLOBAL KRATOS (depois do Bootstrap) -->
   <link rel="stylesheet" href="/static/css/kj_theme.css">
 
-  <!-- ✅ APLICA TEMA ANTES DE QUALQUER PINTURA (mata o "flash" noite->dia) -->
   <script>
   (function(){
     try{
-      const KEY = "kj_theme_mode"; // "night" | "day"
+      const KEY = "kj_theme_mode";
       const v = (localStorage.getItem(KEY) || "").toLowerCase().trim();
       const mode = (v === "day" || v === "night") ? v : "night";
       if (mode === "day") document.documentElement.classList.add("kj-day");
@@ -26,131 +23,180 @@
 
   <style>
     /* =========================================================
-       NAVBAR PREMIUM (Kratos) - NOITE (padrão)
+       TOPO APPLE / NOTION / LINEAR - NOITE
        ========================================================= */
     .navbar.navbar-dark.bg-dark{
-      background: linear-gradient(180deg, rgba(18,24,38,.92), rgba(10,14,24,.92)) !important;
-      border-bottom: 1px solid rgba(231,198,106,.14);
-      box-shadow: 0 10px 26px rgba(0,0,0,.45);
-      padding:.6rem 0;
+      background: rgba(9, 13, 22, .72) !important;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      box-shadow: 0 10px 30px rgba(0,0,0,.28);
+      backdrop-filter: blur(18px) saturate(140%);
+      -webkit-backdrop-filter: blur(18px) saturate(140%);
+      padding: .42rem 0;
+      min-height: 62px;
+    }
+
+    .navbar .container{
+      max-width: 100%;
+      padding-left: 1.1rem;
+      padding-right: 1.1rem;
+      display: flex;
+      align-items: center;
+      gap: .8rem;
     }
 
     .navbar-brand{
-      font-weight:900;
-      letter-spacing:-0.02em;
-      color:#fff !important;
+      font-weight: 800;
+      font-size: .92rem;
+      letter-spacing: -.02em;
+      color: rgba(255,255,255,.96) !important;
       display:flex;
       align-items:center;
       gap:.55rem;
+      margin-right: .15rem;
+      line-height: 1;
     }
 
     .navbar-brand::before{
       content:"";
-      width:9px;
-      height:9px;
+      width:8px;
+      height:8px;
       border-radius:999px;
       background: rgba(231,198,106,.95);
-      box-shadow: 0 0 0 4px rgba(231,198,106,.14);
+      box-shadow: 0 0 0 4px rgba(231,198,106,.12);
       display:inline-block;
+      flex: 0 0 auto;
     }
 
-    .navbar-nav{ gap:.20rem; }
+    .navbar-nav{
+      gap: .15rem;
+      align-items: center;
+    }
+
+    .kj-navbar-main{
+      display:flex;
+      align-items:center;
+      gap:.25rem;
+      margin-left: .35rem;
+    }
 
     .navbar-dark .navbar-nav .nav-link{
-      color: rgba(242,244,247,.72)!important;
-      font-weight:700;
-      padding:.45rem .78rem;
-      border-radius:999px;
-      transition:.15s;
+      color: rgba(242,244,247,.62)!important;
+      font-weight: 650;
+      font-size: .80rem;
+      letter-spacing: .01em;
+      padding: .38rem .72rem;
+      border-radius: 10px;
+      transition: background .15s ease, color .15s ease, transform .12s ease;
+      line-height: 1;
     }
 
     .navbar-dark .navbar-nav .nav-link:hover{
-      background: rgba(231,198,106,.10);
-      color: rgba(242,244,247,.96)!important;
+      background: rgba(255,255,255,.055);
+      color: rgba(242,244,247,.94)!important;
+      transform: translateY(-1px);
     }
 
     .navbar-dark .navbar-nav .nav-link.active,
     .navbar-dark .navbar-nav .nav-link[aria-current="page"]{
-      color: rgba(242,244,247,.98) !important;
-      background: rgba(231,198,106,.16);
-      box-shadow: 0 0 0 1px rgba(231,198,106,.14) inset;
+      color: rgba(255,255,255,.96) !important;
+      background: rgba(255,255,255,.08);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
     }
 
-    .navbar .ms-auto .nav-link.text-danger{
-      background: rgba(239,68,68,.15);
-      border: 1px solid rgba(239,68,68,.35);
-      border-radius:999px;
-      font-weight:800;
-      padding:.45rem .85rem;
-      color: rgba(242,244,247,.96) !important;
-      transition:.15s;
-      display:inline-flex;
-      align-items:center;
-      gap:.45rem;
-      text-decoration:none !important;
+    .img-soft-shadow{
+      filter: drop-shadow(0 6px 18px rgba(0,0,0,.25));
     }
 
-    .navbar .ms-auto .nav-link.text-danger:hover{
-      background: rgba(239,68,68,.22);
-      transform: translateY(-1px);
-    }
-
-    .img-soft-shadow{ filter: drop-shadow(0 6px 18px rgba(0,0,0,.25)); }
-
-    /* ✅ PÍLULA DO USUÁRIO LOGADO */
+    /* =========================================================
+       BLOCO USUÁRIO - ESTILO LINEAR
+       ========================================================= */
     .kj-user-pill{
       display:inline-flex;
       align-items:center;
-      gap:.50rem;
-      padding:.45rem .85rem;
-      border-radius:999px;
-      background: rgba(255,255,255,.06);
-      border: 1px solid rgba(255,255,255,.10);
-      color: rgba(242,244,247,.96);
-      font-weight:800;
-      box-shadow: 0 10px 22px rgba(0,0,0,.20);
+      gap:.55rem;
+      padding:.38rem .68rem;
+      border-radius: 12px;
+      background: rgba(255,255,255,.045);
+      border: 1px solid rgba(255,255,255,.06);
+      color: rgba(242,244,247,.94);
+      font-weight:700;
+      box-shadow: none;
       line-height:1;
       white-space:nowrap;
+      min-height: 38px;
     }
+
     .kj-user-pill .bi{
-      font-size:1rem;
-      color: rgba(231,198,106,.95) !important;
+      font-size:.95rem;
+      color: rgba(231,198,106,.92) !important;
+      flex: 0 0 auto;
     }
+
+    .kj-user-pill > div > div{
+      font-size: .78rem;
+      font-weight: 700;
+      color: rgba(242,244,247,.94);
+      line-height: 1.05;
+    }
+
     .kj-user-pill small{
       display:block;
-      color: rgba(242,244,247,.62) !important;
-      font-size:.72rem;
-      font-weight:700;
-      margin-top:.12rem;
+      color: rgba(242,244,247,.50) !important;
+      font-size:.66rem;
+      font-weight:600;
+      margin-top:.14rem;
+      letter-spacing: .01em;
     }
 
     /* =========================================================
-       ✅ BOTÃO TOGGLE (Dia/Noite) - neutro
+       BOTÕES DE AÇÃO DO TOPO
        ========================================================= */
-    .kj-theme-toggle{
-      border-radius: 999px !important;
-      padding: .42rem .75rem !important;
-      border: 1px solid rgba(231,198,106,.22) !important;
-      background: rgba(231,198,106,.10) !important;
-      color: rgba(242,244,247,.92) !important;
-      font-weight: 850 !important;
-      box-shadow: 0 10px 22px rgba(0,0,0,.35);
+    .kj-theme-toggle,
+    .kj-top-action{
+      border-radius: 11px !important;
+      padding: .38rem .62rem !important;
+      border: 1px solid rgba(255,255,255,.07) !important;
+      background: rgba(255,255,255,.045) !important;
+      color: rgba(242,244,247,.90) !important;
+      font-weight: 700 !important;
+      font-size: .78rem !important;
+      box-shadow: none !important;
       display:inline-flex;
       align-items:center;
-      gap:.45rem;
-      transition: transform .12s ease, filter .12s ease, box-shadow .12s ease, background .12s ease;
+      gap:.42rem;
+      transition: background .15s ease, transform .12s ease, border-color .15s ease;
       user-select:none;
       cursor:pointer;
+      min-height: 38px;
+      text-decoration:none !important;
+      line-height:1;
     }
-    .kj-theme-toggle:hover{
+
+    .kj-theme-toggle:hover,
+    .kj-top-action:hover{
       transform: translateY(-1px);
-      filter: brightness(1.05);
-      box-shadow: 0 14px 30px rgba(0,0,0,.45);
+      background: rgba(255,255,255,.07) !important;
+      border-color: rgba(255,255,255,.10) !important;
+      color: rgba(255,255,255,.96) !important;
     }
-    .kj-theme-toggle .bi{ font-size: 1rem; }
+
+    .kj-theme-toggle .bi,
+    .kj-top-action .bi{
+      font-size: .92rem;
+    }
+
+    .kj-top-action.kj-logout{
+      color: rgba(255,255,255,.86) !important;
+    }
+
+    .kj-top-action.kj-logout:hover{
+      background: rgba(239,68,68,.12) !important;
+      border-color: rgba(239,68,68,.18) !important;
+      color: rgba(255,255,255,.96) !important;
+    }
 
     /* =========================================================
-       ✅ MODAL DARK GLOBAL (padrão) — SOMENTE NOITE
+       MODAL DARK GLOBAL
        ========================================================= */
     body:not(.kj-day).kj-theme .modal .modal-content{
       border-radius: 18px !important;
@@ -206,7 +252,7 @@
     body:not(.kj-day).kj-theme .modal .btn{ border-radius: 12px !important; }
 
     /* =========================================================
-       ✅ "LIGHT BLOCKS" DENTRO DO DARK — SOMENTE NOITE
+       LIGHT BLOCKS NO DARK
        ========================================================= */
     body:not(.kj-day).kj-theme .alert.alert-warning,
     body:not(.kj-day).kj-theme .alert.alert-info,
@@ -291,7 +337,7 @@
     }
 
     /* =========================================================
-       ✅ BOTÃO "GOLD" (NOITE) — SOMENTE NOITE
+       BOTÕES GOLD NOITE
        ========================================================= */
     body:not(.kj-day).kj-theme .kj-btn-gold{
       border-radius: 12px !important;
@@ -320,7 +366,6 @@
         0 0 0 .2rem rgba(231,198,106,.18) !important;
     }
 
-    /* ✅ Padronização global (NOITE): botões “coloridos” -> GOLD */
     body:not(.kj-day).kj-theme .btn.btn-primary,
     body:not(.kj-day).kj-theme .btn.btn-outline-primary,
     body:not(.kj-day).kj-theme .btn.btn-secondary,
@@ -364,7 +409,7 @@
     body:not(.kj-day).kj-theme .btn.btn-outline-secondary:focus,
     body:not(.kj-day).kj-theme .btn.btn-success:focus,
     body:not(.kj-day).kj-theme .btn.btn-outline-success:focus,
-    body:not(.kj-day).kj-theme .btn.btn-warning:focus,
+    body:not(.kj-day).kj-theme .btn.btn.warning:focus,
     body:not(.kj-day).kj-theme .btn.btn-outline-warning:focus,
     body:not(.kj-day).kj-theme .btn.btn-info:focus,
     body:not(.kj-day).kj-theme .btn.btn-outline-info:focus{
@@ -373,7 +418,6 @@
         0 0 0 .2rem rgba(231,198,106,.18) !important;
     }
 
-    /* ✅ Relatórios: danger -> gold (NOITE) */
     body:not(.kj-day).page-relatorios .btn.btn-outline-danger,
     body:not(.kj-day).page-relatorios .btn.btn-danger{
       border-radius: 12px !important;
@@ -403,7 +447,7 @@
     }
 
     /* =========================================================
-       ✅ NOVO MODO DIA (FUNDO BRANCO + 100% AZUL)
+       MODO DIA
        ========================================================= */
     body.kj-day{
       --kj-day-bg: #ffffff;
@@ -477,73 +521,64 @@
     }
 
     body.kj-day .navbar.navbar-dark.bg-dark{
-      background: rgba(255,255,255,.96) !important;
-      border-bottom: 1px solid var(--kj-day-border) !important;
-      box-shadow: 0 10px 26px rgba(2,6,23,.08) !important;
-      backdrop-filter: blur(10px);
+      background: rgba(255,255,255,.78) !important;
+      border-bottom: 1px solid rgba(37,99,235,.12) !important;
+      box-shadow: 0 8px 24px rgba(2,6,23,.05) !important;
+      backdrop-filter: blur(18px) saturate(140%);
+      -webkit-backdrop-filter: blur(18px) saturate(140%);
     }
+
     body.kj-day .navbar-brand{
       color: var(--kj-day-ink) !important;
     }
     body.kj-day .navbar-brand::before{
       background: var(--kj-blue-1) !important;
-      box-shadow: 0 0 0 4px rgba(37,99,235,.12) !important;
+      box-shadow: 0 0 0 4px rgba(37,99,235,.10) !important;
     }
+
     body.kj-day .navbar-dark .navbar-nav .nav-link{
-      color: rgba(11,27,51,.86) !important;
-      font-weight: 900 !important;
+      color: rgba(11,27,51,.74) !important;
+      font-weight: 700 !important;
     }
     body.kj-day .navbar-dark .navbar-nav .nav-link:hover{
-      background: rgba(37,99,235,.08) !important;
+      background: rgba(37,99,235,.06) !important;
       color: rgba(11,27,51,.96) !important;
     }
     body.kj-day .navbar-dark .navbar-nav .nav-link.active,
     body.kj-day .navbar-dark .navbar-nav .nav-link[aria-current="page"]{
       color: rgba(11,27,51,.98) !important;
-      background: rgba(37,99,235,.12) !important;
-      box-shadow: 0 0 0 1px rgba(37,99,235,.18) inset !important;
-    }
-
-    body.kj-day .kj-theme-toggle{
-      border: 1px solid rgba(37,99,235,.22) !important;
-      background: rgba(37,99,235,.08) !important;
-      color: rgba(11,27,51,.92) !important;
-      box-shadow: var(--kj-day-shadow-sm) !important;
-    }
-    body.kj-day .kj-theme-toggle:hover{
-      transform: translateY(-1px);
-      box-shadow: 0 16px 34px rgba(2,6,23,.10) !important;
       background: rgba(37,99,235,.10) !important;
-      filter: none !important;
-    }
-    body.kj-day .kj-theme-toggle .bi{ color: var(--kj-blue-1) !important; }
-
-    body.kj-day .navbar .ms-auto .nav-link.text-danger{
-      background: rgba(37,99,235,.08) !important;
-      border: 1px solid rgba(37,99,235,.22) !important;
-      color: rgba(11,27,51,.92) !important;
-      box-shadow: var(--kj-day-shadow-sm) !important;
-    }
-    body.kj-day .navbar .ms-auto .nav-link.text-danger:hover{
-      background: rgba(37,99,235,.10) !important;
-      transform: translateY(-1px);
-    }
-    body.kj-day .navbar .ms-auto .nav-link.text-danger .bi{
-      color: var(--kj-blue-1) !important;
+      box-shadow: inset 0 0 0 1px rgba(37,99,235,.14) !important;
     }
 
-    /* ✅ pílula do usuário no modo dia */
     body.kj-day .kj-user-pill{
-      background: rgba(37,99,235,.08) !important;
-      border: 1px solid rgba(37,99,235,.18) !important;
+      background: rgba(37,99,235,.06) !important;
+      border: 1px solid rgba(37,99,235,.12) !important;
       color: rgba(11,27,51,.92) !important;
-      box-shadow: var(--kj-day-shadow-sm) !important;
+      box-shadow: none !important;
     }
     body.kj-day .kj-user-pill .bi{
       color: var(--kj-blue-1) !important;
     }
     body.kj-day .kj-user-pill small{
-      color: rgba(11,27,51,.62) !important;
+      color: rgba(11,27,51,.55) !important;
+    }
+
+    body.kj-day .kj-theme-toggle,
+    body.kj-day .kj-top-action{
+      border: 1px solid rgba(37,99,235,.14) !important;
+      background: rgba(37,99,235,.06) !important;
+      color: rgba(11,27,51,.90) !important;
+      box-shadow: none !important;
+    }
+    body.kj-day .kj-theme-toggle:hover,
+    body.kj-day .kj-top-action:hover{
+      background: rgba(37,99,235,.09) !important;
+      color: rgba(11,27,51,.96) !important;
+    }
+    body.kj-day .kj-theme-toggle .bi,
+    body.kj-day .kj-top-action .bi{
+      color: var(--kj-blue-1) !important;
     }
 
     body.kj-day .kj-theme .card,
@@ -771,7 +806,6 @@
   {% if _path.startswith('/financeiro') %} page-financeiro{% endif %}
 ">
 
-<!-- ✅ FIX: sincroniza BODY com o HTML ANTES do conteúdo renderizar -->
 <script>
 (function(){
   try{
@@ -796,28 +830,14 @@
 
 {% set nav_active = {
   "dashboard": (_path == "/" or _path.startswith("/dashboard") or _path.startswith("/escritorio")),
-  "clientes":  (_path.startswith("/clientes")),
-  "processos": (_path.startswith("/processos") or _path.startswith("/prazos")),
-  "pericias":  (_path.startswith("/pericias")),
-  "migracoes": (_path.startswith("/migracoes")),
-  "financeiro":(_path.startswith("/financeiro")),
-  "relatorios":(_path.startswith("/relatorios")),
   "usuarios":  (_path.startswith("/usuarios"))
 } %}
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
   <div class="container">
-    <a class="navbar-brand" href="/dashboard">Escritório</a>
+    <a class="navbar-brand" href="/dashboard">Kratos Juris</a>
 
-    <div class="navbar-nav">
-      <a class="nav-link {% if nav_active.dashboard %}active{% endif %}" href="/dashboard">Dashboard</a>
-      <a class="nav-link {% if nav_active.clientes %}active{% endif %}" href="/clientes">Clientes</a>
-      <a class="nav-link {% if nav_active.processos %}active{% endif %}" href="/processos?status=PROCEDENTE">Processos</a>
-      <a class="nav-link {% if nav_active.pericias %}active{% endif %}" href="/pericias">Perícias &amp; Diligências</a>
-      <a class="nav-link {% if nav_active.migracoes %}active{% endif %}" href="/migracoes">Migrações</a>
-      <a class="nav-link {% if nav_active.financeiro %}active{% endif %}" href="/financeiro">Financeiro</a>
-      <a class="nav-link {% if nav_active.relatorios %}active{% endif %}" href="/relatorios">Relatórios</a>
-
+    <div class="navbar-nav kj-navbar-main">
       {% if current_user and (current_user.is_superuser or 'usuarios.view' in user_permission_codes) %}
         <a class="nav-link {% if nav_active.usuarios %}active{% endif %}" href="/usuarios">Usuários</a>
       {% endif %}
@@ -842,12 +862,12 @@
 
       <button type="button" class="kj-theme-toggle" data-kj-theme-toggle aria-label="Alternar tema">
         <i class="bi bi-moon-stars-fill" data-kj-theme-icon></i>
-        <span class="d-none d-md-inline" data-kj-theme-label>Modo Noite</span>
+        <span class="d-none d-lg-inline" data-kj-theme-label>Modo Noite</span>
       </button>
 
-      <a class="nav-link text-danger" href="/logout">
+      <a class="kj-top-action kj-logout" href="/logout">
         <i class="bi bi-box-arrow-right"></i>
-        <span>Sair</span>
+        <span class="d-none d-lg-inline">Sair</span>
       </a>
     </div>
   </div>
@@ -859,10 +879,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-<!-- ✅ TEMA DIA/NOITE (GLOBAL) -->
 <script>
 (function(){
-  const KEY = "kj_theme_mode"; // "night" | "day"
+  const KEY = "kj_theme_mode";
   const body = document.body;
 
   function applyMode(mode){
@@ -902,7 +921,6 @@
 })();
 </script>
 
-<!-- FINANCEIRO (ESTÁVEL / SEM LOOP) -->
 <script>
 (function(){
   const path = window.location.pathname || "";
