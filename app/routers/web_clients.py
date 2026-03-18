@@ -1,5 +1,6 @@
 from datetime import date
 import re
+
 from fastapi import APIRouter, Request, Form, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -7,10 +8,18 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_db
+from app.core.permissions import require_permission
 from app.models.client import Client
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+
+
+# =========================
+# HELPERS
+# =========================
+def _redirect_denied():
+    return RedirectResponse(url="/acesso-negado", status_code=303)
 
 
 # =========================
@@ -60,8 +69,6 @@ def _cpf_exists(db: Session, cpf_norm: str, ignore_client_id: int | None = None)
     if ignore_client_id is not None:
         q = q.filter(Client.id != ignore_client_id)
 
-    # Como é um cadastro de clientes (volume normalmente baixo),
-    # essa checagem em Python é segura e robusta.
     for c in q.all():
         stored = _only_digits(getattr(c, "cpf_cnpj", None))
         if stored == cpf_norm:
@@ -84,8 +91,16 @@ def _pop_flash(request: Request, key: str) -> str | None:
         return None
 
 
+# =========================
+# LISTAR CLIENTES
+# =========================
 @router.get("/clientes", response_class=HTMLResponse)
 def clientes_list(request: Request, q: str = "", db: Session = Depends(get_db)):
+    try:
+        require_permission(request, "clientes.view")
+    except HTTPException:
+        return _redirect_denied()
+
     query = db.query(Client)
     if q.strip():
         query = query.filter(Client.nome.ilike(f"%{q.strip()}%"))
@@ -95,31 +110,50 @@ def clientes_list(request: Request, q: str = "", db: Session = Depends(get_db)):
 
     return templates.TemplateResponse(
         "clients/list.html",
-        {"request": request, "title": "Clientes", "clientes": clientes, "q": q, "msg": msg},
+        {
+            "request": request,
+            "title": "Clientes",
+            "clientes": clientes,
+            "q": q,
+            "msg": msg,
+        },
     )
 
 
+# =========================
+# FORM NOVO CLIENTE
+# =========================
 @router.get("/clientes/novo", response_class=HTMLResponse)
 def clientes_novo_form(request: Request):
+    try:
+        require_permission(request, "clientes.create")
+    except HTTPException:
+        return _redirect_denied()
+
     msg = _pop_flash(request, "clientes_msg")
     return templates.TemplateResponse(
         "clients/form.html",
-        {"request": request, "title": "Novo Cliente", "cliente": None, "msg": msg},
+        {
+            "request": request,
+            "title": "Novo Cliente",
+            "cliente": None,
+            "msg": msg,
+        },
     )
 
 
+# =========================
+# CRIAR CLIENTE
+# =========================
 @router.post("/clientes/novo")
 def clientes_novo(
     request: Request,
     nome: str = Form(...),
     cpf_cnpj: str = Form(""),
-
-    # ✅ novos
     rg: str = Form(""),
     ssp_uf: str = Form(""),
     estado_civil: str = Form(""),
     profissao: str = Form(""),
-
     telefone: str = Form(""),
     email: str = Form(""),
     endereco: str = Form(""),
@@ -127,12 +161,16 @@ def clientes_novo(
     obs: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    try:
+        require_permission(request, "clientes.create")
+    except HTTPException:
+        return _redirect_denied()
+
     nasc = None
     if nascimento.strip():
         y, m, d = nascimento.split("-")
         nasc = date(int(y), int(m), int(d))
 
-    # ✅ CPF: normaliza e bloqueia duplicidade
     cpf_norm = _norm_cpf_if_valid(cpf_cnpj)
     cpf_store = _store_doc_normalized(cpf_cnpj)
 
@@ -143,12 +181,10 @@ def clientes_novo(
     cliente = Client(
         nome=nome.strip(),
         cpf_cnpj=cpf_store,
-
         rg=rg.strip() or None,
         ssp_uf=ssp_uf.strip() or None,
         estado_civil=estado_civil.strip() or None,
         profissao=profissao.strip() or None,
-
         telefone=telefone.strip() or None,
         email=email.strip() or None,
         endereco=endereco.strip() or None,
@@ -167,8 +203,16 @@ def clientes_novo(
     return RedirectResponse(url="/clientes", status_code=303)
 
 
+# =========================
+# FORM EDITAR CLIENTE
+# =========================
 @router.get("/clientes/{client_id}/editar", response_class=HTMLResponse)
 def clientes_editar_form(request: Request, client_id: int, db: Session = Depends(get_db)):
+    try:
+        require_permission(request, "clientes.edit")
+    except HTTPException:
+        return _redirect_denied()
+
     cliente = db.query(Client).filter(Client.id == client_id).first()
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
@@ -177,23 +221,28 @@ def clientes_editar_form(request: Request, client_id: int, db: Session = Depends
 
     return templates.TemplateResponse(
         "clients/form.html",
-        {"request": request, "title": "Editar Cliente", "cliente": cliente, "msg": msg},
+        {
+            "request": request,
+            "title": "Editar Cliente",
+            "cliente": cliente,
+            "msg": msg,
+        },
     )
 
 
+# =========================
+# SALVAR EDIÇÃO CLIENTE
+# =========================
 @router.post("/clientes/{client_id}/editar")
 def clientes_editar(
     request: Request,
     client_id: int,
     nome: str = Form(...),
     cpf_cnpj: str = Form(""),
-
-    # ✅ novos
     rg: str = Form(""),
     ssp_uf: str = Form(""),
     estado_civil: str = Form(""),
     profissao: str = Form(""),
-
     telefone: str = Form(""),
     email: str = Form(""),
     endereco: str = Form(""),
@@ -201,6 +250,11 @@ def clientes_editar(
     obs: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    try:
+        require_permission(request, "clientes.edit")
+    except HTTPException:
+        return _redirect_denied()
+
     cliente = db.query(Client).filter(Client.id == client_id).first()
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
@@ -214,7 +268,11 @@ def clientes_editar(
     cpf_store = _store_doc_normalized(cpf_cnpj)
 
     if cpf_norm and _cpf_exists(db, cpf_norm, ignore_client_id=client_id):
-        _set_flash(request, "clientes_msg", "Não foi possível salvar: este CPF já está cadastrado em outro cliente.")
+        _set_flash(
+            request,
+            "clientes_msg",
+            "Não foi possível salvar: este CPF já está cadastrado em outro cliente.",
+        )
         return RedirectResponse(url=f"/clientes/{client_id}/editar", status_code=303)
 
     cliente.nome = nome.strip()
@@ -235,14 +293,26 @@ def clientes_editar(
         db.commit()
     except IntegrityError:
         db.rollback()
-        _set_flash(request, "clientes_msg", "Não foi possível salvar: este CPF já está cadastrado em outro cliente.")
+        _set_flash(
+            request,
+            "clientes_msg",
+            "Não foi possível salvar: este CPF já está cadastrado em outro cliente.",
+        )
         return RedirectResponse(url=f"/clientes/{client_id}/editar", status_code=303)
 
     return RedirectResponse(url="/clientes", status_code=303)
 
 
+# =========================
+# EXCLUIR CLIENTE
+# =========================
 @router.post("/clientes/{client_id}/excluir")
-def clientes_excluir(client_id: int, db: Session = Depends(get_db)):
+def clientes_excluir(request: Request, client_id: int, db: Session = Depends(get_db)):
+    try:
+        require_permission(request, "clientes.delete")
+    except HTTPException:
+        return _redirect_denied()
+
     cliente = db.query(Client).filter(Client.id == client_id).first()
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")

@@ -120,9 +120,6 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # =========================================================
 # MIDDLEWARES
-# IMPORTANTE:
-# O SessionMiddleware DEVE ser adicionado por último,
-# para executar primeiro e disponibilizar request.session.
 # =========================================================
 app.add_middleware(AuthenticationMiddleware)
 
@@ -177,6 +174,14 @@ app.include_router(web_pericias.router)
 app.include_router(web_migrations.router)
 app.include_router(hearings.router)
 app.include_router(web_doc_router)
+
+
+# =========================================================
+# PING (KEEP ALIVE)
+# =========================================================
+@app.get("/ping", include_in_schema=False)
+def ping():
+    return {"status": "ok"}
 
 
 # =========================================================
