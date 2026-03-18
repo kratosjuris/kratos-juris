@@ -2,6 +2,7 @@ from datetime import datetime, date, timedelta
 from typing import List, Optional
 import os
 import urllib.parse
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Request, UploadFile, File, Form
 from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse
@@ -24,6 +25,34 @@ from fastapi.templating import Jinja2Templates
 
 templates = Jinja2Templates(directory="app/templates")
 router = APIRouter(prefix="/audiencias", tags=["Audiências"])
+
+
+def _app_tz() -> ZoneInfo:
+    """
+    Timezone padrão do sistema.
+    Pode sobrescrever por variável de ambiente:
+    APP_TIMEZONE=America/Sao_Paulo
+    """
+    tz_name = os.getenv("APP_TIMEZONE", "America/Sao_Paulo").strip() or "America/Sao_Paulo"
+    try:
+        return ZoneInfo(tz_name)
+    except Exception:
+        return ZoneInfo("America/Sao_Paulo")
+
+
+def _now_local_naive() -> datetime:
+    """
+    Retorna o 'agora' no fuso local do sistema, porém sem tzinfo,
+    para comparar com campos DATETIME naive do banco.
+    """
+    return datetime.now(_app_tz()).replace(tzinfo=None)
+
+
+def _today_local() -> date:
+    """
+    Data atual no fuso local do sistema.
+    """
+    return datetime.now(_app_tz()).date()
 
 
 def _norm_name(s: str) -> str:
@@ -260,7 +289,7 @@ def _fmt_hearing_line(h: Hearing) -> str:
     prom = (h.promovente or "").strip()
     prov = (h.promovido or "").strip()
     mod = (h.modalidade or "").strip()
-    ext = (getattr(h, "extension_code", None) or "").strip()  # ✅ AQUI
+    ext = (getattr(h, "extension_code", None) or "").strip()
 
     parts = [f"{hhmm} — {pn}"]
 
@@ -270,11 +299,9 @@ def _fmt_hearing_line(h: Hearing) -> str:
         else:
             parts.append(prom or prov)
 
-    # ✅ inclui modalidade
     if mod:
         parts.append(f"({mod})")
 
-    # ✅ inclui código de extensão
     if ext:
         parts.append(f"Código: {ext}")
 
@@ -304,7 +331,7 @@ def enviar_advogados(request: Request, db: Session = Depends(get_db)):
     - Sexta: segunda (engloba sábado e domingo)
     - Sáb/Dom: segunda
     """
-    today = date.today()
+    today = _today_local()
     target_date = _next_business_day(today)
 
     start = datetime.combine(target_date, datetime.min.time())
@@ -349,7 +376,7 @@ def enviar_advogados(request: Request, db: Session = Depends(get_db)):
 # =========================
 @router.get("", response_class=HTMLResponse)
 def index(request: Request, db: Session = Depends(get_db)):
-    now = datetime.now()
+    now = _now_local_naive()
     has_flag = _has_is_performed()
 
     # ✅ NOVO: stats do topo (igual Controle de Prazos)
@@ -408,7 +435,7 @@ def index(request: Request, db: Session = Depends(get_db)):
             "now": now,
             "has_is_performed": has_flag,
             "has_manual_phone": _has_manual_phone(),
-            "stats": stats,  # ✅ NOVO: envia pro template
+            "stats": stats,
         },
     )
 
@@ -455,8 +482,6 @@ async def import_files(
 
             key = (process_number, starts_at)
 
-            # ✅ CORREÇÃO 1:
-            # se já apareceu no mesmo lote/arquivo, ignora
             if key in batch_seen_keys:
                 duplicated += 1
                 continue
@@ -490,8 +515,6 @@ async def import_files(
     try:
         db.commit()
     except IntegrityError:
-        # ✅ CORREÇÃO 2:
-        # segurança extra se ainda houver conflito por concorrência/race condition
         db.rollback()
         try:
             request.session["audiencias_import_stats"] = {
@@ -893,7 +916,7 @@ def unmark_performed_batch(ids: str = Form(...), db: Session = Depends(get_db)):
 
 @router.get("/realizadas", response_class=HTMLResponse)
 def realizadas(request: Request, db: Session = Depends(get_db)):
-    now = datetime.now()
+    now = _now_local_naive()
     has_flag = _has_is_performed()
 
     if has_flag:
