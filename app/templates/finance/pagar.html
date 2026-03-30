@@ -33,6 +33,7 @@
     color: #0b1b33 !important;
     font-weight: 750;
   }
+
   body.kj-day .fin-pagar .form-text,
   body.kj-day .fin-pagar .text-muted{
     color: rgba(11,27,51,.65) !important;
@@ -46,6 +47,7 @@
     border-radius: 12px !important;
     box-shadow: 0 10px 22px rgba(2,6,23,.04) !important;
   }
+
   body.kj-day .fin-pagar .form-control:focus,
   body.kj-day .fin-pagar .form-select:focus{
     border-color: rgba(37,99,235,.45) !important;
@@ -82,6 +84,7 @@
     color: #fff !important;
     font-weight: 900 !important;
   }
+
   body.kj-day .fin-pagar .btn.btn-primary:hover{
     background: #0b5ed7 !important;
     border-color: #0b5ed7 !important;
@@ -94,6 +97,7 @@
     color: #fff !important;
     font-weight: 900 !important;
   }
+
   body.kj-day .fin-pagar .btn.btn-dark:hover{
     background: #0b5ed7 !important;
     border-color: #0b5ed7 !important;
@@ -106,6 +110,7 @@
     background: transparent !important;
     font-weight: 800 !important;
   }
+
   body.kj-day .fin-pagar .btn.btn-outline-secondary:hover{
     background: rgba(17,24,39,.06) !important;
   }
@@ -117,6 +122,7 @@
     background: transparent !important;
     font-weight: 800 !important;
   }
+
   body.kj-day .fin-pagar .btn.btn-outline-dark:hover{
     background: rgba(17,24,39,.06) !important;
   }
@@ -128,6 +134,7 @@
     background: transparent !important;
     font-weight: 800 !important;
   }
+
   body.kj-day .fin-pagar .btn.btn-outline-primary:hover{
     background: rgba(13,110,253,.10) !important;
   }
@@ -139,6 +146,7 @@
     color: #fff !important;
     font-weight: 900 !important;
   }
+
   body.kj-day .fin-pagar .btn.btn-success:hover{
     background: #157347 !important;
     border-color: #157347 !important;
@@ -151,6 +159,7 @@
     background: transparent !important;
     font-weight: 800 !important;
   }
+
   body.kj-day .fin-pagar .btn.btn-outline-success:hover{
     background: rgba(25,135,84,.10) !important;
   }
@@ -164,11 +173,13 @@
     color: #0b1b33 !important;
     background: #fff !important;
   }
+
   body.kj-day .fin-pagar .table thead th{
     background: rgba(37,99,235,.055) !important;
     color: #0b1b33 !important;
     border-bottom: 1px solid rgba(37,99,235,.14) !important;
   }
+
   body.kj-day .fin-pagar .table td,
   body.kj-day .fin-pagar .table th{
     border-color: rgba(37,99,235,.10) !important;
@@ -197,12 +208,15 @@
     box-shadow: 0 14px 36px rgba(2,6,23,.06) !important;
     color: #0b1b33 !important;
   }
+
   body.kj-day .fin-pagar .alert-info{
     background: rgba(37,99,235,.06) !important;
   }
+
   body.kj-day .fin-pagar .alert-secondary{
     background: rgba(15,23,42,.04) !important;
   }
+
   body.kj-day .fin-pagar .alert-warning{
     background: rgba(245,158,11,.14) !important;
     border-color: rgba(245,158,11,.20) !important;
@@ -215,21 +229,77 @@
     box-shadow: 0 20px 60px rgba(2,6,23,.14) !important;
     color: #0b1b33 !important;
   }
+
   body.kj-day .fin-pagar .modal-title{
     color: #0b1b33 !important;
     font-weight: 900 !important;
+  }
+
+  .fin-report-card{
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 18px;
+    padding: 16px;
+    margin-bottom: 1rem;
+  }
+
+  body.kj-day .fin-pagar .fin-report-card{
+    background: #fff !important;
+    border: 1px solid rgba(37,99,235,.14) !important;
+    box-shadow: 0 16px 38px rgba(2,6,23,.06) !important;
   }
 </style>
 
 <div class="fin-pagar">
 
-  <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h3 class="m-0">Contas a Pagar</h3>
     <div class="d-flex gap-2 flex-wrap">
       <a class="btn btn-outline-secondary" href="/financeiro">Voltar</a>
       <a class="btn btn-outline-secondary" href="/financeiro/contas">Gerenciar contas</a>
-      <a class="btn btn-outline-dark" target="_blank" href="/financeiro/pagar/relatorio?ym={{ ym }}">Relatório</a>
+      <a class="btn btn-outline-dark" target="_blank" href="/financeiro/pagar/relatorio?ym={{ ym }}">Relatório do mês</a>
+      <a class="btn btn-outline-primary" target="_blank" href="/financeiro/receber/relatorio-anual">Comparativo anual geral</a>
+      <a class="btn btn-outline-secondary" target="_blank" href="/financeiro/receber/relatorio-anual-conta-principal">Relatório anual por conta</a>
     </div>
+  </div>
+
+  <div class="card p-3 mb-3 fin-report-card">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+      <h5 class="mb-0">Acesso rápido ao relatório anual por conta</h5>
+    </div>
+    <div class="text-muted mb-3">
+      Esse relatório compara os recebidos da conta escolhida com as despesas do ano.
+    </div>
+
+    <form method="get" action="/financeiro/receber/relatorio-anual-conta-principal" target="_blank" class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label">Ano</label>
+        <input
+          type="number"
+          class="form-control"
+          name="ano"
+          value="{{ ym[:4] if ym else '' }}"
+          min="2000"
+          max="2100"
+        >
+      </div>
+
+      <div class="col-md-5">
+        <label class="form-label">Conta</label>
+        <select class="form-select" name="conta_id">
+          {% if contas_ativas %}
+            {% for c in contas_ativas %}
+              <option value="{{ c.id }}">{{ c.nome }}</option>
+            {% endfor %}
+          {% else %}
+            <option value="">Sem contas ativas</option>
+          {% endif %}
+        </select>
+      </div>
+
+      <div class="col-md-4">
+        <button class="btn btn-primary" type="submit">Abrir relatório anual por conta</button>
+      </div>
+    </form>
   </div>
 
   <form method="get" action="/financeiro/pagar" class="card p-3 mb-3">
@@ -255,6 +325,7 @@
         <input class="form-control" name="saldo_inicial" value="{{ saldo_inicial | number_br }}">
         <div class="form-text">Aceita: 5000,00 ou 5.000,00</div>
       </div>
+
       <div class="col-md-3">
         <button class="btn btn-dark" type="submit">Salvar saldo</button>
       </div>
@@ -440,6 +511,7 @@
                       <label class="form-label">Descrição</label>
                       <input class="form-control" name="descricao" value="{{ p.descricao }}">
                     </div>
+
                     <div class="col-md-2">
                       <label class="form-label">Tipo</label>
                       <select class="form-select" name="tipo">
@@ -447,19 +519,23 @@
                         <option value="VARIAVEL" {% if p.tipo=="VARIAVEL" %}selected{% endif %}>VARIÁVEL</option>
                       </select>
                     </div>
+
                     <div class="col-md-2">
                       <label class="form-label">Valor</label>
                       <input class="form-control" name="valor" value="{{ (p.valor or 0) | number_br }}">
                     </div>
+
                     <div class="col-md-2">
                       <label class="form-label">Vencimento</label>
                       <input type="date" class="form-control" name="vencimento"
                              value="{{ p.vencimento.strftime('%Y-%m-%d') if p.vencimento else '' }}">
                     </div>
+
                     <div class="col-md-10">
                       <label class="form-label">Observação</label>
                       <input class="form-control" name="obs" value="{{ p.obs or '' }}">
                     </div>
+
                     <div class="col-md-2 d-flex align-items-end">
                       <button class="btn btn-primary w-100" type="submit">Salvar</button>
                     </div>
@@ -483,11 +559,13 @@
         <strong>Total despesas:</strong> {{ total_despesas | money_br }}
       </div>
     </div>
+
     <div class="col-md-4">
       <div class="alert alert-success mb-0">
         <strong>Total pago:</strong> {{ total_pago | money_br }}
       </div>
     </div>
+
     <div class="col-md-4">
       <div class="alert alert-warning mb-0">
         <strong>Total pendente:</strong> {{ total_pendente | money_br }}
@@ -548,3 +626,4 @@
   })();
 </script>
 {% endblock %}
+

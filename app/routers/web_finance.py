@@ -18,7 +18,7 @@ from app.models.finance_models import (
     ExpenseTemplate,
     Payable,
     Receivable,
-    FinancialAccount,   # ✅ NOVO
+    FinancialAccount,
 )
 
 router = APIRouter()
@@ -212,7 +212,6 @@ def _conta_label(db: Session, code: str) -> str:
     if acc:
         return acc.nome
 
-    # fallback para registros legados
     legacy = dict(LEGACY_DEFAULT_ACCOUNTS)
     return legacy.get(code, code)
 
@@ -229,6 +228,50 @@ def _is_valid_account_code(db: Session, code: str) -> bool:
         return False
     active_codes = {a.code for a in _get_accounts(db, only_active=True)}
     return code in active_codes
+
+
+def _resolve_report_account(
+    db: Session,
+    conta_id: int | None = None,
+    conta_code: str | None = None,
+) -> FinancialAccount | None:
+    """
+    Resolve qual conta será usada no relatório.
+
+    Prioridade:
+    1) conta_id informado e existente
+    2) conta_code informado e válido
+    3) conta histórica CONTA_CSL, se existir
+    4) primeira conta ativa
+    5) primeira conta disponível (inclusive inativa)
+    """
+    _ensure_default_accounts(db)
+
+    if conta_id:
+        acc = db.query(FinancialAccount).filter(FinancialAccount.id == conta_id).first()
+        if acc:
+            return acc
+
+    conta_code = (conta_code or "").strip().upper()
+    if conta_code:
+        acc = db.query(FinancialAccount).filter(func.upper(FinancialAccount.code) == conta_code).first()
+        if acc:
+            return acc
+
+    acc = db.query(FinancialAccount).filter(func.upper(FinancialAccount.code) == "CONTA_CSL").first()
+    if acc:
+        return acc
+
+    acc = (
+        db.query(FinancialAccount)
+        .filter(FinancialAccount.ativo.is_(True))
+        .order_by(FinancialAccount.nome.asc())
+        .first()
+    )
+    if acc:
+        return acc
+
+    return db.query(FinancialAccount).order_by(FinancialAccount.nome.asc()).first()
 
 
 # =========================================================
@@ -435,7 +478,6 @@ def financeiro_conta_excluir(request: Request, cid: int, db: Session = Depends(g
     )
 
     if uso > 0:
-        # ✅ segurança: se já tem lançamentos, apenas inativa
         conta.ativo = False
         db.add(conta)
         db.commit()
@@ -804,7 +846,6 @@ def receber_list(
         or 0.0
     )
 
-    # ✅ usa contas ativas + contas já usadas no mês para não "sumir" com histórico
     por_conta_codes = {a.code for a in active_accounts} | used_codes
     por_conta = []
 
@@ -825,7 +866,7 @@ def receber_list(
             "ym_prev": ym_prev,
             "prev_total": float(prev_total),
             "por_conta": por_conta,
-            "contas_ativas": active_accounts,  # ✅ NOVO
+            "contas_ativas": active_accounts,
             "status": status or None,
             "q": q or None,
         },
@@ -926,7 +967,6 @@ def receber_editar(
 
     conta = (conta or "").upper().strip()
     if not _is_valid_account_code(db, conta):
-        # mantém a conta já existente do registro, mesmo que esteja inativa
         conta = r.conta or _default_account_code(db)
 
     r.numero_processo = (numero_processo or "").strip()
@@ -1150,11 +1190,19 @@ def receber_relatorio_anual(request: Request, ano: int | None = None, db: Sessio
 
 
 # ============================
-# ✅ RELATÓRIO ANUAL CSL x DESPESAS
-# Mantido por compatibilidade
+# ✅ RELATÓRIO ANUAL CONTA PRINCIPAL x DESPESAS
+# Permite o usuário escolher a conta do relatório
+# Mantém compatibilidade com a rota antiga
 # ============================
 @router.get("/financeiro/receber/relatorio-anual-csl", response_class=HTMLResponse)
-def receber_relatorio_anual_csl(request: Request, ano: int | None = None, db: Session = Depends(get_db)):
+@router.get("/financeiro/receber/relatorio-anual-conta-principal", response_class=HTMLResponse)
+def receber_relatorio_anual_conta_principal(
+    request: Request,
+    ano: int | None = None,
+    conta_id: int | None = None,
+    conta: str | None = None,
+    db: Session = Depends(get_db),
+):
     redir = _require_auth(request)
     if redir:
         return redir
@@ -1162,26 +1210,31 @@ def receber_relatorio_anual_csl(request: Request, ano: int | None = None, db: Se
     hoje = date.today()
     ano = int(ano or hoje.year)
 
-    recebido_csl_por_mes = {m: 0.0 for m in range(1, 13)}
+    contas = _get_accounts(db, only_active=True)
+    conta_escolhida = _resolve_report_account(db, conta_id=conta_id, conta_code=conta)
+
+    conta_code = conta_escolhida.code if conta_escolhida else _default_account_code(db)
+    conta_nome = conta_escolhida.nome if conta_escolhida else _conta_label(db, conta_code)
+    conta_escolhida_id = conta_escolhida.id if conta_escolhida else None
+
+    recebido_principal_por_mes = {m: 0.0 for m in range(1, 13)}
     despesas_por_mes = {m: 0.0 for m in range(1, 13)}
 
-    # tenta usar a conta histórica CONTA_CSL
-    conta_base = "CONTA_CSL"
-
-    recebidos_csl_db = (
+    recebidos_principal_db = (
         db.query(Receivable)
         .filter(Receivable.recebido.is_(True))
-        .filter(Receivable.conta == conta_base)
+        .filter(Receivable.conta == conta_code)
         .filter(Receivable.ym.like(f"{ano:04d}-%"))
         .all()
     )
-    for r in recebidos_csl_db:
+
+    for r in recebidos_principal_db:
         try:
             mes = int((r.ym or "0000-00")[5:7])
         except Exception:
             continue
         if 1 <= mes <= 12:
-            recebido_csl_por_mes[mes] += float(r.valor or 0.0)
+            recebido_principal_por_mes[mes] += float(r.valor or 0.0)
 
     dt_ini = date(ano, 2, 1)
     dt_fim = date(ano + 1, 2, 1)
@@ -1213,39 +1266,51 @@ def receber_relatorio_anual_csl(request: Request, ano: int | None = None, db: Se
 
     meses = []
     chart_labels = []
-    chart_recebido_csl = []
+    chart_recebido_principal = []
     chart_despesas = []
     chart_resultado = []
 
     for m in range(1, 13):
         ym = f"{ano:04d}-{m:02d}"
-        recebido_csl = float(recebido_csl_por_mes.get(m, 0.0))
+        recebido_principal = float(recebido_principal_por_mes.get(m, 0.0))
         despesas = float(despesas_por_mes.get(m, 0.0))
-        resultado = float(recebido_csl - despesas)
+        resultado = float(recebido_principal - despesas)
 
-        meses.append({"ym": ym, "mes": m, "recebido_csl": recebido_csl, "despesas": despesas, "resultado": resultado})
+        meses.append(
+            {
+                "ym": ym,
+                "mes": m,
+                "recebido_principal": recebido_principal,
+                "despesas": despesas,
+                "resultado": resultado,
+            }
+        )
 
         chart_labels.append(ym)
-        chart_recebido_csl.append(recebido_csl)
+        chart_recebido_principal.append(recebido_principal)
         chart_despesas.append(despesas)
         chart_resultado.append(resultado)
 
-    total_recebido_csl = sum(x["recebido_csl"] for x in meses)
+    total_recebido_principal = sum(x["recebido_principal"] for x in meses)
     total_despesas = sum(x["despesas"] for x in meses)
     total_resultado = sum(x["resultado"] for x in meses)
 
     return templates.TemplateResponse(
-        "finance/receber_anual_csl.html",
+        "finance/relatorio_anual_conta_principal.html",
         {
             "request": request,
-            "title": "Anual CSL x Despesas",
+            "title": f"Anual {conta_nome} x Despesas",
             "ano": ano,
+            "contas": contas,
+            "conta_principal_id": conta_escolhida_id,
+            "conta_principal_nome": conta_nome,
+            "conta_principal_code": conta_code,
             "meses": meses,
-            "total_recebido_csl": float(total_recebido_csl),
+            "total_recebido_principal": float(total_recebido_principal),
             "total_despesas": float(total_despesas),
             "total_resultado": float(total_resultado),
             "chart_labels": chart_labels,
-            "chart_recebido_csl": chart_recebido_csl,
+            "chart_recebido_principal": chart_recebido_principal,
             "chart_despesas": chart_despesas,
             "chart_resultado": chart_resultado,
         },
