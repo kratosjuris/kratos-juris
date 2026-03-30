@@ -16,7 +16,7 @@ from app.core.config import (
 )
 from app.core.database import create_tables, SessionLocal
 from app.core.permission_seed import seed_permissions
-from app.core.session_manager import get_session_user_id
+from app.core.session_manager import get_session_user_id, get_session_office_id
 from app.models.user import User
 from app.models.user_permission import UserPermission
 
@@ -33,6 +33,7 @@ from app.routers import (
 )
 from app.routers.web_doc import router as web_doc_router
 from app.routers import web_auth, web_users
+from app.routers import web_offices
 
 
 # =========================================================
@@ -51,6 +52,7 @@ def _is_public_path(path: str) -> bool:
 
 def _load_user_from_session(request: Request):
     request.state.current_user = None
+    request.state.current_office_id = None
 
     if "session" not in request.scope:
         print("[SESSION] request.scope sem 'session'")
@@ -59,7 +61,10 @@ def _load_user_from_session(request: Request):
     print(f"[SESSION] conteúdo bruto: {dict(request.session)}")
 
     user_id = get_session_user_id(request)
+    office_id = get_session_office_id(request)
+
     print(f"[SESSION] user_id lido da sessão: {user_id}")
+    print(f"[SESSION] office_id lido da sessão: {office_id}")
 
     if not user_id:
         return None
@@ -69,7 +74,8 @@ def _load_user_from_session(request: Request):
         user = (
             db.query(User)
             .options(
-                joinedload(User.permission_links).joinedload(UserPermission.permission)
+                joinedload(User.permission_links).joinedload(UserPermission.permission),
+                joinedload(User.office),
             )
             .filter(User.id == user_id)
             .first()
@@ -78,11 +84,17 @@ def _load_user_from_session(request: Request):
         if user:
             print(
                 f"[SESSION] usuário encontrado: id={user.id}, "
-                f"username={user.username}, is_active={user.is_active}"
+                f"username={user.username}, is_active={user.is_active}, "
+                f"office_id={getattr(user, 'office_id', None)}"
             )
 
         if user and user.is_active:
             request.state.current_user = user
+            request.state.current_office_id = getattr(user, "office_id", None)
+
+            if "session" in request.scope:
+                request.session["office_id"] = getattr(user, "office_id", None)
+
             return user
 
         return None
@@ -163,6 +175,7 @@ def on_startup():
 # =========================================================
 app.include_router(web_auth.router)
 app.include_router(web_users.router)
+app.include_router(web_offices.router)
 
 app.include_router(web_dashboard.router)
 app.include_router(web_clients.router)

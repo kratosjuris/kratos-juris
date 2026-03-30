@@ -830,7 +830,8 @@
 
 {% set nav_active = {
   "dashboard": (_path == "/" or _path.startswith("/dashboard") or _path.startswith("/escritorio")),
-  "usuarios":  (_path.startswith("/usuarios"))
+  "usuarios":  (_path.startswith("/usuarios")),
+  "offices":   (_path.startswith("/offices"))
 } %}
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -840,6 +841,10 @@
     <div class="navbar-nav kj-navbar-main">
       {% if current_user and (current_user.is_superuser or 'usuarios.view' in user_permission_codes) %}
         <a class="nav-link {% if nav_active.usuarios %}active{% endif %}" href="/usuarios">Usuários</a>
+      {% endif %}
+
+      {% if current_user and current_user.is_superuser %}
+        <a class="nav-link {% if nav_active.offices %}active{% endif %}" href="/offices">Escritórios</a>
       {% endif %}
     </div>
 

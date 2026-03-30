@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+
+  <h3 class="mb-4">➕ Novo Escritório</h3>
+
+  {% if error %}
+    <div class="alert alert-danger">
+      {{ error }}
+    </div>
+  {% endif %}
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+
+      <form method="post">
+
+        <!-- ========================= -->
+        <!-- DADOS DO ESCRITÓRIO -->
+        <!-- ========================= -->
+        <h5 class="mb-3">🏢 Dados do Escritório</h5>
+
+        <div class="mb-3">
+          <label class="form-label">Nome do Escritório</label>
+          <input
+            type="text"
+            name="office_nome"
+            class="form-control"
+            required
+            value="{{ form_data.office_nome if form_data else '' }}"
+          >
+        </div>
+
+        <hr class="my-4">
+
+        <!-- ========================= -->
+        <!-- ADMIN -->
+        <!-- ========================= -->
+        <h5 class="mb-3">👤 Administrador</h5>
+
+        <div class="mb-3">
+          <label class="form-label">Nome</label>
+          <input
+            type="text"
+            name="admin_nome"
+            class="form-control"
+            required
+            value="{{ form_data.admin_nome if form_data else '' }}"
+          >
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">E-mail</label>
+          <input
+            type="email"
+            name="admin_email"
+            class="form-control"
+            required
+            value="{{ form_data.admin_email if form_data else '' }}"
+          >
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Username</label>
+          <input
+            type="text"
+            name="admin_username"
+            class="form-control"
+            required
+            value="{{ form_data.admin_username if form_data else '' }}"
+          >
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Senha</label>
+          <input
+            type="password"
+            name="password"
+            class="form-control"
+            required
+          >
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Confirmar Senha</label>
+          <input
+            type="password"
+            name="confirm_password"
+            class="form-control"
+            required
+          >
+        </div>
+
+        <hr class="my-4">
+
+        <!-- BOTÕES -->
+        <div class="d-flex justify-content-between">
+          <a href="/offices" class="btn btn-secondary">
+            ← Voltar
+          </a>
+
+          <button type="submit" class="btn btn-success">
+            💾 Criar Escritório
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

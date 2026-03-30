@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -19,6 +19,15 @@ class User(Base):
     email = Column(String(150), nullable=False, unique=True, index=True)
 
     username = Column(String(80), nullable=False, unique=True, index=True)
+
+    # vínculo com escritório (multiempresa / multi-tenant)
+    # nullable=True nesta primeira etapa para não quebrar usuários já existentes
+    office_id = Column(
+        Integer,
+        ForeignKey("offices.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # senha armazenada com hash
     password_hash = Column(String(255), nullable=False)
@@ -40,6 +49,13 @@ class User(Base):
 
     last_login_at = Column(DateTime, nullable=True)
 
+    # relacionamento com escritório
+    office = relationship(
+        "Office",
+        back_populates="users",
+        lazy="joined",
+    )
+
     # relacionamento com permissões
     permission_links = relationship(
         "UserPermission",
@@ -56,4 +72,7 @@ class User(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<User id={self.id} username='{self.username}'>"
+        return (
+            f"<User id={self.id} username='{self.username}' "
+            f"office_id={self.office_id}>"
+        )

@@ -82,6 +82,7 @@ def login_submit(
         print(f"user.username: {raw_user.username}")
         print(f"user.email: {raw_user.email}")
         print(f"user.is_active: {raw_user.is_active}")
+        print(f"user.office_id: {getattr(raw_user, 'office_id', None)}")
 
         try:
             password_ok = verify_password(password, raw_user.password_hash)
@@ -110,12 +111,20 @@ def login_submit(
             status_code=400,
         )
 
-    login_user(request, user.id)
+    # mantém compatibilidade com sua lógica atual
+    login_user(request, user.id, user.office_id)
+
+    # multiempresa: grava também o office_id na sessão
+    # nesta fase, pode existir usuário antigo sem office_id
+    if "session" in request.scope:
+        request.session["office_id"] = getattr(user, "office_id", None)
+
     print(f"Sessão após login_user: {dict(request.session)}")
 
     register_login_success(db, user=user, ip_address=client_ip)
 
     print(f"Sessão criada para user_id={user.id}")
+    print(f"Sessão criada para office_id={getattr(user, 'office_id', None)}")
     print("=" * 70 + "\n")
 
     return RedirectResponse(url=next_url, status_code=303)
@@ -133,7 +142,9 @@ def logout(request: Request, db: Session = Depends(get_db)):
         f"Sessão antes do logout: "
         f"{dict(request.session) if 'session' in request.scope else 'sem session'}"
     )
+
     logout_user(request)
+
     print(
         f"Sessão após logout: "
         f"{dict(request.session) if 'session' in request.scope else 'sem session'}"

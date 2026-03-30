@@ -22,8 +22,15 @@ def _redirect_denied():
     return RedirectResponse(url="/acesso-negado", status_code=303)
 
 
+def _get_office_id(request: Request) -> int:
+    office_id = request.session.get("office_id")
+    if not office_id:
+        raise HTTPException(status_code=403, detail="Usuário sem escritório vinculado.")
+    return int(office_id)
+
+
 # =========================
-# ✅ CPF: normalização + checagem duplicidade
+# CPF HELPERS (mantido igual)
 # =========================
 _CPF_ONLY_DIGITS_RE = re.compile(r"\D+")
 
@@ -33,11 +40,6 @@ def _only_digits(s: str | None) -> str:
 
 
 def _norm_cpf_if_valid(cpf_cnpj: str | None) -> str | None:
-    """
-    Regra do escritório: evitar duplicidade por CPF.
-    - Normaliza para só dígitos
-    - Considera CPF para regra de duplicidade se tiver 11 dígitos
-    """
     d = _only_digits(cpf_cnpj)
     if len(d) == 11:
         return d
@@ -45,27 +47,19 @@ def _norm_cpf_if_valid(cpf_cnpj: str | None) -> str | None:
 
 
 def _store_doc_normalized(cpf_cnpj: str | None) -> str | None:
-    """
-    Guarda o documento de forma padronizada:
-    - se vier vazio -> None
-    - se vier com máscara -> guarda só dígitos
-    """
     d = _only_digits(cpf_cnpj)
     return d or None
 
 
-def _cpf_exists(db: Session, cpf_norm: str, ignore_client_id: int | None = None) -> bool:
-    """
-    ✅ CORREÇÃO DEFINITIVA:
-    Alguns CPFs antigos podem estar salvos com máscara no banco.
-    Aqui nós comparamos SEMPRE em forma normalizada (só dígitos),
-    do lado do Python, garantindo que:
-      "123.456.789-09" == "12345678909"
-    """
+def _cpf_exists(db: Session, cpf_norm: str, office_id: int, ignore_client_id: int | None = None) -> bool:
     if not cpf_norm:
         return False
 
-    q = db.query(Client).filter(Client.cpf_cnpj.isnot(None))
+    q = db.query(Client).filter(
+        Client.cpf_cnpj.isnot(None),
+        Client.office_id == office_id
+    )
+
     if ignore_client_id is not None:
         q = q.filter(Client.id != ignore_client_id)
 
@@ -101,9 +95,13 @@ def clientes_list(request: Request, q: str = "", db: Session = Depends(get_db)):
     except HTTPException:
         return _redirect_denied()
 
-    query = db.query(Client)
+    office_id = _get_office_id(request)
+
+    query = db.query(Client).filter(Client.office_id == office_id)
+
     if q.strip():
         query = query.filter(Client.nome.ilike(f"%{q.strip()}%"))
+
     clientes = query.order_by(Client.nome.asc()).all()
 
     msg = _pop_flash(request, "clientes_msg")
@@ -131,6 +129,7 @@ def clientes_novo_form(request: Request):
         return _redirect_denied()
 
     msg = _pop_flash(request, "clientes_msg")
+
     return templates.TemplateResponse(
         "clients/form.html",
         {
@@ -166,6 +165,8 @@ def clientes_novo(
     except HTTPException:
         return _redirect_denied()
 
+    office_id = _get_office_id(request)
+
     nasc = None
     if nascimento.strip():
         y, m, d = nascimento.split("-")
@@ -174,11 +175,12 @@ def clientes_novo(
     cpf_norm = _norm_cpf_if_valid(cpf_cnpj)
     cpf_store = _store_doc_normalized(cpf_cnpj)
 
-    if cpf_norm and _cpf_exists(db, cpf_norm):
+    if cpf_norm and _cpf_exists(db, cpf_norm, office_id):
         _set_flash(request, "clientes_msg", "Já existe um cliente cadastrado com este CPF.")
         return RedirectResponse(url="/clientes/novo", status_code=303)
 
     cliente = Client(
+        office_id=office_id,
         nome=nome.strip(),
         cpf_cnpj=cpf_store,
         rg=rg.strip() or None,
@@ -193,6 +195,7 @@ def clientes_novo(
     )
 
     db.add(cliente)
+
     try:
         db.commit()
     except IntegrityError:
@@ -213,7 +216,13 @@ def clientes_editar_form(request: Request, client_id: int, db: Session = Depends
     except HTTPException:
         return _redirect_denied()
 
-    cliente = db.query(Client).filter(Client.id == client_id).first()
+    office_id = _get_office_id(request)
+
+    cliente = db.query(Client).filter(
+        Client.id == client_id,
+        Client.office_id == office_id
+    ).first()
+
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
 
@@ -255,7 +264,13 @@ def clientes_editar(
     except HTTPException:
         return _redirect_denied()
 
-    cliente = db.query(Client).filter(Client.id == client_id).first()
+    office_id = _get_office_id(request)
+
+    cliente = db.query(Client).filter(
+        Client.id == client_id,
+        Client.office_id == office_id
+    ).first()
+
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
 
@@ -267,7 +282,7 @@ def clientes_editar(
     cpf_norm = _norm_cpf_if_valid(cpf_cnpj)
     cpf_store = _store_doc_normalized(cpf_cnpj)
 
-    if cpf_norm and _cpf_exists(db, cpf_norm, ignore_client_id=client_id):
+    if cpf_norm and _cpf_exists(db, cpf_norm, office_id, ignore_client_id=client_id):
         _set_flash(
             request,
             "clientes_msg",
@@ -277,12 +292,10 @@ def clientes_editar(
 
     cliente.nome = nome.strip()
     cliente.cpf_cnpj = cpf_store
-
     cliente.rg = rg.strip() or None
     cliente.ssp_uf = ssp_uf.strip() or None
     cliente.estado_civil = estado_civil.strip() or None
     cliente.profissao = profissao.strip() or None
-
     cliente.telefone = telefone.strip() or None
     cliente.email = email.strip() or None
     cliente.endereco = endereco.strip() or None
@@ -313,10 +326,17 @@ def clientes_excluir(request: Request, client_id: int, db: Session = Depends(get
     except HTTPException:
         return _redirect_denied()
 
-    cliente = db.query(Client).filter(Client.id == client_id).first()
+    office_id = _get_office_id(request)
+
+    cliente = db.query(Client).filter(
+        Client.id == client_id,
+        Client.office_id == office_id
+    ).first()
+
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
 
     db.delete(cliente)
     db.commit()
+
     return RedirectResponse(url="/clientes", status_code=303)

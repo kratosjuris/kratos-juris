@@ -1,5 +1,7 @@
 # app/models/client.py
-from sqlalchemy import Column, Integer, String, Date, DateTime, func
+from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey, func
+from sqlalchemy.orm import relationship
+
 from app.core.database import Base
 
 
@@ -7,6 +9,14 @@ class Client(Base):
     __tablename__ = "clients"
 
     id = Column(Integer, primary_key=True, index=True)
+
+    # vínculo com escritório (multiempresa)
+    office_id = Column(
+        Integer,
+        ForeignKey("offices.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # ===== DADOS PRINCIPAIS =====
     nome = Column(String, nullable=False, index=True)
@@ -28,3 +38,6 @@ class Client(Base):
     obs = Column(String, nullable=True)
 
     created_at = Column(DateTime, server_default=func.now())
+
+    # relacionamento com escritório
+    office = relationship("Office", lazy="joined")

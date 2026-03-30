@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="mb-0">🏢 Escritórios</h3>
+    <a href="/offices/novo" class="btn btn-primary">
+      <i class="bi bi-plus-lg"></i> Novo Escritório
+    </a>
+  </div>
+
+  {% if offices %}
+    <div class="card shadow-sm">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>ID</th>
+              <th>Nome</th>
+              <th>Criado em</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for office in offices %}
+            <tr>
+              <td>{{ office.id }}</td>
+              <td>{{ office.nome }}</td>
+              <td>
+                {% if office.created_at %}
+                  {{ office.created_at.strftime("%d/%m/%Y %H:%M") }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% else %}
+    <div class="alert alert-info">
+      Nenhum escritório cadastrado.
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

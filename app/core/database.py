@@ -85,6 +85,10 @@ def get_db():
 # =====================================================
 
 def create_tables():
+    # núcleo multiempresa
+    from app.models.office import Office
+
+    # autenticação e permissões
     from app.models.user import User
     from app.models.permission import Permission
     from app.models.user_permission import UserPermission
