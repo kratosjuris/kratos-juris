@@ -6,3 +6,8 @@ from app.models.user_permission import UserPermission
 from app.models.audit_log import AuditLog
 
 __all__ = ["User", "Permission", "UserPermission", "AuditLog"]
+from app.models.office import Office
+from app.models.office_permission import OfficePermission
+from app.models.permission import Permission
+from app.models.user import User
+from app.models.user_permission import UserPermission

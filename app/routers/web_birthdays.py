@@ -1,7 +1,7 @@
 from datetime import date
 import urllib.parse
 
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -12,6 +12,13 @@ from app.models.client import Client
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+
+
+def _get_office_id(request: Request) -> int:
+    office_id = request.session.get("office_id")
+    if not office_id:
+        raise HTTPException(status_code=403, detail="Usuário sem escritório vinculado.")
+    return int(office_id)
 
 
 def _normalize_phone_br(phone: str | None) -> str | None:
@@ -32,13 +39,18 @@ def _normalize_phone_br(phone: str | None) -> str | None:
 
 @router.get("/aniversarios", response_class=HTMLResponse)
 def aniversarios_mes(request: Request, db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+
     hoje = date.today()
     mes = hoje.month
 
     clientes = (
         db.query(Client)
-        .filter(Client.nascimento.is_not(None))
-        .filter(extract("month", Client.nascimento) == mes)
+        .filter(
+            Client.office_id == office_id,
+            Client.nascimento.is_not(None),
+            extract("month", Client.nascimento) == mes,
+        )
         .order_by(extract("day", Client.nascimento).asc(), Client.nome.asc())
         .all()
     )

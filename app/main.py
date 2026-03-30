@@ -18,6 +18,8 @@ from app.core.permission_seed import seed_permissions
 from app.core.session_manager import get_session_user_id, get_session_office_id
 from app.models.user import User
 from app.models.user_permission import UserPermission
+from app.models.office import Office
+from app.models.office_permission import OfficePermission
 
 from app.routers import (
     web_dashboard,
@@ -73,8 +75,13 @@ def _load_user_from_session(request: Request):
         user = (
             db.query(User)
             .options(
+                # permissões diretas do usuário
                 joinedload(User.permission_links).joinedload(UserPermission.permission),
-                joinedload(User.office),
+
+                # escritório + permissões do escritório + objeto Permission
+                joinedload(User.office)
+                .joinedload(Office.permission_links)
+                .joinedload(OfficePermission.permission),
             )
             .filter(User.id == user_id)
             .first()
@@ -87,18 +94,29 @@ def _load_user_from_session(request: Request):
                 f"office_id={getattr(user, 'office_id', None)}"
             )
 
+            office = getattr(user, "office", None)
+            if office:
+                office_perm_codes = []
+                for op in getattr(office, "permission_links", []) or []:
+                    perm = getattr(op, "permission", None)
+                    code = getattr(perm, "code", None)
+                    if code:
+                        office_perm_codes.append(code)
+
+                print(
+                    f"[SESSION] escritório carregado: id={office.id}, "
+                    f"nome={office.nome}, is_active={office.is_active}, "
+                    f"permissions={office_perm_codes}"
+                )
+
         if user and user.is_active:
             request.state.current_user = user
 
-            # PRIORIDADE: office_id salvo na sessão
             if session_office_id is not None:
                 request.state.current_office_id = session_office_id
             else:
-                # fallback de compatibilidade
                 request.state.current_office_id = getattr(user, "office_id", None)
 
-            # IMPORTANTE:
-            # não sobrescrever request.session["office_id"] aqui
             return user
 
         return None

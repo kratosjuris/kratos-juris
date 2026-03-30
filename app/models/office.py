@@ -13,11 +13,8 @@ class Office(Base):
     __tablename__ = "offices"
 
     id = Column(Integer, primary_key=True, index=True)
-
     nome = Column(String(150), nullable=False, index=True)
 
-    # controle administrativo do escritório
-    # True = ativo | False = suspenso/bloqueado
     is_active = Column(Boolean, nullable=False, default=True, index=True)
 
     suspended_at = Column(DateTime, nullable=True)
@@ -32,10 +29,16 @@ class Office(Base):
         onupdate=datetime.utcnow,
     )
 
-    # relacionamento com usuários do escritório
     users = relationship(
         "User",
         back_populates="office",
+        lazy="select",
+    )
+
+    permission_links = relationship(
+        "OfficePermission",
+        back_populates="office",
+        cascade="all, delete-orphan",
         lazy="select",
     )
 

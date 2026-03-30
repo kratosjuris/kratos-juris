@@ -17,6 +17,13 @@ router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
 
+def _get_office_id(request: Request) -> int:
+    office_id = request.session.get("office_id")
+    if not office_id:
+        raise HTTPException(status_code=403, detail="Usuário sem escritório vinculado.")
+    return int(office_id)
+
+
 # ==========================================================
 # ✅ FILTRO JINJA: br_date (DD/MM/AAAA)
 # ==========================================================
@@ -172,12 +179,12 @@ def _set_process_number(item: ProcessItem, numero: str) -> bool:
     raw, digits = _norm_numproc(numero)
     for f in _process_number_fields():
         if hasattr(item, f):
-            setattr(item, f, raw)  # mantém formatado
+            setattr(item, f, raw)
             return True
     return False
 
 
-def _find_existing_process_item(db: Session, numero: str) -> Optional[ProcessItem]:
+def _find_existing_process_item(db: Session, office_id: int, numero: str) -> Optional[ProcessItem]:
     raw, digits = _norm_numproc(numero)
     if not raw and not digits:
         return None
@@ -187,12 +194,26 @@ def _find_existing_process_item(db: Session, numero: str) -> Optional[ProcessIte
             col = getattr(ProcessItem, f)
 
             if raw:
-                obj = db.query(ProcessItem).filter(col == raw).first()
+                obj = (
+                    db.query(ProcessItem)
+                    .filter(
+                        ProcessItem.office_id == office_id,
+                        col == raw,
+                    )
+                    .first()
+                )
                 if obj:
                     return obj
 
             if digits:
-                obj = db.query(ProcessItem).filter(col == digits).first()
+                obj = (
+                    db.query(ProcessItem)
+                    .filter(
+                        ProcessItem.office_id == office_id,
+                        col == digits,
+                    )
+                    .first()
+                )
                 if obj:
                     return obj
 
@@ -450,11 +471,21 @@ def parse_planilha_bytes(file_bytes: bytes, filename: str) -> Tuple[List[dict], 
 # =========================
 @router.get("/migracoes", response_class=HTMLResponse)
 def migracoes_view(request: Request, db: Session = Depends(get_db)):
-    last_batch = db.query(MigrationBatch).order_by(MigrationBatch.id.desc()).first()
+    office_id = _get_office_id(request)
+
+    last_batch = (
+        db.query(MigrationBatch)
+        .filter(MigrationBatch.office_id == office_id)
+        .order_by(MigrationBatch.id.desc())
+        .first()
+    )
 
     pendentes = (
         db.query(MigrationRow)
-        .filter(MigrationRow.enviado_em.is_(None))
+        .filter(
+            MigrationRow.office_id == office_id,
+            MigrationRow.enviado_em.is_(None),
+        )
         .order_by(MigrationRow.data_disponibilizacao.asc().nullslast(), MigrationRow.id.asc())
         .all()
     )
@@ -483,13 +514,18 @@ def migracoes_view(request: Request, db: Session = Depends(get_db)):
 # =========================
 @router.post("/migracoes/upload")
 async def migracoes_upload(
+    request: Request,
     files: List[UploadFile] = File(...),
     dup_hoje: str = Form("nao"),
     db: Session = Depends(get_db),
 ):
+    office_id = _get_office_id(request)
     permitir_dup_hoje = (dup_hoje or "").strip().lower() == "sim"
 
-    batch = MigrationBatch(criado_em=datetime.utcnow())
+    batch = MigrationBatch(
+        office_id=office_id,
+        criado_em=datetime.utcnow(),
+    )
     db.add(batch)
     db.commit()
     db.refresh(batch)
@@ -504,7 +540,10 @@ async def migracoes_upload(
         x[0] for x in
         db.query(MigrationRow.numero_processo)
         .join(MigrationBatch, MigrationBatch.id == MigrationRow.batch_id)
-        .filter(func.date(MigrationBatch.criado_em) == hoje)
+        .filter(
+            MigrationBatch.office_id == office_id,
+            func.date(MigrationBatch.criado_em) == hoje,
+        )
         .all()
         if x and x[0]
     )
@@ -551,6 +590,7 @@ async def migracoes_upload(
                 duplicated_today_inserted += 1
 
             row = MigrationRow(
+                office_id=office_id,
                 batch_id=batch.id,
                 data_disponibilizacao=r.get("data_disponibilizacao"),
                 data_publicacao=r.get("data_publicacao"),
@@ -602,6 +642,7 @@ async def migracoes_upload(
 # ==========================================================
 def _migrar_row_para_process_item(
     db: Session,
+    office_id: int,
     row: MigrationRow,
     cliente: str,
     vara: str,
@@ -609,16 +650,13 @@ def _migrar_row_para_process_item(
     rompe_em: int,
     dest: str
 ):
-    aba_code = _normalize_status(dest)  # "PROCEDENTE" | "EXECUCAO" | "PRAZOS"
+    aba_code = _normalize_status(dest)
 
-    # NOT NULL
     parte_autora = _default_parte_autora(cliente)
     vara_value = _default_vara(vara)
 
-    # ✅ DJEN (data de início da contagem) — a tela de Processos usa data_intimacao
     djen = row.data_publicacao or row.data_disponibilizacao or date.today()
 
-    # ✅ prazo e vencimento — a tela usa prazo_dias e vencimento
     try:
         prazo_int = int(rompe_em or 0)
     except Exception:
@@ -626,23 +664,21 @@ def _migrar_row_para_process_item(
 
     venc = add_business_days(djen, prazo_int) if prazo_int > 0 else None
 
-    existing = _find_existing_process_item(db, row.numero_processo)
+    existing = _find_existing_process_item(db, office_id, row.numero_processo)
 
     if existing:
+        _safe_set(existing, "office_id", office_id)
         _safe_set(existing, "aba", aba_code)
         _safe_set(existing, "parte_autora", parte_autora)
         _safe_set(existing, "vara", vara_value)
 
-        # compat se existir
         _safe_set(existing, "vara_tramitacao", vara_value)
         _safe_set(existing, "cliente", (cliente or "").strip() or getattr(existing, "cliente", None))
 
-        # ✅ DJEN + Prazo + Vencimento
         _safe_set(existing, "data_intimacao", djen)
         _safe_set(existing, "prazo_dias", prazo_int if prazo_int > 0 else getattr(existing, "prazo_dias", None))
         _safe_set(existing, "vencimento", venc)
 
-        # ✅ Observação (campo correto é 'obs')
         if (obs or "").strip():
             old = (getattr(existing, "obs", None) or getattr(existing, "observacao", None) or "").strip()
             nova = (obs or "").strip()
@@ -650,7 +686,6 @@ def _migrar_row_para_process_item(
             merged = (old + ("\n" if old else "") + f"{tag} {nova}").strip()
             _set_obs_compat(existing, merged)
 
-        # ✅ REGRA: ao enviar para PRAZOS (Controle de Prazos), sempre voltar para PENDENTE
         if aba_code == "PRAZOS" and hasattr(existing, "cumprimento"):
             _safe_set(existing, "cumprimento", "PENDENTE")
 
@@ -660,6 +695,8 @@ def _migrar_row_para_process_item(
 
     else:
         item = ProcessItem()
+        _safe_set(item, "office_id", office_id)
+
         if not _set_process_number(item, row.numero_processo):
             raise HTTPException(status_code=500, detail="ProcessItem não possui campo para número do processo.")
 
@@ -667,19 +704,15 @@ def _migrar_row_para_process_item(
         _safe_set(item, "parte_autora", parte_autora)
         _safe_set(item, "vara", vara_value)
 
-        # compat se existir
         _safe_set(item, "vara_tramitacao", vara_value)
         _safe_set(item, "cliente", (cliente or "").strip() or None)
 
-        # ✅ DJEN + Prazo + Vencimento
         _safe_set(item, "data_intimacao", djen)
         _safe_set(item, "prazo_dias", prazo_int if prazo_int > 0 else None)
         _safe_set(item, "vencimento", venc)
 
-        # ✅ Observação
         _set_obs_compat(item, (obs or "").strip())
 
-        # default cumprimento
         if aba_code == "PRAZOS" and hasattr(item, "cumprimento"):
             _safe_set(item, "cumprimento", "PENDENTE")
 
@@ -691,8 +724,9 @@ def _migrar_row_para_process_item(
             db.flush()
         except IntegrityError as e:
             db.rollback()
-            existing2 = _find_existing_process_item(db, row.numero_processo)
+            existing2 = _find_existing_process_item(db, office_id, row.numero_processo)
             if existing2:
+                _safe_set(existing2, "office_id", office_id)
                 _safe_set(existing2, "aba", aba_code)
                 _safe_set(existing2, "parte_autora", parte_autora)
                 _safe_set(existing2, "vara", vara_value)
@@ -707,7 +741,6 @@ def _migrar_row_para_process_item(
                     merged = (old + ("\n" if old else "") + f"{tag} {nova}").strip()
                     _set_obs_compat(existing2, merged)
 
-                # ✅ REGRA: ao enviar para PRAZOS (Controle de Prazos), sempre voltar para PENDENTE
                 if aba_code == "PRAZOS" and hasattr(existing2, "cumprimento"):
                     _safe_set(existing2, "cumprimento", "PENDENTE")
 
@@ -718,7 +751,6 @@ def _migrar_row_para_process_item(
                 detail = str(e.orig) if getattr(e, "orig", None) else str(e)
                 raise HTTPException(status_code=409, detail=f"Falha ao salvar por constraint/duplicidade: {detail}")
 
-    # marca MigrationRow como enviado (apenas log/histórico)
     row.cliente = cliente
     row.vara_tramitacao = vara
     row.observacao = obs
@@ -734,6 +766,7 @@ def _migrar_row_para_process_item(
 # =========================
 @router.post("/migracoes/salvar/{row_id}")
 def migracoes_salvar_individual(
+    request: Request,
     row_id: int,
     cliente: str = Form(""),
     vara_tramitacao: str = Form(""),
@@ -742,7 +775,16 @@ def migracoes_salvar_individual(
     enviar_para: str = Form("PRAZOS"),
     db: Session = Depends(get_db),
 ):
-    row = db.query(MigrationRow).filter(MigrationRow.id == row_id).first()
+    office_id = _get_office_id(request)
+
+    row = (
+        db.query(MigrationRow)
+        .filter(
+            MigrationRow.id == row_id,
+            MigrationRow.office_id == office_id,
+        )
+        .first()
+    )
     if not row:
         return RedirectResponse(url="/migracoes?msg=Item não encontrado.", status_code=303)
 
@@ -750,7 +792,7 @@ def migracoes_salvar_individual(
         return RedirectResponse(url="/migracoes?msg=Este item já foi migrado.", status_code=303)
 
     try:
-        _migrar_row_para_process_item(db, row, cliente, vara_tramitacao, observacao, rompe_em, enviar_para)
+        _migrar_row_para_process_item(db, office_id, row, cliente, vara_tramitacao, observacao, rompe_em, enviar_para)
         db.commit()
     except HTTPException as e:
         db.rollback()
@@ -771,13 +813,18 @@ async def migracoes_salvar_lote(
     selected_ids: List[int] = Form([]),
     db: Session = Depends(get_db),
 ):
+    office_id = _get_office_id(request)
+
     if not selected_ids:
         return RedirectResponse(url="/migracoes?msg=Nenhum item selecionado.", status_code=303)
 
     rows = (
         db.query(MigrationRow)
-        .filter(MigrationRow.id.in_(selected_ids))
-        .filter(MigrationRow.enviado_em.is_(None))
+        .filter(
+            MigrationRow.office_id == office_id,
+            MigrationRow.id.in_(selected_ids),
+            MigrationRow.enviado_em.is_(None),
+        )
         .all()
     )
 
@@ -800,7 +847,7 @@ async def migracoes_salvar_lote(
             rompe_int = 0
 
         try:
-            _migrar_row_para_process_item(db, row, cliente, vara, obs, rompe_int, dest)
+            _migrar_row_para_process_item(db, office_id, row, cliente, vara, obs, rompe_int, dest)
             ok += 1
         except Exception:
             db.rollback()
@@ -819,8 +866,17 @@ async def migracoes_salvar_lote(
 # Excluir pendente individual
 # =========================
 @router.post("/migracoes/pendente/{row_id}/excluir")
-def migracoes_excluir_pendente(row_id: int, db: Session = Depends(get_db)):
-    row = db.query(MigrationRow).filter(MigrationRow.id == row_id).first()
+def migracoes_excluir_pendente(request: Request, row_id: int, db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+
+    row = (
+        db.query(MigrationRow)
+        .filter(
+            MigrationRow.id == row_id,
+            MigrationRow.office_id == office_id,
+        )
+        .first()
+    )
     if not row:
         return RedirectResponse(url="/migracoes?msg=Item não encontrado.", status_code=303)
 
@@ -836,7 +892,9 @@ def migracoes_excluir_pendente(row_id: int, db: Session = Depends(get_db)):
 # Excluir lote
 # =========================
 @router.post("/migracoes/pendente/excluir-lote")
-def migracoes_excluir_lote(ids: str = Form(""), db: Session = Depends(get_db)):
+def migracoes_excluir_lote(request: Request, ids: str = Form(""), db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+
     ids = (ids or "").strip()
     if not ids:
         return RedirectResponse(url="/migracoes?msg=Nenhum item selecionado para excluir.", status_code=303)
@@ -851,8 +909,11 @@ def migracoes_excluir_lote(ids: str = Form(""), db: Session = Depends(get_db)):
 
     rows = (
         db.query(MigrationRow)
-        .filter(MigrationRow.id.in_(id_list))
-        .filter(MigrationRow.enviado_em.is_(None))
+        .filter(
+            MigrationRow.office_id == office_id,
+            MigrationRow.id.in_(id_list),
+            MigrationRow.enviado_em.is_(None),
+        )
         .all()
     )
 

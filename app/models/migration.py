@@ -18,13 +18,25 @@ class MigrationBatch(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
+    # ✅ NOVO: vínculo com escritório
+    office_id = Column(
+        Integer,
+        ForeignKey("offices.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
     # Período: 22/01/2026 até 25/01/2026
     periodo_inicio = Column(Date, nullable=True)
     periodo_fim = Column(Date, nullable=True)
 
     criado_em = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    rows = relationship("MigrationRow", back_populates="batch")
+    rows = relationship(
+        "MigrationRow",
+        back_populates="batch",
+        cascade="all, delete-orphan",
+    )
 
 
 class MigrationRow(Base):
@@ -32,13 +44,26 @@ class MigrationRow(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    batch_id = Column(Integer, ForeignKey("migration_batches.id"), nullable=False)
+    # ✅ NOVO: vínculo com escritório
+    office_id = Column(
+        Integer,
+        ForeignKey("offices.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    batch_id = Column(
+        Integer,
+        ForeignKey("migration_batches.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
     batch = relationship("MigrationBatch", back_populates="rows")
 
     data_disponibilizacao = Column(Date, nullable=True, index=True)
     data_publicacao = Column(Date, nullable=True, index=True)
 
-    # ✅ NÃO pode ser UNIQUE globalmente, pois o mesmo processo pode aparecer em outros dias/lotes.
+    # ✅ NÃO pode ser UNIQUE globalmente
     numero_processo = Column(String, nullable=False, index=True)
 
     diario = Column(Text, nullable=True)
@@ -54,11 +79,13 @@ class MigrationRow(Base):
     enviado_em = Column(DateTime, nullable=True)
     enviado_para_status = Column(String, nullable=True)
 
-    # ✅ ÚNICO APENAS DENTRO DO MESMO LOTE (batch)
+    # ✅ CORREÇÃO CRÍTICA:
+    # agora é único por escritório + lote + processo
     __table_args__ = (
         UniqueConstraint(
+            "office_id",
             "batch_id",
             "numero_processo",
-            name="uq_migration_batch_numero_processo",
+            name="uq_migration_office_batch_numero_processo",
         ),
     )

@@ -12,6 +12,8 @@ from app.core.security import hash_password
 from app.models.audit_log import AuditLog
 from app.models.office import Office
 from app.models.user import User
+from app.models.permission import Permission
+from app.models.office_permission import OfficePermission
 
 router = APIRouter(prefix="/offices", tags=["Escritórios"])
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -24,7 +26,10 @@ def _redirect_denied():
 def require_superuser(request: Request) -> User:
     user = getattr(request.state, "current_user", None)
     if not user or not user.is_active or not user.is_superuser:
-        raise HTTPException(status_code=403, detail="Acesso restrito ao superadministrador.")
+        raise HTTPException(
+            status_code=403,
+            detail="Acesso restrito ao superadministrador.",
+        )
     return user
 
 
@@ -48,6 +53,20 @@ def _log_action(
     db.commit()
 
 
+def _build_form_data(
+    office_nome: str = "",
+    admin_nome: str = "",
+    admin_email: str = "",
+    admin_username: str = "",
+):
+    return {
+        "office_nome": office_nome,
+        "admin_nome": admin_nome,
+        "admin_email": admin_email,
+        "admin_username": admin_username,
+    }
+
+
 # =========================================================
 # LISTAGEM
 # =========================================================
@@ -68,6 +87,106 @@ def offices_list(request: Request, db: Session = Depends(get_db)):
             "current_user": current_user,
         },
     )
+
+
+# =========================================================
+# PERMISSÕES DO ESCRITÓRIO
+# =========================================================
+@router.get("/{office_id}/permissoes", response_class=HTMLResponse)
+def office_permissions_page(
+    office_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    try:
+        require_superuser(request)
+    except HTTPException:
+        return _redirect_denied()
+
+    office = db.query(Office).filter(Office.id == office_id).first()
+    if not office:
+        return RedirectResponse(url="/offices", status_code=303)
+
+    all_permissions = db.query(Permission).order_by(Permission.code.asc()).all()
+    office_permission_ids = {
+        op.permission_id for op in (office.permission_links or [])
+    }
+
+    return templates.TemplateResponse(
+        "offices/permissions.html",
+        {
+            "request": request,
+            "office": office,
+            "all_permissions": all_permissions,
+            "office_permission_ids": office_permission_ids,
+        },
+    )
+
+
+@router.post("/{office_id}/permissoes")
+def office_permissions_save(
+    office_id: int,
+    request: Request,
+    permissions: list[str] = Form(default=[]),
+    db: Session = Depends(get_db),
+):
+    actor = require_superuser(request)
+
+    office = db.query(Office).filter(Office.id == office_id).first()
+    if not office:
+        return RedirectResponse(url="/offices", status_code=303)
+
+    ip = request.client.host if request.client else None
+
+    try:
+        db.query(OfficePermission).filter(
+            OfficePermission.office_id == office_id
+        ).delete()
+
+        selected_codes = [p for p in (permissions or []) if (p or "").strip()]
+        if selected_codes:
+            perms = (
+                db.query(Permission)
+                .filter(Permission.code.in_(selected_codes))
+                .all()
+            )
+
+            for perm in perms:
+                db.add(
+                    OfficePermission(
+                        office_id=office.id,
+                        permission_id=perm.id,
+                    )
+                )
+
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        return templates.TemplateResponse(
+            "offices/permissions.html",
+            {
+                "request": request,
+                "office": office,
+                "all_permissions": db.query(Permission).order_by(Permission.code.asc()).all(),
+                "office_permission_ids": {
+                    op.permission_id for op in (office.permission_links or [])
+                },
+                "error": "Não foi possível salvar as permissões do escritório.",
+            },
+            status_code=500,
+        )
+
+    _log_action(
+        db=db,
+        actor=actor,
+        action="update_office_permissions",
+        module="offices",
+        description=f"Permissões atualizadas para o escritório: {office.nome} | office_id={office.id}",
+        ip=ip,
+    )
+
+    return RedirectResponse(url="/offices", status_code=303)
 
 
 # =========================================================
@@ -111,12 +230,12 @@ def offices_new_submit(
     admin_email = (admin_email or "").strip().lower()
     admin_username = (admin_username or "").strip().lower()
 
-    form_data = {
-        "office_nome": office_nome,
-        "admin_nome": admin_nome,
-        "admin_email": admin_email,
-        "admin_username": admin_username,
-    }
+    form_data = _build_form_data(
+        office_nome=office_nome,
+        admin_nome=admin_nome,
+        admin_email=admin_email,
+        admin_username=admin_username,
+    )
 
     if not office_nome:
         return templates.TemplateResponse(
@@ -257,7 +376,11 @@ def offices_new_submit(
 # EDITAR
 # =========================================================
 @router.get("/{office_id}/editar", response_class=HTMLResponse)
-def office_edit_page(office_id: int, request: Request, db: Session = Depends(get_db)):
+def office_edit_page(
+    office_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
     try:
         require_superuser(request)
     except HTTPException:
@@ -268,7 +391,6 @@ def office_edit_page(office_id: int, request: Request, db: Session = Depends(get
     if not office:
         return RedirectResponse(url="/offices", status_code=303)
 
-    # considera o primeiro usuário vinculado como administrador do escritório
     admin_user = (
         db.query(User)
         .filter(User.office_id == office.id)
@@ -560,7 +682,10 @@ def office_delete(office_id: int, request: Request, db: Session = Depends(get_db
     actor = require_superuser(request)
 
     if actor.office_id == office_id:
-        raise HTTPException(status_code=400, detail="Você não pode excluir seu próprio escritório.")
+        raise HTTPException(
+            status_code=400,
+            detail="Você não pode excluir seu próprio escritório.",
+        )
 
     office = db.query(Office).filter(Office.id == office_id).first()
 
@@ -571,6 +696,10 @@ def office_delete(office_id: int, request: Request, db: Session = Depends(get_db
     ip = request.client.host if request.client else None
 
     try:
+        db.query(OfficePermission).filter(
+            OfficePermission.office_id == office.id
+        ).delete()
+
         users = db.query(User).filter(User.office_id == office.id).all()
         for u in users:
             db.delete(u)

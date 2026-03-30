@@ -20,7 +20,7 @@
               <th>Nome</th>
               <th>Status</th>
               <th>Criado em</th>
-              <th style="width: 280px;">Ações</th>
+              <th style="width: 360px;">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -50,8 +50,20 @@
 
               <td class="text-nowrap">
 
-                <a href="/offices/{{ office.id }}/editar" class="btn btn-sm btn-outline-primary">
+                <a
+                  href="/offices/{{ office.id }}/editar"
+                  class="btn btn-sm btn-outline-primary"
+                  title="Editar escritório"
+                >
                   <i class="bi bi-pencil"></i>
+                </a>
+
+                <a
+                  href="/offices/{{ office.id }}/permissoes"
+                  class="btn btn-sm btn-outline-dark"
+                  title="Permissões do escritório"
+                >
+                  <i class="bi bi-shield-lock"></i>
                 </a>
 
                 {% if office.is_active %}
@@ -61,7 +73,11 @@
                   style="display:inline-block;"
                   onsubmit="return confirm('Deseja suspender este escritório? Todos os usuários perderão acesso.');"
                 >
-                  <button type="submit" class="btn btn-sm btn-outline-warning">
+                  <button
+                    type="submit"
+                    class="btn btn-sm btn-outline-warning"
+                    title="Suspender escritório"
+                  >
                     <i class="bi bi-pause-circle"></i>
                   </button>
                 </form>
@@ -72,7 +88,11 @@
                   style="display:inline-block;"
                   onsubmit="return confirm('Deseja reativar este escritório?');"
                 >
-                  <button type="submit" class="btn btn-sm btn-outline-success">
+                  <button
+                    type="submit"
+                    class="btn btn-sm btn-outline-success"
+                    title="Reativar escritório"
+                  >
                     <i class="bi bi-play-circle"></i>
                   </button>
                 </form>
@@ -85,12 +105,21 @@
                   style="display:inline-block;"
                   onsubmit="return confirm('ATENÇÃO: Isso irá apagar TODOS os dados deste escritório. Deseja continuar?');"
                 >
-                  <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <button
+                    type="submit"
+                    class="btn btn-sm btn-outline-danger"
+                    title="Excluir escritório"
+                  >
                     <i class="bi bi-trash"></i>
                   </button>
                 </form>
                 {% else %}
-                <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Você não pode excluir seu próprio escritório">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  disabled
+                  title="Você não pode excluir seu próprio escritório"
+                >
                   <i class="bi bi-trash"></i>
                 </button>
                 {% endif %}

@@ -1,7 +1,7 @@
 from io import BytesIO
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from starlette.responses import StreamingResponse
@@ -33,6 +33,13 @@ def _fmt_date(dt):
     if isinstance(dt, (datetime, date)):
         return dt.strftime("%d/%m/%Y")
     return str(dt)
+
+
+def _get_office_id(request: Request) -> int:
+    office_id = request.session.get("office_id")
+    if not office_id:
+        raise HTTPException(status_code=403, detail="Usuário sem escritório vinculado.")
+    return int(office_id)
 
 
 def _pdf_response(filename: str, build_func):
@@ -114,8 +121,15 @@ def relatorios_index(request: Request):
 # PDF – CLIENTES
 # =====================================================
 @router.get("/relatorios/clientes/pdf")
-def relatorio_clientes_pdf(db: Session = Depends(get_db)):
-    rows = db.query(Client).order_by(Client.nome.asc()).all()
+def relatorio_clientes_pdf(request: Request, db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+
+    rows = (
+        db.query(Client)
+        .filter(Client.office_id == office_id)
+        .order_by(Client.nome.asc())
+        .all()
+    )
 
     styles = getSampleStyleSheet()
     normal = ParagraphStyle(
@@ -155,17 +169,20 @@ def relatorio_clientes_pdf(db: Session = Depends(get_db)):
 # =====================================================
 # Helpers PROCESSOS
 # =====================================================
-def _processos_por_aba(db: Session, aba: str):
+def _processos_por_aba(db: Session, aba: str, office_id: int):
     return (
         db.query(ProcessItem)
-        .filter(ProcessItem.aba == aba)
+        .filter(
+            ProcessItem.aba == aba,
+            ProcessItem.office_id == office_id,
+        )
         .order_by(ProcessItem.vencimento.asc().nulls_last(), ProcessItem.parte_autora.asc())
         .all()
     )
 
 
-def _processos_pdf(db: Session, aba: str, titulo: str, filename: str):
-    rows = _processos_por_aba(db, aba)
+def _processos_pdf(db: Session, aba: str, titulo: str, filename: str, office_id: int):
+    rows = _processos_por_aba(db, aba, office_id)
 
     styles = getSampleStyleSheet()
     normal = ParagraphStyle(
@@ -202,8 +219,6 @@ def _processos_pdf(db: Session, aba: str, titulo: str, filename: str):
                 ]
             )
 
-        # ✅ Colunas AJUSTADAS para caber no A4 paisagem (sem cortar o nº)
-        # Soma = 812 (aprox. largura útil do landscape A4 com margens 10/10)
         col_widths = [
             150,  # Nº Processo
             170,  # Parte
@@ -224,24 +239,42 @@ def _processos_pdf(db: Session, aba: str, titulo: str, filename: str):
 # PDFs PROCESSOS
 # =====================================================
 @router.get("/relatorios/processos/procedentes/pdf")
-def relatorio_procedentes_pdf(db: Session = Depends(get_db)):
-    return _processos_pdf(db, "PROCEDENTE", "Ações Procedentes", "relatorio_acoes_procedentes.pdf")
+def relatorio_procedentes_pdf(request: Request, db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+    return _processos_pdf(
+        db,
+        "PROCEDENTE",
+        "Ações Procedentes",
+        "relatorio_acoes_procedentes.pdf",
+        office_id,
+    )
 
 
 @router.get("/relatorios/processos/execucao/pdf")
-def relatorio_execucao_pdf(db: Session = Depends(get_db)):
-    return _processos_pdf(db, "EXECUCAO", "Ações em Execução", "relatorio_acoes_execucao.pdf")
+def relatorio_execucao_pdf(request: Request, db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+    return _processos_pdf(
+        db,
+        "EXECUCAO",
+        "Ações em Execução",
+        "relatorio_acoes_execucao.pdf",
+        office_id,
+    )
 
 
 # =====================================================
 # PDF – PRAZOS (SEPARA PENDENTES x CUMPRIDOS + QUANTIDADES)
 # =====================================================
 @router.get("/relatorios/prazos/pdf")
-def relatorio_prazos_pdf(db: Session = Depends(get_db)):
-    # Mantém as mesmas regras de ordenação do sistema
+def relatorio_prazos_pdf(request: Request, db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+
     pendentes = (
         db.query(ProcessItem)
-        .filter(ProcessItem.aba == "PRAZOS")
+        .filter(
+            ProcessItem.aba == "PRAZOS",
+            ProcessItem.office_id == office_id,
+        )
         .filter(ProcessItem.cumprimento != "CUMPRIDO")
         .order_by(ProcessItem.vencimento.asc().nulls_last(), ProcessItem.parte_autora.asc())
         .all()
@@ -249,7 +282,10 @@ def relatorio_prazos_pdf(db: Session = Depends(get_db)):
 
     cumpridos = (
         db.query(ProcessItem)
-        .filter(ProcessItem.aba == "PRAZOS")
+        .filter(
+            ProcessItem.aba == "PRAZOS",
+            ProcessItem.office_id == office_id,
+        )
         .filter(ProcessItem.cumprimento == "CUMPRIDO")
         .order_by(ProcessItem.vencimento.asc().nulls_last(), ProcessItem.parte_autora.asc())
         .all()
@@ -269,7 +305,6 @@ def relatorio_prazos_pdf(db: Session = Depends(get_db)):
     def P(txt):
         return Paragraph((txt or ""), normal)
 
-    # Mesmas larguras da sua tabela atual (pra não quebrar layout)
     col_widths = [
         150,  # Nº Processo
         170,  # Parte
@@ -305,7 +340,6 @@ def relatorio_prazos_pdf(db: Session = Depends(get_db)):
             f"Gerado em: {_fmt_date(date.today())} | Total: {total} | Pendentes: {len(pendentes)} | Cumpridos: {len(cumpridos)}",
         )
 
-        # ---- Seção PENDENTES
         story.append(Paragraph(f"<b>PENDENTES</b> (Quantidade: {len(pendentes)})", styles["Heading2"]))
         story.append(Spacer(1, 8))
         if pendentes:
@@ -315,7 +349,6 @@ def relatorio_prazos_pdf(db: Session = Depends(get_db)):
 
         story.append(PageBreak())
 
-        # ---- Seção CUMPRIDOS
         story.append(Paragraph(f"<b>CUMPRIDOS</b> (Quantidade: {len(cumpridos)})", styles["Heading2"]))
         story.append(Spacer(1, 8))
         if cumpridos:
@@ -330,8 +363,15 @@ def relatorio_prazos_pdf(db: Session = Depends(get_db)):
 # PDF – PERÍCIAS / DILIGÊNCIAS
 # =====================================================
 @router.get("/relatorios/pericias/pdf")
-def relatorio_pericias_pdf(db: Session = Depends(get_db)):
-    rows = db.query(PericiaDiligencia).order_by(PericiaDiligencia.data_evento.asc()).all()
+def relatorio_pericias_pdf(request: Request, db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+
+    rows = (
+        db.query(PericiaDiligencia)
+        .filter(PericiaDiligencia.office_id == office_id)
+        .order_by(PericiaDiligencia.data_evento.asc())
+        .all()
+    )
 
     styles = getSampleStyleSheet()
     normal = ParagraphStyle(
