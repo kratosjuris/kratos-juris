@@ -1,15 +1,24 @@
 from datetime import datetime, date
-from sqlalchemy import Column, Integer, String, Date, DateTime, Text
+from sqlalchemy import Column, Integer, String, Date, DateTime, Text, ForeignKey
 from app.core.database import Base
 
 # abas: PROCEDENTE | EXECUCAO | PRAZOS
 # cumprimento (para PRAZOS): PENDENTE | CUMPRIDO | ROMPIDO
 # para PROCEDENTE: PENDENTE | TRANSITADO | RECURSO
 
+
 class ProcessItem(Base):
     __tablename__ = "process_items"
 
     id = Column(Integer, primary_key=True, index=True)
+
+    # 🔥 VÍNCULO COM ESCRITÓRIO
+    office_id = Column(
+        Integer,
+        ForeignKey("offices.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
 
     # identifica em qual aba o registro existe
     aba = Column(String, nullable=False, index=True)
@@ -22,8 +31,9 @@ class ProcessItem(Base):
     prazo_dias = Column(Integer, nullable=True)
     vencimento = Column(Date, nullable=True)
 
-    # >>> NOVO: observação livre (o que precisa fazer no processo)
+    # observação livre
     obs = Column(Text, nullable=True)
 
     cumprimento = Column(String, nullable=False, default="PENDENTE")
+
     created_at = Column(DateTime, default=datetime.utcnow)

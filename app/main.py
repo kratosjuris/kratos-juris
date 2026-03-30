@@ -1,4 +1,3 @@
-# app/main.py
 from __future__ import annotations
 
 from fastapi import FastAPI, Request
@@ -61,10 +60,10 @@ def _load_user_from_session(request: Request):
     print(f"[SESSION] conteúdo bruto: {dict(request.session)}")
 
     user_id = get_session_user_id(request)
-    office_id = get_session_office_id(request)
+    session_office_id = get_session_office_id(request)
 
     print(f"[SESSION] user_id lido da sessão: {user_id}")
-    print(f"[SESSION] office_id lido da sessão: {office_id}")
+    print(f"[SESSION] office_id lido da sessão: {session_office_id}")
 
     if not user_id:
         return None
@@ -90,11 +89,16 @@ def _load_user_from_session(request: Request):
 
         if user and user.is_active:
             request.state.current_user = user
-            request.state.current_office_id = getattr(user, "office_id", None)
 
-            if "session" in request.scope:
-                request.session["office_id"] = getattr(user, "office_id", None)
+            # PRIORIDADE: office_id salvo na sessão
+            if session_office_id is not None:
+                request.state.current_office_id = session_office_id
+            else:
+                # fallback de compatibilidade
+                request.state.current_office_id = getattr(user, "office_id", None)
 
+            # IMPORTANTE:
+            # não sobrescrever request.session["office_id"] aqui
             return user
 
         return None

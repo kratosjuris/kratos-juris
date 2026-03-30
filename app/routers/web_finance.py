@@ -6,7 +6,7 @@ import urllib.parse
 from datetime import date
 from pathlib import Path
 
-from fastapi import APIRouter, Request, Depends, Form
+from fastapi import APIRouter, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -27,6 +27,16 @@ router = APIRouter()
 APP_DIR = Path(__file__).resolve().parents[1]
 TEMPLATES_DIR = APP_DIR / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+
+# ----------------------------
+# Helpers gerais
+# ----------------------------
+def _get_office_id(request: Request) -> int:
+    office_id = request.session.get("office_id")
+    if not office_id:
+        raise HTTPException(status_code=403, detail="Usuário sem escritório vinculado.")
+    return int(office_id)
 
 
 # ----------------------------
@@ -127,7 +137,6 @@ def _parse_date_any(value: str | None, fallback: date | None = None) -> date | N
     if not txt:
         return fallback
 
-    # YYYY-MM-DD
     if "-" in txt:
         try:
             y, m, d = txt.split("-")
@@ -135,7 +144,6 @@ def _parse_date_any(value: str | None, fallback: date | None = None) -> date | N
         except Exception:
             return fallback
 
-    # DD/MM/YYYY
     if "/" in txt:
         try:
             d, m, y = txt.split("/")
@@ -168,34 +176,38 @@ def _slugify_account_code(nome: str) -> str:
     return txt[:60]
 
 
-def _ensure_default_accounts(db: Session):
+def _ensure_default_accounts(db: Session, office_id: int):
     """
-    Cria as contas antigas no banco apenas se não existir nenhuma.
-    Isso mantém compatibilidade com sua base atual.
+    Cria as contas antigas no banco apenas se não existir nenhuma para o escritório.
     """
-    total = db.query(func.count(FinancialAccount.id)).scalar() or 0
+    total = (
+        db.query(func.count(FinancialAccount.id))
+        .filter(FinancialAccount.office_id == office_id)
+        .scalar()
+        or 0
+    )
     if total > 0:
         return
 
     for code, nome in LEGACY_DEFAULT_ACCOUNTS:
-        db.add(FinancialAccount(code=code, nome=nome, ativo=True))
+        db.add(FinancialAccount(office_id=office_id, code=code, nome=nome, ativo=True))
     db.commit()
 
 
-def _get_accounts(db: Session, only_active: bool = True):
-    _ensure_default_accounts(db)
+def _get_accounts(db: Session, office_id: int, only_active: bool = True):
+    _ensure_default_accounts(db, office_id)
 
-    query = db.query(FinancialAccount)
+    query = db.query(FinancialAccount).filter(FinancialAccount.office_id == office_id)
     if only_active:
         query = query.filter(FinancialAccount.ativo.is_(True))
 
     return query.order_by(FinancialAccount.nome.asc()).all()
 
 
-def _get_account_map(db: Session, include_inactive: bool = True) -> dict[str, FinancialAccount]:
-    _ensure_default_accounts(db)
+def _get_account_map(db: Session, office_id: int, include_inactive: bool = True) -> dict[str, FinancialAccount]:
+    _ensure_default_accounts(db, office_id)
 
-    query = db.query(FinancialAccount)
+    query = db.query(FinancialAccount).filter(FinancialAccount.office_id == office_id)
     if not include_inactive:
         query = query.filter(FinancialAccount.ativo.is_(True))
 
@@ -203,11 +215,11 @@ def _get_account_map(db: Session, include_inactive: bool = True) -> dict[str, Fi
     return {str(a.code): a for a in rows}
 
 
-def _conta_label(db: Session, code: str) -> str:
+def _conta_label(db: Session, office_id: int, code: str) -> str:
     if not code:
         return "Sem conta"
 
-    account_map = _get_account_map(db, include_inactive=True)
+    account_map = _get_account_map(db, office_id, include_inactive=True)
     acc = account_map.get(code)
     if acc:
         return acc.nome
@@ -216,62 +228,82 @@ def _conta_label(db: Session, code: str) -> str:
     return legacy.get(code, code)
 
 
-def _default_account_code(db: Session) -> str:
-    active = _get_accounts(db, only_active=True)
+def _default_account_code(db: Session, office_id: int) -> str:
+    active = _get_accounts(db, office_id, only_active=True)
     if active:
         return active[0].code
     return "CONTA_CSL"
 
 
-def _is_valid_account_code(db: Session, code: str) -> bool:
+def _is_valid_account_code(db: Session, office_id: int, code: str) -> bool:
     if not code:
         return False
-    active_codes = {a.code for a in _get_accounts(db, only_active=True)}
+    active_codes = {a.code for a in _get_accounts(db, office_id, only_active=True)}
     return code in active_codes
 
 
 def _resolve_report_account(
     db: Session,
+    office_id: int,
     conta_id: int | None = None,
     conta_code: str | None = None,
 ) -> FinancialAccount | None:
-    """
-    Resolve qual conta será usada no relatório.
-
-    Prioridade:
-    1) conta_id informado e existente
-    2) conta_code informado e válido
-    3) conta histórica CONTA_CSL, se existir
-    4) primeira conta ativa
-    5) primeira conta disponível (inclusive inativa)
-    """
-    _ensure_default_accounts(db)
+    _ensure_default_accounts(db, office_id)
 
     if conta_id:
-        acc = db.query(FinancialAccount).filter(FinancialAccount.id == conta_id).first()
+        acc = (
+            db.query(FinancialAccount)
+            .filter(
+                FinancialAccount.office_id == office_id,
+                FinancialAccount.id == conta_id,
+            )
+            .first()
+        )
         if acc:
             return acc
 
     conta_code = (conta_code or "").strip().upper()
     if conta_code:
-        acc = db.query(FinancialAccount).filter(func.upper(FinancialAccount.code) == conta_code).first()
+        acc = (
+            db.query(FinancialAccount)
+            .filter(
+                FinancialAccount.office_id == office_id,
+                func.upper(FinancialAccount.code) == conta_code,
+            )
+            .first()
+        )
         if acc:
             return acc
 
-    acc = db.query(FinancialAccount).filter(func.upper(FinancialAccount.code) == "CONTA_CSL").first()
+    acc = (
+        db.query(FinancialAccount)
+        .filter(
+            FinancialAccount.office_id == office_id,
+            func.upper(FinancialAccount.code) == "CONTA_CSL",
+        )
+        .first()
+    )
     if acc:
         return acc
 
     acc = (
         db.query(FinancialAccount)
-        .filter(FinancialAccount.ativo.is_(True))
+        .filter(
+            FinancialAccount.office_id == office_id,
+            FinancialAccount.ativo.is_(True),
+        )
         .order_by(FinancialAccount.nome.asc())
         .first()
     )
     if acc:
         return acc
 
-    return db.query(FinancialAccount).order_by(FinancialAccount.nome.asc()).first()
+    return (
+        db.query(FinancialAccount)
+        .filter(FinancialAccount.office_id == office_id)
+        .order_by(FinancialAccount.nome.asc())
+        .first()
+    )
 
 
 # =========================================================
@@ -388,7 +420,8 @@ def financeiro_contas(request: Request, db: Session = Depends(get_db)):
     if redir:
         return redir
 
-    contas = _get_accounts(db, only_active=False)
+    office_id = _get_office_id(request)
+    contas = _get_accounts(db, office_id, only_active=False)
 
     return templates.TemplateResponse(
         "finance/contas.html",
@@ -411,17 +444,33 @@ def financeiro_conta_nova(
     if redir:
         return redir
 
+    office_id = _get_office_id(request)
+
     nome = (nome or "").strip()
     if not nome:
         return RedirectResponse(url="/financeiro/contas", status_code=303)
 
     code = (code or "").strip().upper() or _slugify_account_code(nome)
 
-    existe_code = db.query(FinancialAccount).filter(func.upper(FinancialAccount.code) == code.upper()).first()
+    existe_code = (
+        db.query(FinancialAccount)
+        .filter(
+            FinancialAccount.office_id == office_id,
+            func.upper(FinancialAccount.code) == code.upper(),
+        )
+        .first()
+    )
     if existe_code:
         return RedirectResponse(url="/financeiro/contas", status_code=303)
 
-    existe_nome = db.query(FinancialAccount).filter(func.lower(FinancialAccount.nome) == nome.lower()).first()
+    existe_nome = (
+        db.query(FinancialAccount)
+        .filter(
+            FinancialAccount.office_id == office_id,
+            func.lower(FinancialAccount.nome) == nome.lower(),
+        )
+        .first()
+    )
     if existe_nome:
         if not bool(existe_nome.ativo):
             existe_nome.ativo = True
@@ -429,7 +478,7 @@ def financeiro_conta_nova(
             db.commit()
         return RedirectResponse(url="/financeiro/contas", status_code=303)
 
-    db.add(FinancialAccount(code=code, nome=nome, ativo=True))
+    db.add(FinancialAccount(office_id=office_id, code=code, nome=nome, ativo=True))
     db.commit()
     return RedirectResponse(url="/financeiro/contas", status_code=303)
 
@@ -446,7 +495,16 @@ def financeiro_conta_editar(
     if redir:
         return redir
 
-    conta = db.query(FinancialAccount).filter(FinancialAccount.id == cid).first()
+    office_id = _get_office_id(request)
+
+    conta = (
+        db.query(FinancialAccount)
+        .filter(
+            FinancialAccount.office_id == office_id,
+            FinancialAccount.id == cid,
+        )
+        .first()
+    )
     if not conta:
         return RedirectResponse(url="/financeiro/contas", status_code=303)
 
@@ -466,13 +524,25 @@ def financeiro_conta_excluir(request: Request, cid: int, db: Session = Depends(g
     if redir:
         return redir
 
-    conta = db.query(FinancialAccount).filter(FinancialAccount.id == cid).first()
+    office_id = _get_office_id(request)
+
+    conta = (
+        db.query(FinancialAccount)
+        .filter(
+            FinancialAccount.office_id == office_id,
+            FinancialAccount.id == cid,
+        )
+        .first()
+    )
     if not conta:
         return RedirectResponse(url="/financeiro/contas", status_code=303)
 
     uso = (
         db.query(func.count(Receivable.id))
-        .filter(Receivable.conta == conta.code)
+        .filter(
+            Receivable.office_id == office_id,
+            Receivable.conta == conta.code,
+        )
         .scalar()
         or 0
     )
@@ -491,10 +561,17 @@ def financeiro_conta_excluir(request: Request, cid: int, db: Session = Depends(g
 # ----------------------------
 # Contas a Pagar
 # ----------------------------
-def _get_or_create_month(db: Session, ym: str) -> FinanceMonth:
-    m = db.query(FinanceMonth).filter(FinanceMonth.ym == ym).first()
+def _get_or_create_month(db: Session, office_id: int, ym: str) -> FinanceMonth:
+    m = (
+        db.query(FinanceMonth)
+        .filter(
+            FinanceMonth.office_id == office_id,
+            FinanceMonth.ym == ym,
+        )
+        .first()
+    )
     if not m:
-        m = FinanceMonth(ym=ym, saldo_inicial=0.0)
+        m = FinanceMonth(office_id=office_id, ym=ym, saldo_inicial=0.0)
         db.add(m)
         db.commit()
         db.refresh(m)
@@ -507,12 +584,16 @@ def pagar_list(request: Request, ym: str | None = None, db: Session = Depends(ge
     if redir:
         return redir
 
+    office_id = _get_office_id(request)
     ym = _normalize_ym(ym)
-    month = _get_or_create_month(db, ym)
+    month = _get_or_create_month(db, office_id, ym)
 
     payables = (
         db.query(Payable)
-        .filter(Payable.ym == ym)
+        .filter(
+            Payable.office_id == office_id,
+            Payable.ym == ym,
+        )
         .order_by(Payable.pago.asc(), Payable.vencimento.asc().nulls_last(), Payable.descricao.asc())
         .all()
     )
@@ -526,6 +607,7 @@ def pagar_list(request: Request, ym: str | None = None, db: Session = Depends(ge
 
     templates_list = (
         db.query(ExpenseTemplate)
+        .filter(ExpenseTemplate.office_id == office_id)
         .order_by(ExpenseTemplate.tipo.asc(), ExpenseTemplate.nome.asc())
         .all()
     )
@@ -554,8 +636,9 @@ def pagar_set_saldo(request: Request, db: Session = Depends(get_db), ym: str = F
     if redir:
         return redir
 
+    office_id = _get_office_id(request)
     ym = _normalize_ym(ym)
-    m = _get_or_create_month(db, ym)
+    m = _get_or_create_month(db, office_id, ym)
 
     val = _parse_brl_number(saldo_inicial or "0")
     m.saldo_inicial = float(val)
@@ -582,10 +665,18 @@ def pagar_novo(
     if redir:
         return redir
 
+    office_id = _get_office_id(request)
     ym = _normalize_ym(ym)
 
     if template_id.strip().isdigit():
-        t = db.query(ExpenseTemplate).filter(ExpenseTemplate.id == int(template_id)).first()
+        t = (
+            db.query(ExpenseTemplate)
+            .filter(
+                ExpenseTemplate.office_id == office_id,
+                ExpenseTemplate.id == int(template_id),
+            )
+            .first()
+        )
         if t:
             if not descricao.strip():
                 descricao = t.nome
@@ -603,6 +694,7 @@ def pagar_novo(
         dt = date(int(y), int(m), int(d))
 
     p = Payable(
+        office_id=office_id,
         ym=ym,
         descricao=descricao.strip() or "Despesa",
         tipo=(tipo or "FIXA").upper().strip(),
@@ -617,10 +709,18 @@ def pagar_novo(
     if salvar_modelo == "1":
         nome_modelo = (descricao or "").strip()
         if nome_modelo:
-            existe = db.query(ExpenseTemplate).filter(func.lower(ExpenseTemplate.nome) == nome_modelo.lower()).first()
+            existe = (
+                db.query(ExpenseTemplate)
+                .filter(
+                    ExpenseTemplate.office_id == office_id,
+                    func.lower(ExpenseTemplate.nome) == nome_modelo.lower(),
+                )
+                .first()
+            )
             if not existe:
                 db.add(
                     ExpenseTemplate(
+                        office_id=office_id,
                         nome=nome_modelo,
                         tipo=(tipo or "FIXA").upper().strip(),
                         valor_padrao=float(v),
@@ -638,8 +738,16 @@ def pagar_toggle(request: Request, pid: int, db: Session = Depends(get_db), ym: 
     if redir:
         return redir
 
+    office_id = _get_office_id(request)
     ym = _normalize_ym(ym)
-    p = db.query(Payable).filter(Payable.id == pid).first()
+    p = (
+        db.query(Payable)
+        .filter(
+            Payable.office_id == office_id,
+            Payable.id == pid,
+        )
+        .first()
+    )
     if p:
         p.pago = not bool(p.pago)
         p.pago_em = date.today() if p.pago else None
@@ -664,8 +772,16 @@ def pagar_editar(
     if redir:
         return redir
 
+    office_id = _get_office_id(request)
     ym = _normalize_ym(ym)
-    p = db.query(Payable).filter(Payable.id == pid).first()
+    p = (
+        db.query(Payable)
+        .filter(
+            Payable.office_id == office_id,
+            Payable.id == pid,
+        )
+        .first()
+    )
     if not p:
         return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
 
@@ -693,8 +809,16 @@ def pagar_excluir(request: Request, pid: int, db: Session = Depends(get_db), ym:
     if redir:
         return redir
 
+    office_id = _get_office_id(request)
     ym = _normalize_ym(ym)
-    p = db.query(Payable).filter(Payable.id == pid).first()
+    p = (
+        db.query(Payable)
+        .filter(
+            Payable.office_id == office_id,
+            Payable.id == pid,
+        )
+        .first()
+    )
     if p:
         db.delete(p)
         db.commit()
@@ -707,7 +831,15 @@ def pagar_modelo_excluir(request: Request, tid: int, db: Session = Depends(get_d
     if redir:
         return redir
 
-    t = db.query(ExpenseTemplate).filter(ExpenseTemplate.id == tid).first()
+    office_id = _get_office_id(request)
+    t = (
+        db.query(ExpenseTemplate)
+        .filter(
+            ExpenseTemplate.office_id == office_id,
+            ExpenseTemplate.id == tid,
+        )
+        .first()
+    )
     if t:
         db.delete(t)
         db.commit()
@@ -722,12 +854,16 @@ def pagar_relatorio(request: Request, ym: str | None = None, db: Session = Depen
     if redir:
         return redir
 
+    office_id = _get_office_id(request)
     ym = _normalize_ym(ym)
-    month = _get_or_create_month(db, ym)
+    month = _get_or_create_month(db, office_id, ym)
 
     payables = (
         db.query(Payable)
-        .filter(Payable.ym == ym)
+        .filter(
+            Payable.office_id == office_id,
+            Payable.ym == ym,
+        )
         .order_by(Payable.pago.asc(), Payable.vencimento.asc().nulls_last(), Payable.descricao.asc())
         .all()
     )
@@ -768,14 +904,18 @@ def receber_list(
     if redir:
         return redir
 
+    office_id = _get_office_id(request)
     ym = _normalize_ym(ym)
     status = (status or "").strip()
     q = (q or "").strip()
 
-    account_map = _get_account_map(db, include_inactive=True)
-    active_accounts = _get_accounts(db, only_active=True)
+    account_map = _get_account_map(db, office_id, include_inactive=True)
+    active_accounts = _get_accounts(db, office_id, only_active=True)
 
-    query = db.query(Receivable).filter(Receivable.ym == ym)
+    query = db.query(Receivable).filter(
+        Receivable.office_id == office_id,
+        Receivable.ym == ym,
+    )
 
     if status == "Recebido":
         query = query.filter(Receivable.recebido.is_(True))
@@ -841,7 +981,10 @@ def receber_list(
 
     prev_total = (
         db.query(func.coalesce(func.sum(Receivable.valor), 0.0))
-        .filter(Receivable.ym == ym_prev)
+        .filter(
+            Receivable.office_id == office_id,
+            Receivable.ym == ym_prev,
+        )
         .scalar()
         or 0.0
     )
@@ -849,9 +992,9 @@ def receber_list(
     por_conta_codes = {a.code for a in active_accounts} | used_codes
     por_conta = []
 
-    for code in sorted(por_conta_codes, key=lambda c: _conta_label(db, c).lower()):
+    for code in sorted(por_conta_codes, key=lambda c: _conta_label(db, office_id, c).lower()):
         s = sum((r["valor"] or 0.0) for r in rows if r["conta"] == code)
-        por_conta.append({"conta": code, "label": _conta_label(db, code), "total": float(s)})
+        por_conta.append({"conta": code, "label": _conta_label(db, office_id, code), "total": float(s)})
 
     return templates.TemplateResponse(
         "finance/receber.html",
@@ -890,6 +1033,7 @@ def receber_novo(
     if redir:
         return redir
 
+    office_id = _get_office_id(request)
     ym = _normalize_ym(ym)
     v = _parse_brl_number(valor or "0")
     dt = _parse_date_any(data_prevista, fallback=None)
@@ -899,10 +1043,11 @@ def receber_novo(
         ym = ym_by_date
 
     conta = (conta or "").upper().strip()
-    if not _is_valid_account_code(db, conta):
-        conta = _default_account_code(db)
+    if not _is_valid_account_code(db, office_id, conta):
+        conta = _default_account_code(db, office_id)
 
     r = Receivable(
+        office_id=office_id,
         ym=ym,
         numero_processo=numero_processo.strip(),
         parte_autora=parte_autora.strip(),
@@ -926,8 +1071,16 @@ def receber_toggle(request: Request, rid: int, db: Session = Depends(get_db), ym
     if redir:
         return redir
 
+    office_id = _get_office_id(request)
     ym = _normalize_ym(ym)
-    r = db.query(Receivable).filter(Receivable.id == rid).first()
+    r = (
+        db.query(Receivable)
+        .filter(
+            Receivable.office_id == office_id,
+            Receivable.id == rid,
+        )
+        .first()
+    )
     if r:
         r.recebido = not bool(r.recebido)
         r.recebido_em = date.today() if r.recebido else None
@@ -955,10 +1108,18 @@ def receber_editar(
     if redir:
         return redir
 
+    office_id = _get_office_id(request)
     ym = _normalize_ym(ym)
     ym_novo = _normalize_ym(ym_novo) if (ym_novo or "").strip() else ""
 
-    r = db.query(Receivable).filter(Receivable.id == rid).first()
+    r = (
+        db.query(Receivable)
+        .filter(
+            Receivable.office_id == office_id,
+            Receivable.id == rid,
+        )
+        .first()
+    )
     if not r:
         return RedirectResponse(url=f"/financeiro/receber?ym={ym}", status_code=303)
 
@@ -966,8 +1127,8 @@ def receber_editar(
     dt = _parse_date_any(data_prevista, fallback=r.data_prevista)
 
     conta = (conta or "").upper().strip()
-    if not _is_valid_account_code(db, conta):
-        conta = r.conta or _default_account_code(db)
+    if not _is_valid_account_code(db, office_id, conta):
+        conta = r.conta or _default_account_code(db, office_id)
 
     r.numero_processo = (numero_processo or "").strip()
     r.parte_autora = (parte_autora or "").strip()
@@ -1008,9 +1169,17 @@ def receber_baixar(
     if redir:
         return redir
 
+    office_id = _get_office_id(request)
     ym = _normalize_ym(ym)
 
-    r = db.query(Receivable).filter(Receivable.id == rid).first()
+    r = (
+        db.query(Receivable)
+        .filter(
+            Receivable.office_id == office_id,
+            Receivable.id == rid,
+        )
+        .first()
+    )
     if not r:
         return RedirectResponse(url=f"/financeiro/receber?ym={ym}", status_code=303)
 
@@ -1035,8 +1204,16 @@ def receber_excluir(request: Request, rid: int, db: Session = Depends(get_db), y
     if redir:
         return redir
 
+    office_id = _get_office_id(request)
     ym = _normalize_ym(ym)
-    r = db.query(Receivable).filter(Receivable.id == rid).first()
+    r = (
+        db.query(Receivable)
+        .filter(
+            Receivable.office_id == office_id,
+            Receivable.id == rid,
+        )
+        .first()
+    )
     if r:
         db.delete(r)
         db.commit()
@@ -1049,11 +1226,15 @@ def receber_relatorio_mes(request: Request, ym: str | None = None, db: Session =
     if redir:
         return redir
 
+    office_id = _get_office_id(request)
     ym = _normalize_ym(ym)
 
     rows = (
         db.query(Receivable)
-        .filter(Receivable.ym == ym)
+        .filter(
+            Receivable.office_id == office_id,
+            Receivable.ym == ym,
+        )
         .order_by(Receivable.data_prevista.asc().nulls_last(), Receivable.parte_autora.asc())
         .all()
     )
@@ -1061,19 +1242,22 @@ def receber_relatorio_mes(request: Request, ym: str | None = None, db: Session =
     total = sum((r.valor or 0.0) for r in rows)
 
     used_codes = {r.conta for r in rows if r.conta}
-    active_codes = {a.code for a in _get_accounts(db, only_active=True)}
+    active_codes = {a.code for a in _get_accounts(db, office_id, only_active=True)}
     all_codes = used_codes | active_codes
 
     por_conta = []
-    for c in sorted(all_codes, key=lambda code: _conta_label(db, code).lower()):
+    for c in sorted(all_codes, key=lambda code: _conta_label(db, office_id, code).lower()):
         s = (
             db.query(func.coalesce(func.sum(Receivable.valor), 0.0))
-            .filter(Receivable.ym == ym)
-            .filter(Receivable.conta == c)
+            .filter(
+                Receivable.office_id == office_id,
+                Receivable.ym == ym,
+                Receivable.conta == c,
+            )
             .scalar()
             or 0.0
         )
-        por_conta.append({"conta": c, "label": _conta_label(db, c), "total": float(s)})
+        por_conta.append({"conta": c, "label": _conta_label(db, office_id, c), "total": float(s)})
 
     return templates.TemplateResponse(
         "finance/relatorio_receber_mes.html",
@@ -1097,6 +1281,7 @@ def receber_relatorio_anual(request: Request, ano: int | None = None, db: Sessio
     if redir:
         return redir
 
+    office_id = _get_office_id(request)
     hoje = date.today()
     ano = int(ano or hoje.year)
 
@@ -1105,8 +1290,11 @@ def receber_relatorio_anual(request: Request, ano: int | None = None, db: Sessio
 
     recebidos_db = (
         db.query(Receivable)
-        .filter(Receivable.recebido.is_(True))
-        .filter(Receivable.ym.like(f"{ano:04d}-%"))
+        .filter(
+            Receivable.office_id == office_id,
+            Receivable.recebido.is_(True),
+            Receivable.ym.like(f"{ano:04d}-%"),
+        )
         .all()
     )
     for r in recebidos_db:
@@ -1122,7 +1310,10 @@ def receber_relatorio_anual(request: Request, ano: int | None = None, db: Sessio
 
     payables_db = (
         db.query(Payable)
-        .filter(Payable.pago.is_(True))
+        .filter(
+            Payable.office_id == office_id,
+            Payable.pago.is_(True),
+        )
         .filter(
             or_(
                 and_(Payable.pago_em.isnot(None), Payable.pago_em >= dt_ini, Payable.pago_em < dt_fim),
@@ -1191,8 +1382,6 @@ def receber_relatorio_anual(request: Request, ano: int | None = None, db: Sessio
 
 # ============================
 # ✅ RELATÓRIO ANUAL CONTA PRINCIPAL x DESPESAS
-# Permite o usuário escolher a conta do relatório
-# Mantém compatibilidade com a rota antiga
 # ============================
 @router.get("/financeiro/receber/relatorio-anual-csl", response_class=HTMLResponse)
 @router.get("/financeiro/receber/relatorio-anual-conta-principal", response_class=HTMLResponse)
@@ -1207,14 +1396,15 @@ def receber_relatorio_anual_conta_principal(
     if redir:
         return redir
 
+    office_id = _get_office_id(request)
     hoje = date.today()
     ano = int(ano or hoje.year)
 
-    contas = _get_accounts(db, only_active=True)
-    conta_escolhida = _resolve_report_account(db, conta_id=conta_id, conta_code=conta)
+    contas = _get_accounts(db, office_id, only_active=True)
+    conta_escolhida = _resolve_report_account(db, office_id, conta_id=conta_id, conta_code=conta)
 
-    conta_code = conta_escolhida.code if conta_escolhida else _default_account_code(db)
-    conta_nome = conta_escolhida.nome if conta_escolhida else _conta_label(db, conta_code)
+    conta_code = conta_escolhida.code if conta_escolhida else _default_account_code(db, office_id)
+    conta_nome = conta_escolhida.nome if conta_escolhida else _conta_label(db, office_id, conta_code)
     conta_escolhida_id = conta_escolhida.id if conta_escolhida else None
 
     recebido_principal_por_mes = {m: 0.0 for m in range(1, 13)}
@@ -1222,9 +1412,12 @@ def receber_relatorio_anual_conta_principal(
 
     recebidos_principal_db = (
         db.query(Receivable)
-        .filter(Receivable.recebido.is_(True))
-        .filter(Receivable.conta == conta_code)
-        .filter(Receivable.ym.like(f"{ano:04d}-%"))
+        .filter(
+            Receivable.office_id == office_id,
+            Receivable.recebido.is_(True),
+            Receivable.conta == conta_code,
+            Receivable.ym.like(f"{ano:04d}-%"),
+        )
         .all()
     )
 
@@ -1241,7 +1434,10 @@ def receber_relatorio_anual_conta_principal(
 
     payables_db = (
         db.query(Payable)
-        .filter(Payable.pago.is_(True))
+        .filter(
+            Payable.office_id == office_id,
+            Payable.pago.is_(True),
+        )
         .filter(
             or_(
                 and_(Payable.pago_em.isnot(None), Payable.pago_em >= dt_ini, Payable.pago_em < dt_fim),

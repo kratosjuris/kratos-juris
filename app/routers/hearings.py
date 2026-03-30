@@ -3,11 +3,11 @@ from typing import List, Optional
 import os
 import urllib.parse
 
-from fastapi import APIRouter, Depends, Request, UploadFile, File, Form
+from fastapi import APIRouter, Depends, Request, UploadFile, File, Form, HTTPException
 from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_, func  # ✅ NOVO: func para contadores
-from sqlalchemy.exc import IntegrityError  # ✅ CORREÇÃO: proteção no commit
+from sqlalchemy import or_, func
+from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_db
 from app.models.hearing import Hearing
@@ -16,14 +16,19 @@ from app.models.client import Client
 
 from app.services.hearing_import import extract_hearings_from_file, extract_hearings_from_archive
 from app.services.whatsapp import build_client_message, build_wa_me_link
-
-# ✅ PDF service (novo)
 from app.services.hearing_pdf import build_hearing_orientations_pdf
 
 from fastapi.templating import Jinja2Templates
 
 templates = Jinja2Templates(directory="app/templates")
 router = APIRouter(prefix="/audiencias", tags=["Audiências"])
+
+
+def _get_office_id(request: Request) -> int:
+    office_id = request.session.get("office_id")
+    if not office_id:
+        raise HTTPException(status_code=403, detail="Usuário sem escritório vinculado.")
+    return int(office_id)
 
 
 def _norm_name(s: str) -> str:
@@ -35,35 +40,21 @@ def _safe_strip(v: str | None) -> str:
 
 
 def _client_display_name(c: Client) -> str:
-    """
-    Compatível com seu model atual:
-    - Client.nome (padrão do seu sistema)
-    - Client.name (se algum dia existir)
-    """
     return _norm_name(getattr(c, "nome", None) or getattr(c, "name", None) or "")
 
 
-def _find_client_by_name(db: Session, name_guess: str) -> Optional[Client]:
-    """
-    ✅ CORRIGIDO:
-    Seu Client usa 'nome'. Antes você buscava por 'name', então quase nunca vinculava.
-    Agora:
-    - tenta match exato (nome normalizado)
-    - tenta match parcial (contém)
-    """
+def _find_client_by_name(db: Session, office_id: int, name_guess: str) -> Optional[Client]:
     ng = (name_guess or "").strip()
     if len(ng) < 4:
         return None
 
     target = _norm_name(ng)
-    clients = db.query(Client).all()
+    clients = db.query(Client).filter(Client.office_id == office_id).all()
 
-    # 1) match exato
     for c in clients:
         if _client_display_name(c) == target:
             return c
 
-    # 2) match parcial
     for c in clients:
         cname = _client_display_name(c)
         if target in cname or cname in target:
@@ -73,56 +64,33 @@ def _find_client_by_name(db: Session, name_guess: str) -> Optional[Client]:
 
 
 def _has_is_performed() -> bool:
-    """Se o model Hearing ainda não tem a coluna, não usamos Hearing.is_performed."""
     return hasattr(Hearing, "is_performed")
 
 
 def _has_manual_phone() -> bool:
-    """Se o model Hearing ainda não tem a coluna, não usamos Hearing.manual_phone."""
     return hasattr(Hearing, "manual_phone")
 
 
 def _has_client_rel() -> bool:
-    """Protege caso o model Hearing não tenha relationship 'client'."""
     return hasattr(Hearing, "client")
 
 
-# =========================
-# ✅ CONTADORES (TOP BAR) — igual "Controle de Prazos"
-# =========================
 def _week_bounds(d: date) -> tuple[date, date]:
-    """
-    Retorna (inicio_semana, fim_semana) considerando semana SEG-DOM.
-    """
-    start = d - timedelta(days=d.weekday())  # segunda
-    end = start + timedelta(days=6)          # domingo
+    start = d - timedelta(days=d.weekday())
+    end = start + timedelta(days=6)
     return start, end
 
 
-def _build_hearing_stats(db: Session, now: datetime) -> dict:
-    """
-    Contadores para o painel:
-    - total
-    - a_realizar (futuras e (se existir) não marcadas como realizadas)
-    - realizadas (passadas OU marcadas como realizadas, se existir flag)
-    - hoje
-    - essa_semana
-    - semana_que_vem
-
-    OBS: Sem "atrasadas", conforme solicitado.
-    """
+def _build_hearing_stats(db: Session, now: datetime, office_id: int) -> dict:
     today = now.date()
 
-    # limites de hoje
     today_start = datetime.combine(today, datetime.min.time())
     tomorrow_start = today_start + timedelta(days=1)
 
-    # limites da semana
     w_start, w_end = _week_bounds(today)
     week_start_dt = datetime.combine(w_start, datetime.min.time())
     week_end_dt_excl = datetime.combine(w_end + timedelta(days=1), datetime.min.time())
 
-    # semana que vem
     next_w_start = w_end + timedelta(days=1)
     next_w_end = next_w_start + timedelta(days=6)
     next_week_start_dt = datetime.combine(next_w_start, datetime.min.time())
@@ -130,19 +98,21 @@ def _build_hearing_stats(db: Session, now: datetime) -> dict:
 
     has_flag = _has_is_performed()
 
-    # ✅ total (tudo)
     total = (
         db.query(func.count(Hearing.id))
-        .filter(Hearing.starts_at.isnot(None))
+        .filter(
+            Hearing.office_id == office_id,
+            Hearing.starts_at.isnot(None),
+        )
         .scalar()
         or 0
     )
 
-    # ✅ realizadas
     if has_flag:
         realizadas = (
             db.query(func.count(Hearing.id))
             .filter(
+                Hearing.office_id == office_id,
                 Hearing.starts_at.isnot(None),
                 or_(Hearing.starts_at < now, Hearing.is_performed == True),  # type: ignore[attr-defined]
             )
@@ -153,6 +123,7 @@ def _build_hearing_stats(db: Session, now: datetime) -> dict:
         realizadas = (
             db.query(func.count(Hearing.id))
             .filter(
+                Hearing.office_id == office_id,
                 Hearing.starts_at.isnot(None),
                 Hearing.starts_at < now,
             )
@@ -160,8 +131,8 @@ def _build_hearing_stats(db: Session, now: datetime) -> dict:
             or 0
         )
 
-    # ✅ base das "a realizar" (futuras)
     q_future = db.query(Hearing.id).filter(
+        Hearing.office_id == office_id,
         Hearing.starts_at.isnot(None),
         Hearing.starts_at >= now,
     )
@@ -170,8 +141,8 @@ def _build_hearing_stats(db: Session, now: datetime) -> dict:
 
     a_realizar = q_future.count()
 
-    # ✅ HOJE (dentro de hoje, e não realizadas se flag existir)
     q_today = db.query(Hearing.id).filter(
+        Hearing.office_id == office_id,
         Hearing.starts_at.isnot(None),
         Hearing.starts_at >= today_start,
         Hearing.starts_at < tomorrow_start,
@@ -179,12 +150,12 @@ def _build_hearing_stats(db: Session, now: datetime) -> dict:
     if has_flag:
         q_today = q_today.filter(Hearing.is_performed == False)  # type: ignore[attr-defined]
     else:
-        q_today = q_today.filter(Hearing.starts_at >= now)  # apenas as que ainda vão acontecer hoje
+        q_today = q_today.filter(Hearing.starts_at >= now)
 
     hoje = q_today.count()
 
-    # ✅ ESSA SEMANA (SEG-DOM), a realizar
     q_week = db.query(Hearing.id).filter(
+        Hearing.office_id == office_id,
         Hearing.starts_at.isnot(None),
         Hearing.starts_at >= week_start_dt,
         Hearing.starts_at < week_end_dt_excl,
@@ -196,15 +167,14 @@ def _build_hearing_stats(db: Session, now: datetime) -> dict:
 
     essa_semana = q_week.count()
 
-    # ✅ SEMANA QUE VEM (SEG-DOM), a realizar
     q_next_week = db.query(Hearing.id).filter(
+        Hearing.office_id == office_id,
         Hearing.starts_at.isnot(None),
         Hearing.starts_at >= next_week_start_dt,
         Hearing.starts_at < next_week_end_dt_excl,
     )
     if has_flag:
         q_next_week = q_next_week.filter(Hearing.is_performed == False)  # type: ignore[attr-defined]
-    # se não tem flag, semana que vem já é naturalmente futura, não precisa starts_at >= now
 
     semana_que_vem = q_next_week.count()
 
@@ -218,11 +188,7 @@ def _build_hearing_stats(db: Session, now: datetime) -> dict:
     }
 
 
-# =========================
-# ✅ ENVIO PARA ADVOGADOS (RESUMO DO PRÓXIMO DIA ÚTIL)
-# =========================
 def _normalize_phone_br(phone: str | None) -> str | None:
-    """Normaliza telefone para wa.me (remove não-numéricos e adiciona DDI 55 se faltar)."""
     if not phone:
         return None
     digits = "".join(ch for ch in phone if ch.isdigit())
@@ -234,33 +200,23 @@ def _normalize_phone_br(phone: str | None) -> str | None:
 
 
 def _next_business_day(d: date) -> date:
-    """
-    Próximo dia útil (mesma regra prática do dashboard):
-    - sexta -> segunda
-    - sábado -> segunda
-    - domingo -> segunda
-    - demais -> amanhã
-    """
-    wd = d.weekday()  # 0=seg ... 4=sex ... 5=sab ... 6=dom
-    if wd == 4:   # sexta
+    wd = d.weekday()
+    if wd == 4:
         return d + timedelta(days=3)
-    if wd == 5:   # sábado
+    if wd == 5:
         return d + timedelta(days=2)
-    if wd == 6:   # domingo
+    if wd == 6:
         return d + timedelta(days=1)
     return d + timedelta(days=1)
 
 
 def _fmt_hearing_line(h: Hearing) -> str:
-    """
-    ✅ AGORA INCLUI O CÓDIGO DE EXTENSÃO (extension_code) NO TEXTO DOS ADVOGADOS
-    """
     hhmm = h.starts_at.strftime("%H:%M") if h.starts_at else "??:??"
     pn = (h.process_number or "").strip()
     prom = (h.promovente or "").strip()
     prov = (h.promovido or "").strip()
     mod = (h.modalidade or "").strip()
-    ext = (getattr(h, "extension_code", None) or "").strip()  # ✅ AQUI
+    ext = (getattr(h, "extension_code", None) or "").strip()
 
     parts = [f"{hhmm} — {pn}"]
 
@@ -270,11 +226,9 @@ def _fmt_hearing_line(h: Hearing) -> str:
         else:
             parts.append(prom or prov)
 
-    # ✅ inclui modalidade
     if mod:
         parts.append(f"({mod})")
 
-    # ✅ inclui código de extensão
     if ext:
         parts.append(f"Código: {ext}")
 
@@ -296,14 +250,8 @@ def _build_lawyer_daily_message(hearings: List[Hearing], when: date) -> str:
 
 @router.get("/enviar-advogados", response_class=HTMLResponse)
 def enviar_advogados(request: Request, db: Session = Depends(get_db)):
-    """
-    Envia SEMPRE as audiências do PRÓXIMO DIA ÚTIL (para o advogado se programar).
+    office_id = _get_office_id(request)
 
-    Regra:
-    - Seg–Qui: amanhã
-    - Sexta: segunda (engloba sábado e domingo)
-    - Sáb/Dom: segunda
-    """
     today = date.today()
     target_date = _next_business_day(today)
 
@@ -312,7 +260,12 @@ def enviar_advogados(request: Request, db: Session = Depends(get_db)):
 
     hearings = (
         db.query(Hearing)
-        .filter(Hearing.starts_at.isnot(None), Hearing.starts_at >= start, Hearing.starts_at < end)
+        .filter(
+            Hearing.office_id == office_id,
+            Hearing.starts_at.isnot(None),
+            Hearing.starts_at >= start,
+            Hearing.starts_at < end,
+        )
         .order_by(Hearing.starts_at.asc())
         .all()
     )
@@ -344,18 +297,16 @@ def enviar_advogados(request: Request, db: Session = Depends(get_db)):
     )
 
 
-# =========================
-# ✅ INDEX: a realizar + painel realizadas
-# =========================
 @router.get("", response_class=HTMLResponse)
 def index(request: Request, db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
     now = datetime.now()
     has_flag = _has_is_performed()
 
-    # ✅ NOVO: stats do topo (igual Controle de Prazos)
-    stats = _build_hearing_stats(db, now)
+    stats = _build_hearing_stats(db, now, office_id)
 
     q_future = db.query(Hearing).filter(
+        Hearing.office_id == office_id,
         Hearing.starts_at.isnot(None),
         Hearing.starts_at >= now,
     )
@@ -368,6 +319,7 @@ def index(request: Request, db: Session = Depends(get_db)):
     hearings = q_future.order_by(Hearing.starts_at.asc()).all()
 
     q_done = db.query(Hearing).filter(
+        Hearing.office_id == office_id,
         Hearing.starts_at.isnot(None),
         Hearing.starts_at < now,
     )
@@ -376,6 +328,7 @@ def index(request: Request, db: Session = Depends(get_db)):
 
     if has_flag:
         q_done = db.query(Hearing).filter(
+            Hearing.office_id == office_id,
             Hearing.starts_at.isnot(None),
             or_(Hearing.starts_at < now, Hearing.is_performed == True),  # type: ignore[attr-defined]
         )
@@ -408,20 +361,19 @@ def index(request: Request, db: Session = Depends(get_db)):
             "now": now,
             "has_is_performed": has_flag,
             "has_manual_phone": _has_manual_phone(),
-            "stats": stats,  # ✅ NOVO: envia pro template
+            "stats": stats,
         },
     )
 
 
-# =========================
-# ✅ IMPORTAÇÃO
-# =========================
 @router.post("/import")
 async def import_files(
     request: Request,
     files: List[UploadFile] = File(...),
     db: Session = Depends(get_db),
 ):
+    office_id = _get_office_id(request)
+
     inserted = 0
     extracted_total = 0
     duplicated = 0
@@ -429,8 +381,6 @@ async def import_files(
     filenames: List[str] = []
     has_flag = _has_is_performed()
 
-    # ✅ CORREÇÃO:
-    # evita duplicidade dentro do mesmo lote de importação
     batch_seen_keys: set[tuple[str, datetime]] = set()
 
     for f in files:
@@ -455,23 +405,23 @@ async def import_files(
 
             key = (process_number, starts_at)
 
-            # ✅ CORREÇÃO 1:
-            # se já apareceu no mesmo lote/arquivo, ignora
             if key in batch_seen_keys:
                 duplicated += 1
                 continue
 
             batch_seen_keys.add(key)
 
-            client = _find_client_by_name(db, it.get("client_name_guess") or "")
+            client = _find_client_by_name(db, office_id, it.get("client_name_guess") or "")
             if client:
                 it["client_id"] = client.id
 
             it["process_number"] = process_number
+            it["office_id"] = office_id
 
             exists = (
                 db.query(Hearing)
                 .filter(
+                    Hearing.office_id == office_id,
                     Hearing.process_number == process_number,
                     Hearing.starts_at == starts_at,
                 )
@@ -490,8 +440,6 @@ async def import_files(
     try:
         db.commit()
     except IntegrityError:
-        # ✅ CORREÇÃO 2:
-        # segurança extra se ainda houver conflito por concorrência/race condition
         db.rollback()
         try:
             request.session["audiencias_import_stats"] = {
@@ -536,9 +484,6 @@ async def import_files(
     return RedirectResponse(url="/audiencias", status_code=303)
 
 
-# =========================
-# ✅ CADASTRO MANUAL (reusa edit.html)
-# =========================
 @router.get("/novo", response_class=HTMLResponse)
 def new_form(request: Request):
     return templates.TemplateResponse("audiencias/edit.html", {"request": request, "h": None})
@@ -557,6 +502,8 @@ def create_save(
     manual_phone: str = Form(""),
     db: Session = Depends(get_db),
 ):
+    office_id = _get_office_id(request)
+
     pn = _safe_strip(process_number)
     if not pn:
         return RedirectResponse(url="/audiencias/novo", status_code=303)
@@ -568,19 +515,24 @@ def create_save(
 
     exists = (
         db.query(Hearing)
-        .filter(Hearing.process_number == pn, Hearing.starts_at == dt)
+        .filter(
+            Hearing.office_id == office_id,
+            Hearing.process_number == pn,
+            Hearing.starts_at == dt,
+        )
         .first()
     )
     if exists:
         try:
             request.session["audiencias_import_msg"] = (
-                "Já existe uma audiência com este processo e esta data/hora. Nenhum cadastro foi feito."
+                "Já existe uma audiência com este processo e esta data/hora neste escritório. Nenhum cadastro foi feito."
             )
         except Exception:
             pass
         return RedirectResponse(url="/audiencias", status_code=303)
 
     data = dict(
+        office_id=office_id,
         process_number=pn,
         starts_at=dt,
         modalidade=_safe_strip(modalidade) or None,
@@ -599,7 +551,7 @@ def create_save(
     h = Hearing(**data)
 
     if not getattr(h, "client_id", None):
-        client = _find_client_by_name(db, h.promovente or "")
+        client = _find_client_by_name(db, office_id, h.promovente or "")
         if client:
             h.client_id = client.id  # type: ignore[attr-defined]
 
@@ -608,17 +560,24 @@ def create_save(
     return RedirectResponse(url="/audiencias", status_code=303)
 
 
-# =========================
-# ✅ EDITAR
-# =========================
 @router.get("/{hearing_id}/edit", response_class=HTMLResponse)
 def edit_form(hearing_id: int, request: Request, db: Session = Depends(get_db)):
-    h = db.query(Hearing).filter(Hearing.id == hearing_id).first()
+    office_id = _get_office_id(request)
+
+    h = (
+        db.query(Hearing)
+        .filter(
+            Hearing.id == hearing_id,
+            Hearing.office_id == office_id,
+        )
+        .first()
+    )
     return templates.TemplateResponse("audiencias/edit.html", {"request": request, "h": h})
 
 
 @router.post("/{hearing_id}/edit")
 def edit_save(
+    request: Request,
     hearing_id: int,
     process_number: str = Form(...),
     promovente: str = Form(""),
@@ -630,7 +589,16 @@ def edit_save(
     manual_phone: str = Form(""),
     db: Session = Depends(get_db),
 ):
-    h = db.query(Hearing).filter(Hearing.id == hearing_id).first()
+    office_id = _get_office_id(request)
+
+    h = (
+        db.query(Hearing)
+        .filter(
+            Hearing.id == hearing_id,
+            Hearing.office_id == office_id,
+        )
+        .first()
+    )
     if not h:
         return RedirectResponse(url="/audiencias", status_code=303)
 
@@ -638,6 +606,25 @@ def edit_save(
     try:
         dt = datetime.fromisoformat(_safe_strip(starts_at))
     except Exception:
+        return RedirectResponse(url=f"/audiencias/{hearing_id}/edit", status_code=303)
+
+    exists = (
+        db.query(Hearing)
+        .filter(
+            Hearing.office_id == office_id,
+            Hearing.id != hearing_id,
+            Hearing.process_number == pn,
+            Hearing.starts_at == dt,
+        )
+        .first()
+    )
+    if exists:
+        try:
+            request.session["audiencias_import_msg"] = (
+                "Já existe outra audiência com este processo e esta data/hora neste escritório."
+            )
+        except Exception:
+            pass
         return RedirectResponse(url=f"/audiencias/{hearing_id}/edit", status_code=303)
 
     h.process_number = pn
@@ -652,7 +639,7 @@ def edit_save(
         h.manual_phone = _safe_strip(manual_phone) or None  # type: ignore[attr-defined]
 
     if not getattr(h, "client_id", None):
-        client = _find_client_by_name(db, h.promovente or "")
+        client = _find_client_by_name(db, office_id, h.promovente or "")
         if client:
             h.client_id = client.id  # type: ignore[attr-defined]
 
@@ -660,41 +647,55 @@ def edit_save(
     return RedirectResponse(url="/audiencias", status_code=303)
 
 
-# =========================
-# ✅ DELETE (individual)
-# =========================
 @router.post("/{hearing_id}/delete")
-def delete(hearing_id: int, db: Session = Depends(get_db)):
-    h = db.query(Hearing).filter(Hearing.id == hearing_id).first()
+def delete(request: Request, hearing_id: int, db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+
+    h = (
+        db.query(Hearing)
+        .filter(
+            Hearing.id == hearing_id,
+            Hearing.office_id == office_id,
+        )
+        .first()
+    )
     if h:
         db.delete(h)
         db.commit()
     return RedirectResponse(url="/audiencias", status_code=303)
 
 
-# =========================
-# ✅ DELETE (lote)
-# =========================
 @router.post("/delete-batch")
-def delete_batch(ids: str = Form(...), db: Session = Depends(get_db)):
+def delete_batch(request: Request, ids: str = Form(...), db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+
     ids_list = [int(x) for x in (ids or "").split(",") if x.strip().isdigit()]
     if not ids_list:
         return RedirectResponse(url="/audiencias", status_code=303)
 
-    db.query(Hearing).filter(Hearing.id.in_(ids_list)).delete(synchronize_session=False)
+    (
+        db.query(Hearing)
+        .filter(
+            Hearing.office_id == office_id,
+            Hearing.id.in_(ids_list),
+        )
+        .delete(synchronize_session=False)
+    )
     db.commit()
     return RedirectResponse(url="/audiencias", status_code=303)
 
 
-# =========================
-# ✅ PDF ORIENTAÇÕES (DOWNLOAD)
-# =========================
 @router.get("/{hearing_id}/pdf-orientacoes")
 def pdf_orientacoes(hearing_id: int, request: Request, db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+
     q = db.query(Hearing)
     if _has_client_rel():
         q = q.options(joinedload(Hearing.client))  # type: ignore[arg-type]
-    h = q.filter(Hearing.id == hearing_id).first()
+    h = q.filter(
+        Hearing.id == hearing_id,
+        Hearing.office_id == office_id,
+    ).first()
 
     if not h:
         return RedirectResponse(url="/audiencias", status_code=303)
@@ -729,15 +730,17 @@ def pdf_orientacoes(hearing_id: int, request: Request, db: Session = Depends(get
     return StreamingResponse(iter([pdf_bytes]), media_type="application/pdf", headers=headers)
 
 
-# =========================
-# ✅ WHATSAPP CLIENTE
-# =========================
 @router.get("/{hearing_id}/whatsapp")
 def whatsapp_client(hearing_id: int, request: Request, db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+
     q = db.query(Hearing)
     if _has_client_rel():
         q = q.options(joinedload(Hearing.client))  # type: ignore[arg-type]
-    h = q.filter(Hearing.id == hearing_id).first()
+    h = q.filter(
+        Hearing.id == hearing_id,
+        Hearing.office_id == office_id,
+    ).first()
 
     if not h:
         return RedirectResponse(url="/audiencias", status_code=303)
@@ -787,8 +790,17 @@ def whatsapp_client(hearing_id: int, request: Request, db: Session = Depends(get
 
 
 @router.get("/{hearing_id}/create-client")
-def create_client_redirect(hearing_id: int, db: Session = Depends(get_db)):
-    h = db.query(Hearing).filter(Hearing.id == hearing_id).first()
+def create_client_redirect(request: Request, hearing_id: int, db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+
+    h = (
+        db.query(Hearing)
+        .filter(
+            Hearing.id == hearing_id,
+            Hearing.office_id == office_id,
+        )
+        .first()
+    )
     if not h:
         return RedirectResponse(url="/audiencias", status_code=303)
 
@@ -796,9 +808,6 @@ def create_client_redirect(hearing_id: int, db: Session = Depends(get_db)):
     return RedirectResponse(url=f"/clientes/novo?name={name}", status_code=303)
 
 
-# =========================
-# ✅ CONFIG DESTINATÁRIOS
-# =========================
 @router.get("/config", response_class=HTMLResponse)
 def config(request: Request, db: Session = Depends(get_db)):
     contacts = db.query(HearingContact).order_by(HearingContact.name.asc()).all()
@@ -830,15 +839,21 @@ def config_delete(contact_id: int, db: Session = Depends(get_db)):
     return RedirectResponse(url="/audiencias/config", status_code=303)
 
 
-# =========================
-# ✅ MARCAR / DESMARCAR REALIZADAS (1 e lote)
-# =========================
 @router.post("/{hearing_id}/mark-performed")
-def mark_performed(hearing_id: int, db: Session = Depends(get_db)):
+def mark_performed(request: Request, hearing_id: int, db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+
     if not _has_is_performed():
         return RedirectResponse(url="/audiencias", status_code=303)
 
-    h = db.query(Hearing).filter(Hearing.id == hearing_id).first()
+    h = (
+        db.query(Hearing)
+        .filter(
+            Hearing.id == hearing_id,
+            Hearing.office_id == office_id,
+        )
+        .first()
+    )
     if h and not h.is_performed:  # type: ignore[attr-defined]
         h.is_performed = True  # type: ignore[attr-defined]
         db.commit()
@@ -846,11 +861,20 @@ def mark_performed(hearing_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{hearing_id}/unmark-performed")
-def unmark_performed(hearing_id: int, db: Session = Depends(get_db)):
+def unmark_performed(request: Request, hearing_id: int, db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+
     if not _has_is_performed():
         return RedirectResponse(url="/audiencias", status_code=303)
 
-    h = db.query(Hearing).filter(Hearing.id == hearing_id).first()
+    h = (
+        db.query(Hearing)
+        .filter(
+            Hearing.id == hearing_id,
+            Hearing.office_id == office_id,
+        )
+        .first()
+    )
     if h and h.is_performed:  # type: ignore[attr-defined]
         h.is_performed = False  # type: ignore[attr-defined]
         db.commit()
@@ -858,7 +882,9 @@ def unmark_performed(hearing_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/mark-performed")
-def mark_performed_batch(ids: str = Form(...), db: Session = Depends(get_db)):
+def mark_performed_batch(request: Request, ids: str = Form(...), db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+
     if not _has_is_performed():
         return RedirectResponse(url="/audiencias", status_code=303)
 
@@ -866,16 +892,25 @@ def mark_performed_batch(ids: str = Form(...), db: Session = Depends(get_db)):
     if not ids_list:
         return RedirectResponse(url="/audiencias", status_code=303)
 
-    db.query(Hearing).filter(Hearing.id.in_(ids_list)).update(
-        {Hearing.is_performed: True},  # type: ignore[attr-defined]
-        synchronize_session=False,
+    (
+        db.query(Hearing)
+        .filter(
+            Hearing.office_id == office_id,
+            Hearing.id.in_(ids_list),
+        )
+        .update(
+            {Hearing.is_performed: True},  # type: ignore[attr-defined]
+            synchronize_session=False,
+        )
     )
     db.commit()
     return RedirectResponse(url="/audiencias", status_code=303)
 
 
 @router.post("/unmark-performed")
-def unmark_performed_batch(ids: str = Form(...), db: Session = Depends(get_db)):
+def unmark_performed_batch(request: Request, ids: str = Form(...), db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+
     if not _has_is_performed():
         return RedirectResponse(url="/audiencias", status_code=303)
 
@@ -883,9 +918,16 @@ def unmark_performed_batch(ids: str = Form(...), db: Session = Depends(get_db)):
     if not ids_list:
         return RedirectResponse(url="/audiencias", status_code=303)
 
-    db.query(Hearing).filter(Hearing.id.in_(ids_list)).update(
-        {Hearing.is_performed: False},  # type: ignore[attr-defined]
-        synchronize_session=False,
+    (
+        db.query(Hearing)
+        .filter(
+            Hearing.office_id == office_id,
+            Hearing.id.in_(ids_list),
+        )
+        .update(
+            {Hearing.is_performed: False},  # type: ignore[attr-defined]
+            synchronize_session=False,
+        )
     )
     db.commit()
     return RedirectResponse(url="/audiencias", status_code=303)
@@ -893,6 +935,7 @@ def unmark_performed_batch(ids: str = Form(...), db: Session = Depends(get_db)):
 
 @router.get("/realizadas", response_class=HTMLResponse)
 def realizadas(request: Request, db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
     now = datetime.now()
     has_flag = _has_is_performed()
 
@@ -900,6 +943,7 @@ def realizadas(request: Request, db: Session = Depends(get_db)):
         performed_hearings = (
             db.query(Hearing)
             .filter(
+                Hearing.office_id == office_id,
                 Hearing.starts_at.isnot(None),
                 or_(Hearing.starts_at < now, Hearing.is_performed == True),  # type: ignore[attr-defined]
             )
@@ -910,6 +954,7 @@ def realizadas(request: Request, db: Session = Depends(get_db)):
         performed_hearings = (
             db.query(Hearing)
             .filter(
+                Hearing.office_id == office_id,
                 Hearing.starts_at.isnot(None),
                 Hearing.starts_at < now,
             )

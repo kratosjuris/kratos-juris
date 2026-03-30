@@ -1,5 +1,5 @@
 from datetime import date, timedelta
-from fastapi import APIRouter, Request, Depends, Form
+from fastapi import APIRouter, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -12,13 +12,19 @@ router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
 
+def _get_office_id(request: Request) -> int:
+    office_id = request.session.get("office_id")
+    if not office_id:
+        raise HTTPException(status_code=403, detail="Usuário sem escritório vinculado.")
+    return int(office_id)
+
+
 # =========================================================
 # CALENDÁRIO (dias não úteis):
 #  - Finais de semana
 #  - Recesso forense: 20/12 a 20/01 (inclusive)
 #  - Feriados nacionais (inclui Paixão de Cristo)
 # =========================================================
-
 def is_recesso_forense(d: date) -> bool:
     return (d.month == 12 and d.day >= 20) or (d.month == 1 and d.day <= 20)
 
@@ -101,9 +107,6 @@ def cor_por_item(aba_norm: str, p: ProcessItem) -> str | None:
     return None
 
 
-# -----------------------------
-# Mapeamento: código -> rótulo
-# -----------------------------
 ABA_LABEL_BY_STATUS = {
     "PRAZOS": "Controle de Prazos",
     "PROCEDENTE": "Ações Procedentes",
@@ -118,12 +121,6 @@ def _titulo_por_aba_norm(aba_norm: str) -> str:
 
 
 def _normalize_aba(value: str | None) -> str:
-    """
-    Aceita:
-      - "PROCEDENTE" / "EXECUCAO" / "PRAZOS"
-      - "Ações Procedentes" / "Ações em Execução" / "Controle de Prazos"
-    Retorna sempre o CÓDIGO: "PROCEDENTE|EXECUCAO|PRAZOS"
-    """
     raw = (value or "PROCEDENTE").strip()
     up = raw.upper()
 
@@ -137,12 +134,6 @@ def _normalize_aba(value: str | None) -> str:
 
 
 def _aba_values_for_filter(aba_norm: str) -> list[str]:
-    """
-    Como no seu banco a coluna é 'aba', ela pode ter:
-      - o código antigo (PRAZOS/PROCEDENTE/EXECUCAO)
-      - o rótulo novo ("Controle de Prazos" etc.)
-    Então filtramos pelos dois.
-    """
     label = ABA_LABEL_BY_STATUS.get(aba_norm)
     if label:
         return [aba_norm, label]
@@ -164,16 +155,7 @@ def _inicio_da_semana(d: date) -> date:
     return d - timedelta(days=d.weekday())
 
 
-def _contadores_por_aba(db: Session, aba_norm: str) -> dict | None:
-    """
-    Contadores:
-      - PRAZOS: total, concluidos, vence_hoje, vence_semana, vence_proxima_semana, atrasados
-      - PROCEDENTE/EXECUCAO: total, vence_hoje, vence_semana, vence_proxima_semana, atrasados
-    Observação: Para manter a mesma lógica do controle de prazos:
-      - PRAZOS ignora CUMPRIDO nos vencimentos/atrasados.
-      - PROCEDENTE e EXECUCAO contam tudo da aba (não filtram por cumprimento),
-        mas só consideram vencimento quando vencimento IS NOT NULL.
-    """
+def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | None:
     hoje = date.today()
 
     fim_semana = _fim_da_semana(hoje)
@@ -182,10 +164,12 @@ def _contadores_por_aba(db: Session, aba_norm: str) -> dict | None:
 
     aba_values = _aba_values_for_filter(aba_norm)
 
-    # TOTAL (sempre)
     total = (
         db.query(func.count(ProcessItem.id))
-        .filter(ProcessItem.aba.in_(aba_values))
+        .filter(
+            ProcessItem.office_id == office_id,
+            ProcessItem.aba.in_(aba_values),
+        )
         .scalar()
         or 0
     )
@@ -193,49 +177,64 @@ def _contadores_por_aba(db: Session, aba_norm: str) -> dict | None:
     if aba_norm == "PRAZOS":
         concluidos = (
             db.query(func.count(ProcessItem.id))
-            .filter(ProcessItem.aba.in_(aba_values))
-            .filter(ProcessItem.cumprimento == "CUMPRIDO")
+            .filter(
+                ProcessItem.office_id == office_id,
+                ProcessItem.aba.in_(aba_values),
+                ProcessItem.cumprimento == "CUMPRIDO",
+            )
             .scalar()
             or 0
         )
 
         vence_hoje = (
             db.query(func.count(ProcessItem.id))
-            .filter(ProcessItem.aba.in_(aba_values))
-            .filter(ProcessItem.cumprimento != "CUMPRIDO")
-            .filter(ProcessItem.vencimento == hoje)
+            .filter(
+                ProcessItem.office_id == office_id,
+                ProcessItem.aba.in_(aba_values),
+                ProcessItem.cumprimento != "CUMPRIDO",
+                ProcessItem.vencimento == hoje,
+            )
             .scalar()
             or 0
         )
 
         vence_semana = (
             db.query(func.count(ProcessItem.id))
-            .filter(ProcessItem.aba.in_(aba_values))
-            .filter(ProcessItem.cumprimento != "CUMPRIDO")
-            .filter(ProcessItem.vencimento.isnot(None))
-            .filter(ProcessItem.vencimento >= hoje)
-            .filter(ProcessItem.vencimento <= fim_semana)
+            .filter(
+                ProcessItem.office_id == office_id,
+                ProcessItem.aba.in_(aba_values),
+                ProcessItem.cumprimento != "CUMPRIDO",
+                ProcessItem.vencimento.isnot(None),
+                ProcessItem.vencimento >= hoje,
+                ProcessItem.vencimento <= fim_semana,
+            )
             .scalar()
             or 0
         )
 
         vence_proxima_semana = (
             db.query(func.count(ProcessItem.id))
-            .filter(ProcessItem.aba.in_(aba_values))
-            .filter(ProcessItem.cumprimento != "CUMPRIDO")
-            .filter(ProcessItem.vencimento.isnot(None))
-            .filter(ProcessItem.vencimento >= inicio_proxima)
-            .filter(ProcessItem.vencimento <= fim_proxima)
+            .filter(
+                ProcessItem.office_id == office_id,
+                ProcessItem.aba.in_(aba_values),
+                ProcessItem.cumprimento != "CUMPRIDO",
+                ProcessItem.vencimento.isnot(None),
+                ProcessItem.vencimento >= inicio_proxima,
+                ProcessItem.vencimento <= fim_proxima,
+            )
             .scalar()
             or 0
         )
 
         atrasados = (
             db.query(func.count(ProcessItem.id))
-            .filter(ProcessItem.aba.in_(aba_values))
-            .filter(ProcessItem.cumprimento != "CUMPRIDO")
-            .filter(ProcessItem.vencimento.isnot(None))
-            .filter(ProcessItem.vencimento < hoje)
+            .filter(
+                ProcessItem.office_id == office_id,
+                ProcessItem.aba.in_(aba_values),
+                ProcessItem.cumprimento != "CUMPRIDO",
+                ProcessItem.vencimento.isnot(None),
+                ProcessItem.vencimento < hoje,
+            )
             .scalar()
             or 0
         )
@@ -249,41 +248,52 @@ def _contadores_por_aba(db: Session, aba_norm: str) -> dict | None:
             "atrasados": atrasados,
         }
 
-    # ✅ PROCEDENTE / EXECUCAO (sem "concluidos")
     vence_hoje = (
         db.query(func.count(ProcessItem.id))
-        .filter(ProcessItem.aba.in_(aba_values))
-        .filter(ProcessItem.vencimento.isnot(None))
-        .filter(ProcessItem.vencimento == hoje)
+        .filter(
+            ProcessItem.office_id == office_id,
+            ProcessItem.aba.in_(aba_values),
+            ProcessItem.vencimento.isnot(None),
+            ProcessItem.vencimento == hoje,
+        )
         .scalar()
         or 0
     )
 
     vence_semana = (
         db.query(func.count(ProcessItem.id))
-        .filter(ProcessItem.aba.in_(aba_values))
-        .filter(ProcessItem.vencimento.isnot(None))
-        .filter(ProcessItem.vencimento >= hoje)
-        .filter(ProcessItem.vencimento <= fim_semana)
+        .filter(
+            ProcessItem.office_id == office_id,
+            ProcessItem.aba.in_(aba_values),
+            ProcessItem.vencimento.isnot(None),
+            ProcessItem.vencimento >= hoje,
+            ProcessItem.vencimento <= fim_semana,
+        )
         .scalar()
         or 0
     )
 
     vence_proxima_semana = (
         db.query(func.count(ProcessItem.id))
-        .filter(ProcessItem.aba.in_(aba_values))
-        .filter(ProcessItem.vencimento.isnot(None))
-        .filter(ProcessItem.vencimento >= inicio_proxima)
-        .filter(ProcessItem.vencimento <= fim_proxima)
+        .filter(
+            ProcessItem.office_id == office_id,
+            ProcessItem.aba.in_(aba_values),
+            ProcessItem.vencimento.isnot(None),
+            ProcessItem.vencimento >= inicio_proxima,
+            ProcessItem.vencimento <= fim_proxima,
+        )
         .scalar()
         or 0
     )
 
     atrasados = (
         db.query(func.count(ProcessItem.id))
-        .filter(ProcessItem.aba.in_(aba_values))
-        .filter(ProcessItem.vencimento.isnot(None))
-        .filter(ProcessItem.vencimento < hoje)
+        .filter(
+            ProcessItem.office_id == office_id,
+            ProcessItem.aba.in_(aba_values),
+            ProcessItem.vencimento.isnot(None),
+            ProcessItem.vencimento < hoje,
+        )
         .scalar()
         or 0
     )
@@ -297,9 +307,6 @@ def _contadores_por_aba(db: Session, aba_norm: str) -> dict | None:
     }
 
 
-# -----------------------------
-# LISTAS (3 abas)
-# -----------------------------
 @router.get("/processos", response_class=HTMLResponse)
 def processos_list(
     request: Request,
@@ -307,12 +314,17 @@ def processos_list(
     filtro: str = "PENDENTES",
     db: Session = Depends(get_db),
 ):
-    aba_norm = _normalize_aba(status)  # sempre código
+    office_id = _get_office_id(request)
+
+    aba_norm = _normalize_aba(status)
     aba_values = _aba_values_for_filter(aba_norm)
 
     filtro_prazos = _normalize_filtro_prazos(filtro) if aba_norm == "PRAZOS" else None
 
-    q = db.query(ProcessItem).filter(ProcessItem.aba.in_(aba_values))
+    q = db.query(ProcessItem).filter(
+        ProcessItem.office_id == office_id,
+        ProcessItem.aba.in_(aba_values),
+    )
 
     if aba_norm == "PRAZOS":
         if filtro_prazos == "PENDENTES":
@@ -338,15 +350,14 @@ def processos_list(
             }
         )
 
-    # ✅ contadores agora existem para as 3 abas
-    counters = _contadores_por_aba(db, aba_norm)
+    counters = _contadores_por_aba(db, office_id, aba_norm)
 
     return templates.TemplateResponse(
         "processes/list.html",
         {
             "request": request,
             "title": _titulo_por_aba_norm(aba_norm),
-            "status": aba_norm,          # "PROCEDENTE|EXECUCAO|PRAZOS"
+            "status": aba_norm,
             "filtro": filtro_prazos,
             "counters": counters,
             "itens": itens,
@@ -360,9 +371,6 @@ def prazos_list(request: Request, filtro: str = "PENDENTES", db: Session = Depen
     return processos_list(request=request, status="PRAZOS", filtro=filtro, db=db)
 
 
-# -----------------------------
-# NOVO
-# -----------------------------
 @router.get("/processos/novo", response_class=HTMLResponse)
 def processos_novo_form(request: Request, status: str = "PROCEDENTE"):
     aba_norm = _normalize_aba(status)
@@ -384,14 +392,19 @@ def processos_novo(
     prazo_dias: str = Form(""),
     obs: str = Form(""),
 ):
+    office_id = _get_office_id(request)
+
     aba_norm = _normalize_aba(status)
     aba_label = ABA_LABEL_BY_STATUS.get(aba_norm, aba_norm)
     numero = numero_processo.strip()
 
     existe = (
         db.query(ProcessItem)
-        .filter(ProcessItem.aba.in_([aba_norm, aba_label]))
-        .filter(ProcessItem.numero_processo == numero)
+        .filter(
+            ProcessItem.office_id == office_id,
+            ProcessItem.aba.in_([aba_norm, aba_label]),
+            ProcessItem.numero_processo == numero,
+        )
         .first()
     )
     if existe:
@@ -420,8 +433,8 @@ def processos_novo(
     if djen and dias_int:
         venc = add_business_days(djen, dias_int)
 
-    # ✅ grava aba como rótulo (padrão novo), mas a listagem pega rótulo OU código
     p = ProcessItem(
+        office_id=office_id,
         aba=aba_label,
         numero_processo=numero,
         parte_autora=parte_autora.strip(),
@@ -438,12 +451,18 @@ def processos_novo(
     return RedirectResponse(url=f"/processos?status={aba_norm}", status_code=303)
 
 
-# -----------------------------
-# EDITAR
-# -----------------------------
 @router.get("/processos/{pid}/editar", response_class=HTMLResponse)
 def processos_editar_form(pid: int, request: Request, db: Session = Depends(get_db)):
-    p = db.query(ProcessItem).filter(ProcessItem.id == pid).first()
+    office_id = _get_office_id(request)
+
+    p = (
+        db.query(ProcessItem)
+        .filter(
+            ProcessItem.id == pid,
+            ProcessItem.office_id == office_id,
+        )
+        .first()
+    )
     if not p:
         return RedirectResponse(url="/processos?status=PROCEDENTE", status_code=303)
 
@@ -466,7 +485,16 @@ def processos_editar(
     prazo_dias: str = Form(""),
     obs: str = Form(""),
 ):
-    p = db.query(ProcessItem).filter(ProcessItem.id == pid).first()
+    office_id = _get_office_id(request)
+
+    p = (
+        db.query(ProcessItem)
+        .filter(
+            ProcessItem.id == pid,
+            ProcessItem.office_id == office_id,
+        )
+        .first()
+    )
     if not p:
         return RedirectResponse(url="/processos?status=PROCEDENTE", status_code=303)
 
@@ -478,9 +506,12 @@ def processos_editar(
 
     existe = (
         db.query(ProcessItem)
-        .filter(ProcessItem.aba.in_(aba_values))
-        .filter(ProcessItem.numero_processo == numero)
-        .filter(ProcessItem.id != p.id)
+        .filter(
+            ProcessItem.office_id == office_id,
+            ProcessItem.aba.in_(aba_values),
+            ProcessItem.numero_processo == numero,
+            ProcessItem.id != p.id,
+        )
         .first()
     )
     if existe:
@@ -523,12 +554,18 @@ def processos_editar(
     return RedirectResponse(url=f"/processos?status={aba_norm}", status_code=303)
 
 
-# -----------------------------
-# EXCLUIR
-# -----------------------------
 @router.post("/processos/{pid}/excluir")
-def processos_excluir(pid: int, db: Session = Depends(get_db), status: str = Form("PROCEDENTE")):
-    p = db.query(ProcessItem).filter(ProcessItem.id == pid).first()
+def processos_excluir(request: Request, pid: int, db: Session = Depends(get_db), status: str = Form("PROCEDENTE")):
+    office_id = _get_office_id(request)
+
+    p = (
+        db.query(ProcessItem)
+        .filter(
+            ProcessItem.id == pid,
+            ProcessItem.office_id == office_id,
+        )
+        .first()
+    )
     if p:
         aba_norm = _normalize_aba(getattr(p, "aba", None))
         db.delete(p)
@@ -540,7 +577,9 @@ def processos_excluir(pid: int, db: Session = Depends(get_db), status: str = For
 
 
 @router.post("/processos/excluir-lote")
-def processos_excluir_lote(db: Session = Depends(get_db), status: str = Form(...), ids: str = Form("")):
+def processos_excluir_lote(request: Request, db: Session = Depends(get_db), status: str = Form(...), ids: str = Form("")):
+    office_id = _get_office_id(request)
+
     aba_norm = _normalize_aba(status)
     aba_label = ABA_LABEL_BY_STATUS.get(aba_norm, aba_norm)
     aba_values = [aba_norm, aba_label]
@@ -550,8 +589,11 @@ def processos_excluir_lote(db: Session = Depends(get_db), status: str = Form(...
         if lista_ids:
             rows = (
                 db.query(ProcessItem)
-                .filter(ProcessItem.aba.in_(aba_values))
-                .filter(ProcessItem.id.in_(lista_ids))
+                .filter(
+                    ProcessItem.office_id == office_id,
+                    ProcessItem.aba.in_(aba_values),
+                    ProcessItem.id.in_(lista_ids),
+                )
                 .all()
             )
             for r in rows:
@@ -561,18 +603,25 @@ def processos_excluir_lote(db: Session = Depends(get_db), status: str = Form(...
     return RedirectResponse(url=f"/processos?status={aba_norm}", status_code=303)
 
 
-# -----------------------------
-# ATUALIZAR STATUS
-# -----------------------------
 @router.post("/processos/{pid}/atualizar-status")
 def processos_atualizar_status(
+    request: Request,
     pid: int,
     db: Session = Depends(get_db),
     status: str = Form(...),
     cumprimento: str = Form(...),
     filtro: str = Form(""),
 ):
-    p = db.query(ProcessItem).filter(ProcessItem.id == pid).first()
+    office_id = _get_office_id(request)
+
+    p = (
+        db.query(ProcessItem)
+        .filter(
+            ProcessItem.id == pid,
+            ProcessItem.office_id == office_id,
+        )
+        .first()
+    )
     if not p:
         return RedirectResponse(url="/processos?status=PROCEDENTE", status_code=303)
 

@@ -70,37 +70,47 @@ def login_submit(
 
     print("\n" + "=" * 70)
     print("DEBUG LOGIN")
-    print(f"login recebido: {repr(login)}")
-    print(f"next_url: {repr(next_url)}")
-    print(f"client_ip: {repr(client_ip)}")
 
     raw_user = get_user_by_login(db, login)
-    print(f"user localizado: {raw_user}")
 
+    # =========================
+    # 🔥 VALIDAÇÕES NOVAS AQUI
+    # =========================
     if raw_user:
-        print(f"user.id: {raw_user.id}")
-        print(f"user.username: {raw_user.username}")
-        print(f"user.email: {raw_user.email}")
-        print(f"user.is_active: {raw_user.is_active}")
-        print(f"user.office_id: {getattr(raw_user, 'office_id', None)}")
 
-        try:
-            password_ok = verify_password(password, raw_user.password_hash)
-        except Exception as e:
-            password_ok = False
-            print(f"erro ao verificar senha/hash: {e}")
+        # 🚫 BLOQUEIO: USUÁRIO SUSPENSO
+        if not raw_user.is_active:
+            print("LOGIN BLOQUEADO: usuário suspenso")
+            return templates.TemplateResponse(
+                "auth/login.html",
+                {
+                    "request": request,
+                    "error": "Seu acesso está suspenso. Entre em contato com o suporte.",
+                    "next_url": next_url,
+                },
+                status_code=403,
+            )
 
-        print(f"verify_password: {password_ok}")
-    else:
-        print("Nenhum usuário encontrado por login.")
+        # 🚫 BLOQUEIO: ESCRITÓRIO SUSPENSO
+        if raw_user.office and not raw_user.office.is_active:
+            print("LOGIN BLOQUEADO: escritório suspenso")
+            return templates.TemplateResponse(
+                "auth/login.html",
+                {
+                    "request": request,
+                    "error": "Este escritório está suspenso. Regularize a situação para acessar o sistema.",
+                    "next_url": next_url,
+                },
+                status_code=403,
+            )
 
     user = authenticate_user(db, login, password)
-    print(f"authenticate_user retorno: {user}")
 
     if not user:
         register_login_failure(db, login=login, ip_address=client_ip)
         print("LOGIN FALHOU")
         print("=" * 70 + "\n")
+
         return templates.TemplateResponse(
             "auth/login.html",
             {
@@ -111,20 +121,40 @@ def login_submit(
             status_code=400,
         )
 
-    # mantém compatibilidade com sua lógica atual
+    # =========================
+    # 🔥 SEGURANÇA DUPLA (fallback)
+    # =========================
+    if not user.is_active:
+        return templates.TemplateResponse(
+            "auth/login.html",
+            {
+                "request": request,
+                "error": "Seu acesso está suspenso.",
+                "next_url": next_url,
+            },
+            status_code=403,
+        )
+
+    if user.office and not user.office.is_active:
+        return templates.TemplateResponse(
+            "auth/login.html",
+            {
+                "request": request,
+                "error": "Este escritório está suspenso.",
+                "next_url": next_url,
+            },
+            status_code=403,
+        )
+
+    # login normal
     login_user(request, user.id, user.office_id)
 
-    # multiempresa: grava também o office_id na sessão
-    # nesta fase, pode existir usuário antigo sem office_id
     if "session" in request.scope:
         request.session["office_id"] = getattr(user, "office_id", None)
-
-    print(f"Sessão após login_user: {dict(request.session)}")
 
     register_login_success(db, user=user, ip_address=client_ip)
 
     print(f"Sessão criada para user_id={user.id}")
-    print(f"Sessão criada para office_id={getattr(user, 'office_id', None)}")
     print("=" * 70 + "\n")
 
     return RedirectResponse(url=next_url, status_code=303)
@@ -138,17 +168,7 @@ def logout(request: Request, db: Session = Depends(get_db)):
     if current_user:
         register_logout(db, current_user, ip_address=client_ip)
 
-    print(
-        f"Sessão antes do logout: "
-        f"{dict(request.session) if 'session' in request.scope else 'sem session'}"
-    )
-
     logout_user(request)
-
-    print(
-        f"Sessão após logout: "
-        f"{dict(request.session) if 'session' in request.scope else 'sem session'}"
-    )
 
     return RedirectResponse(url="/login", status_code=303)
 

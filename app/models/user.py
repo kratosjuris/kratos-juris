@@ -21,7 +21,7 @@ class User(Base):
     username = Column(String(80), nullable=False, unique=True, index=True)
 
     # vínculo com escritório (multiempresa / multi-tenant)
-    # nullable=True nesta primeira etapa para não quebrar usuários já existentes
+    # nullable=True para não quebrar usuários já existentes
     office_id = Column(
         Integer,
         ForeignKey("offices.id", ondelete="SET NULL"),
@@ -32,11 +32,17 @@ class User(Base):
     # senha armazenada com hash
     password_hash = Column(String(255), nullable=False)
 
-    is_active = Column(Boolean, nullable=False, default=True)
+    # controla se o usuário pode acessar o sistema
+    # True = ativo | False = suspenso/inativo
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
 
     is_superuser = Column(Boolean, nullable=False, default=False)
 
     must_change_password = Column(Boolean, nullable=False, default=False)
+
+    # controle administrativo de suspensão
+    deactivated_at = Column(DateTime, nullable=True)
+    deactivation_reason = Column(String(255), nullable=True)
 
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
@@ -71,8 +77,22 @@ class User(Base):
         lazy="select",
     )
 
+    @property
+    def is_suspended(self) -> bool:
+        return not bool(self.is_active)
+
+    def suspend(self, reason: str | None = None) -> None:
+        self.is_active = False
+        self.deactivated_at = datetime.utcnow()
+        self.deactivation_reason = (reason or "").strip() or None
+
+    def reactivate(self) -> None:
+        self.is_active = True
+        self.deactivated_at = None
+        self.deactivation_reason = None
+
     def __repr__(self) -> str:
         return (
             f"<User id={self.id} username='{self.username}' "
-            f"office_id={self.office_id}>"
+            f"office_id={self.office_id} is_active={self.is_active}>"
         )

@@ -18,20 +18,83 @@
             <tr>
               <th>ID</th>
               <th>Nome</th>
+              <th>Status</th>
               <th>Criado em</th>
+              <th style="width: 280px;">Ações</th>
             </tr>
           </thead>
           <tbody>
             {% for office in offices %}
             <tr>
               <td>{{ office.id }}</td>
-              <td>{{ office.nome }}</td>
+
+              <td>
+                <strong>{{ office.nome }}</strong>
+              </td>
+
+              <td>
+                {% if office.is_active %}
+                  <span class="badge bg-success">Ativo</span>
+                {% else %}
+                  <span class="badge bg-danger">Suspenso</span>
+                {% endif %}
+              </td>
+
               <td>
                 {% if office.created_at %}
                   {{ office.created_at.strftime("%d/%m/%Y %H:%M") }}
                 {% else %}
                   -
                 {% endif %}
+              </td>
+
+              <td class="text-nowrap">
+
+                <a href="/offices/{{ office.id }}/editar" class="btn btn-sm btn-outline-primary">
+                  <i class="bi bi-pencil"></i>
+                </a>
+
+                {% if office.is_active %}
+                <form
+                  method="post"
+                  action="/offices/{{ office.id }}/suspender"
+                  style="display:inline-block;"
+                  onsubmit="return confirm('Deseja suspender este escritório? Todos os usuários perderão acesso.');"
+                >
+                  <button type="submit" class="btn btn-sm btn-outline-warning">
+                    <i class="bi bi-pause-circle"></i>
+                  </button>
+                </form>
+                {% else %}
+                <form
+                  method="post"
+                  action="/offices/{{ office.id }}/reativar"
+                  style="display:inline-block;"
+                  onsubmit="return confirm('Deseja reativar este escritório?');"
+                >
+                  <button type="submit" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-play-circle"></i>
+                  </button>
+                </form>
+                {% endif %}
+
+                {% if not current_user or current_user.office_id != office.id %}
+                <form
+                  method="post"
+                  action="/offices/{{ office.id }}/excluir"
+                  style="display:inline-block;"
+                  onsubmit="return confirm('ATENÇÃO: Isso irá apagar TODOS os dados deste escritório. Deseja continuar?');"
+                >
+                  <button type="submit" class="btn btn-sm btn-outline-danger">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </form>
+                {% else %}
+                <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Você não pode excluir seu próprio escritório">
+                  <i class="bi bi-trash"></i>
+                </button>
+                {% endif %}
+
               </td>
             </tr>
             {% endfor %}

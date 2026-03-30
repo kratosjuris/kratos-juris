@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+
+  <h3 class="mb-4">✏️ Editar Escritório</h3>
+
+  {% if error %}
+    <div class="alert alert-danger">
+      {{ error }}
+    </div>
+  {% endif %}
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+
+      <form method="post">
+
+        <h5 class="mb-3">🏢 Dados do Escritório</h5>
+
+        <div class="mb-3">
+          <label class="form-label">Nome do Escritório</label>
+          <input
+            type="text"
+            name="office_nome"
+            class="form-control"
+            required
+            value="{{ office.nome if office else '' }}"
+          >
+        </div>
+
+        <hr class="my-4">
+
+        <h5 class="mb-3">👤 Administrador do Escritório</h5>
+
+        <div class="mb-3">
+          <label class="form-label">Nome do Administrador</label>
+          <input
+            type="text"
+            name="admin_nome"
+            class="form-control"
+            required
+            value="{{ admin_user.nome if admin_user else '' }}"
+          >
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">E-mail do Administrador</label>
+          <input
+            type="email"
+            name="admin_email"
+            class="form-control"
+            required
+            value="{{ admin_user.email if admin_user else '' }}"
+          >
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Username do Administrador</label>
+          <input
+            type="text"
+            name="admin_username"
+            class="form-control"
+            required
+            value="{{ admin_user.username if admin_user else '' }}"
+          >
+        </div>
+
+        <hr class="my-4">
+
+        <h5 class="mb-3">🔐 Alterar Senha do Administrador</h5>
+        <p class="text-muted small mb-3">
+          Preencha apenas se quiser trocar a senha.
+        </p>
+
+        <div class="mb-3">
+          <label class="form-label">Nova Senha</label>
+          <input
+            type="password"
+            name="password"
+            class="form-control"
+          >
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Confirmar Nova Senha</label>
+          <input
+            type="password"
+            name="confirm_password"
+            class="form-control"
+          >
+        </div>
+
+        <hr class="my-4">
+
+        <div class="d-flex justify-content-between">
+          <a href="/offices" class="btn btn-secondary">
+            ← Voltar
+          </a>
+
+          <button type="submit" class="btn btn-primary">
+            💾 Salvar Alterações
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

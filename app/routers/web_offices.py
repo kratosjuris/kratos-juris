@@ -24,7 +24,7 @@ def _redirect_denied():
 def require_superuser(request: Request) -> User:
     user = getattr(request.state, "current_user", None)
     if not user or not user.is_active or not user.is_superuser:
-        raise HTTPException(status_code=403, detail="Acesso restrito ao administrador")
+        raise HTTPException(status_code=403, detail="Acesso restrito ao superadministrador.")
     return user
 
 
@@ -48,6 +48,9 @@ def _log_action(
     db.commit()
 
 
+# =========================================================
+# LISTAGEM
+# =========================================================
 @router.get("", response_class=HTMLResponse)
 def offices_list(request: Request, db: Session = Depends(get_db)):
     try:
@@ -61,13 +64,15 @@ def offices_list(request: Request, db: Session = Depends(get_db)):
         "offices/list.html",
         {
             "request": request,
-            "title": "Escritórios",
             "offices": offices,
             "current_user": current_user,
         },
     )
 
 
+# =========================================================
+# NOVO
+# =========================================================
 @router.get("/novo", response_class=HTMLResponse)
 def offices_new_page(request: Request):
     try:
@@ -79,7 +84,6 @@ def offices_new_page(request: Request):
         "offices/form.html",
         {
             "request": request,
-            "title": "Novo Escritório",
             "error": None,
             "form_data": {},
         },
@@ -119,7 +123,6 @@ def offices_new_submit(
             "offices/form.html",
             {
                 "request": request,
-                "title": "Novo Escritório",
                 "error": "Informe o nome do escritório.",
                 "form_data": form_data,
             },
@@ -131,7 +134,6 @@ def offices_new_submit(
             "offices/form.html",
             {
                 "request": request,
-                "title": "Novo Escritório",
                 "error": "Informe o nome do administrador.",
                 "form_data": form_data,
             },
@@ -143,7 +145,6 @@ def offices_new_submit(
             "offices/form.html",
             {
                 "request": request,
-                "title": "Novo Escritório",
                 "error": "Informe o e-mail do administrador.",
                 "form_data": form_data,
             },
@@ -155,7 +156,6 @@ def offices_new_submit(
             "offices/form.html",
             {
                 "request": request,
-                "title": "Novo Escritório",
                 "error": "Informe o username do administrador.",
                 "form_data": form_data,
             },
@@ -167,24 +167,18 @@ def offices_new_submit(
             "offices/form.html",
             {
                 "request": request,
-                "title": "Novo Escritório",
                 "error": "As senhas não conferem.",
                 "form_data": form_data,
             },
             status_code=400,
         )
 
-    existing_office = (
-        db.query(Office)
-        .filter(Office.nome.ilike(office_nome))
-        .first()
-    )
+    existing_office = db.query(Office).filter(Office.nome.ilike(office_nome)).first()
     if existing_office:
         return templates.TemplateResponse(
             "offices/form.html",
             {
                 "request": request,
-                "title": "Novo Escritório",
                 "error": "Já existe um escritório com esse nome.",
                 "form_data": form_data,
             },
@@ -196,7 +190,6 @@ def offices_new_submit(
             "offices/form.html",
             {
                 "request": request,
-                "title": "Novo Escritório",
                 "error": "Já existe usuário com esse e-mail.",
                 "form_data": form_data,
             },
@@ -208,7 +201,6 @@ def offices_new_submit(
             "offices/form.html",
             {
                 "request": request,
-                "title": "Novo Escritório",
                 "error": "Já existe usuário com esse username.",
                 "form_data": form_data,
             },
@@ -222,20 +214,20 @@ def offices_new_submit(
         db.add(office)
         db.flush()
 
-        admin_user = User(
+        admin = User(
             nome=admin_nome,
             email=admin_email,
             username=admin_username,
-            office_id=office.id,
             password_hash=hash_password(password),
+            office_id=office.id,
             is_active=True,
             is_superuser=False,
             must_change_password=False,
         )
-        db.add(admin_user)
+        db.add(admin)
         db.commit()
         db.refresh(office)
-        db.refresh(admin_user)
+        db.refresh(admin)
 
     except Exception:
         db.rollback()
@@ -243,7 +235,6 @@ def offices_new_submit(
             "offices/form.html",
             {
                 "request": request,
-                "title": "Novo Escritório",
                 "error": "Não foi possível criar o escritório.",
                 "form_data": form_data,
             },
@@ -255,11 +246,349 @@ def offices_new_submit(
         actor=actor,
         action="create_office",
         module="offices",
-        description=(
-            f"Escritório criado: {office.nome} | "
-            f"admin: {admin_user.username} | office_id={office.id}"
-        ),
+        description=f"Escritório criado: {office.nome} | admin: {admin.username} | office_id={office.id}",
         ip=ip,
+    )
+
+    return RedirectResponse(url="/offices", status_code=303)
+
+
+# =========================================================
+# EDITAR
+# =========================================================
+@router.get("/{office_id}/editar", response_class=HTMLResponse)
+def office_edit_page(office_id: int, request: Request, db: Session = Depends(get_db)):
+    try:
+        require_superuser(request)
+    except HTTPException:
+        return _redirect_denied()
+
+    office = db.query(Office).filter(Office.id == office_id).first()
+
+    if not office:
+        return RedirectResponse(url="/offices", status_code=303)
+
+    # considera o primeiro usuário vinculado como administrador do escritório
+    admin_user = (
+        db.query(User)
+        .filter(User.office_id == office.id)
+        .order_by(User.id.asc())
+        .first()
+    )
+
+    return templates.TemplateResponse(
+        "offices/form_edit.html",
+        {
+            "request": request,
+            "office": office,
+            "admin_user": admin_user,
+            "error": None,
+        },
+    )
+
+
+@router.post("/{office_id}/editar")
+def office_edit_submit(
+    office_id: int,
+    request: Request,
+    office_nome: str = Form(...),
+    admin_nome: str = Form(...),
+    admin_email: str = Form(...),
+    admin_username: str = Form(...),
+    password: str | None = Form(None),
+    confirm_password: str | None = Form(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        actor = require_superuser(request)
+    except HTTPException:
+        return _redirect_denied()
+
+    office = db.query(Office).filter(Office.id == office_id).first()
+
+    if not office:
+        return RedirectResponse(url="/offices", status_code=303)
+
+    admin_user = (
+        db.query(User)
+        .filter(User.office_id == office.id)
+        .order_by(User.id.asc())
+        .first()
+    )
+
+    if not admin_user:
+        return templates.TemplateResponse(
+            "offices/form_edit.html",
+            {
+                "request": request,
+                "office": office,
+                "admin_user": None,
+                "error": "Administrador não encontrado para este escritório.",
+            },
+            status_code=400,
+        )
+
+    office_nome = (office_nome or "").strip()
+    admin_nome = (admin_nome or "").strip()
+    admin_email = (admin_email or "").strip().lower()
+    admin_username = (admin_username or "").strip().lower()
+    password = (password or "").strip()
+    confirm_password = (confirm_password or "").strip()
+
+    if not office_nome:
+        return templates.TemplateResponse(
+            "offices/form_edit.html",
+            {
+                "request": request,
+                "office": office,
+                "admin_user": admin_user,
+                "error": "Informe o nome do escritório.",
+            },
+            status_code=400,
+        )
+
+    if not admin_nome:
+        return templates.TemplateResponse(
+            "offices/form_edit.html",
+            {
+                "request": request,
+                "office": office,
+                "admin_user": admin_user,
+                "error": "Informe o nome do administrador.",
+            },
+            status_code=400,
+        )
+
+    if not admin_email:
+        return templates.TemplateResponse(
+            "offices/form_edit.html",
+            {
+                "request": request,
+                "office": office,
+                "admin_user": admin_user,
+                "error": "Informe o e-mail do administrador.",
+            },
+            status_code=400,
+        )
+
+    if not admin_username:
+        return templates.TemplateResponse(
+            "offices/form_edit.html",
+            {
+                "request": request,
+                "office": office,
+                "admin_user": admin_user,
+                "error": "Informe o username do administrador.",
+            },
+            status_code=400,
+        )
+
+    existing_office = (
+        db.query(Office)
+        .filter(Office.nome.ilike(office_nome), Office.id != office.id)
+        .first()
+    )
+    if existing_office:
+        return templates.TemplateResponse(
+            "offices/form_edit.html",
+            {
+                "request": request,
+                "office": office,
+                "admin_user": admin_user,
+                "error": "Já existe outro escritório com esse nome.",
+            },
+            status_code=400,
+        )
+
+    if db.query(User).filter(User.email == admin_email, User.id != admin_user.id).first():
+        return templates.TemplateResponse(
+            "offices/form_edit.html",
+            {
+                "request": request,
+                "office": office,
+                "admin_user": admin_user,
+                "error": "Já existe usuário com esse e-mail.",
+            },
+            status_code=400,
+        )
+
+    if db.query(User).filter(User.username == admin_username, User.id != admin_user.id).first():
+        return templates.TemplateResponse(
+            "offices/form_edit.html",
+            {
+                "request": request,
+                "office": office,
+                "admin_user": admin_user,
+                "error": "Já existe usuário com esse username.",
+            },
+            status_code=400,
+        )
+
+    if password or confirm_password:
+        if password != confirm_password:
+            return templates.TemplateResponse(
+                "offices/form_edit.html",
+                {
+                    "request": request,
+                    "office": office,
+                    "admin_user": admin_user,
+                    "error": "As senhas não conferem.",
+                },
+                status_code=400,
+            )
+        if not password:
+            return templates.TemplateResponse(
+                "offices/form_edit.html",
+                {
+                    "request": request,
+                    "office": office,
+                    "admin_user": admin_user,
+                    "error": "Informe a nova senha.",
+                },
+                status_code=400,
+            )
+
+    ip = request.client.host if request.client else None
+
+    try:
+        office.nome = office_nome
+        admin_user.nome = admin_nome
+        admin_user.email = admin_email
+        admin_user.username = admin_username
+
+        if password:
+            admin_user.password_hash = hash_password(password)
+
+        db.commit()
+        db.refresh(office)
+        db.refresh(admin_user)
+
+    except Exception:
+        db.rollback()
+        return templates.TemplateResponse(
+            "offices/form_edit.html",
+            {
+                "request": request,
+                "office": office,
+                "admin_user": admin_user,
+                "error": "Não foi possível salvar as alterações.",
+            },
+            status_code=500,
+        )
+
+    _log_action(
+        db=db,
+        actor=actor,
+        action="edit_office_full",
+        module="offices",
+        description=f"Editado escritório {office.nome} + admin {admin_user.username}",
+        ip=ip,
+    )
+
+    return RedirectResponse(url="/offices", status_code=303)
+
+
+# =========================================================
+# SUSPENDER
+# =========================================================
+@router.post("/{office_id}/suspender")
+def office_suspend(office_id: int, request: Request, db: Session = Depends(get_db)):
+    actor = require_superuser(request)
+
+    office = db.query(Office).filter(Office.id == office_id).first()
+
+    if not office:
+        return RedirectResponse(url="/offices", status_code=303)
+
+    office.suspend("Inadimplência")
+
+    users = db.query(User).filter(User.office_id == office.id).all()
+    for u in users:
+        u.suspend("Office suspenso")
+
+    db.commit()
+
+    _log_action(
+        db,
+        actor,
+        "suspend_office",
+        "offices",
+        f"Suspenso: {office.nome}",
+        request.client.host if request.client else None,
+    )
+
+    return RedirectResponse(url="/offices", status_code=303)
+
+
+# =========================================================
+# REATIVAR
+# =========================================================
+@router.post("/{office_id}/reativar")
+def office_reactivate(office_id: int, request: Request, db: Session = Depends(get_db)):
+    actor = require_superuser(request)
+
+    office = db.query(Office).filter(Office.id == office_id).first()
+
+    if not office:
+        return RedirectResponse(url="/offices", status_code=303)
+
+    office.reactivate()
+
+    users = db.query(User).filter(User.office_id == office.id).all()
+    for u in users:
+        u.reactivate()
+
+    db.commit()
+
+    _log_action(
+        db,
+        actor,
+        "reactivate_office",
+        "offices",
+        f"Reativado: {office.nome}",
+        request.client.host if request.client else None,
+    )
+
+    return RedirectResponse(url="/offices", status_code=303)
+
+
+# =========================================================
+# EXCLUIR (SEGURO)
+# =========================================================
+@router.post("/{office_id}/excluir")
+def office_delete(office_id: int, request: Request, db: Session = Depends(get_db)):
+    actor = require_superuser(request)
+
+    if actor.office_id == office_id:
+        raise HTTPException(status_code=400, detail="Você não pode excluir seu próprio escritório.")
+
+    office = db.query(Office).filter(Office.id == office_id).first()
+
+    if not office:
+        return RedirectResponse(url="/offices", status_code=303)
+
+    office_nome = office.nome
+    ip = request.client.host if request.client else None
+
+    try:
+        users = db.query(User).filter(User.office_id == office.id).all()
+        for u in users:
+            db.delete(u)
+
+        db.delete(office)
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
+
+    _log_action(
+        db,
+        actor,
+        "delete_office",
+        "offices",
+        f"Excluído: {office_nome}",
+        ip,
     )
 
     return RedirectResponse(url="/offices", status_code=303)

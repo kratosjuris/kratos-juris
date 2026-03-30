@@ -1,5 +1,5 @@
 from datetime import date
-from fastapi import APIRouter, Request, Depends, Form
+from fastapi import APIRouter, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -9,6 +9,13 @@ from app.models.pericia_models import PericiaDiligencia
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+
+
+def _get_office_id(request: Request) -> int:
+    office_id = request.session.get("office_id")
+    if not office_id:
+        raise HTTPException(status_code=403, detail="Usuário sem escritório vinculado.")
+    return int(office_id)
 
 
 def _parse_date(value: str) -> date | None:
@@ -31,9 +38,10 @@ def pericias_list(
     status: str = "PENDENTE",
     db: Session = Depends(get_db),
 ):
+    office_id = _get_office_id(request)
     status = status.upper()
 
-    q = db.query(PericiaDiligencia)
+    q = db.query(PericiaDiligencia).filter(PericiaDiligencia.office_id == office_id)
 
     if status == "PENDENTE":
         q = q.filter(PericiaDiligencia.concluido.is_(False))
@@ -64,6 +72,7 @@ def pericias_list(
 # ==========================
 @router.post("/pericias/novo")
 def pericias_novo(
+    request: Request,
     db: Session = Depends(get_db),
     numero_processo: str = Form(...),
     nome_parte: str = Form(...),
@@ -71,7 +80,10 @@ def pericias_novo(
     local: str = Form(""),
     data_evento: str = Form(""),
 ):
+    office_id = _get_office_id(request)
+
     item = PericiaDiligencia(
+        office_id=office_id,
         numero_processo=numero_processo.strip(),
         nome_parte=nome_parte.strip(),
         observacao=observacao.strip() or None,
@@ -92,6 +104,7 @@ def pericias_novo(
 # ==========================
 @router.post("/pericias/{pid}/editar")
 def pericias_editar(
+    request: Request,
     pid: int,
     db: Session = Depends(get_db),
     numero_processo: str = Form(...),
@@ -100,7 +113,16 @@ def pericias_editar(
     local: str = Form(""),
     data_evento: str = Form(""),
 ):
-    item = db.query(PericiaDiligencia).filter_by(id=pid).first()
+    office_id = _get_office_id(request)
+
+    item = (
+        db.query(PericiaDiligencia)
+        .filter(
+            PericiaDiligencia.id == pid,
+            PericiaDiligencia.office_id == office_id,
+        )
+        .first()
+    )
     if not item:
         return RedirectResponse(url="/pericias", status_code=303)
 
@@ -118,8 +140,17 @@ def pericias_editar(
 # CONCLUIR / REABRIR
 # ==========================
 @router.post("/pericias/{pid}/toggle")
-def pericias_toggle(pid: int, db: Session = Depends(get_db)):
-    item = db.query(PericiaDiligencia).filter_by(id=pid).first()
+def pericias_toggle(request: Request, pid: int, db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+
+    item = (
+        db.query(PericiaDiligencia)
+        .filter(
+            PericiaDiligencia.id == pid,
+            PericiaDiligencia.office_id == office_id,
+        )
+        .first()
+    )
     if item:
         item.concluido = not item.concluido
         item.concluido_em = date.today() if item.concluido else None
@@ -132,8 +163,17 @@ def pericias_toggle(pid: int, db: Session = Depends(get_db)):
 # EXCLUIR
 # ==========================
 @router.post("/pericias/{pid}/excluir")
-def pericias_excluir(pid: int, db: Session = Depends(get_db)):
-    item = db.query(PericiaDiligencia).filter_by(id=pid).first()
+def pericias_excluir(request: Request, pid: int, db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+
+    item = (
+        db.query(PericiaDiligencia)
+        .filter(
+            PericiaDiligencia.id == pid,
+            PericiaDiligencia.office_id == office_id,
+        )
+        .first()
+    )
     if item:
         db.delete(item)
         db.commit()

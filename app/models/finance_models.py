@@ -10,6 +10,7 @@ from sqlalchemy import (
     Boolean,
     Text,
     UniqueConstraint,
+    ForeignKey,
 )
 
 from app.core.database import Base
@@ -23,10 +24,18 @@ class FinanceMonth(Base):
     """
     __tablename__ = "finance_months"
     __table_args__ = (
-        UniqueConstraint("ym", name="uq_finance_month_ym"),
+        UniqueConstraint("office_id", "ym", name="uq_finance_month_office_ym"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
+
+    office_id = Column(
+        Integer,
+        ForeignKey("offices.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
     ym = Column(String(7), nullable=False, index=True)  # "YYYY-MM"
     saldo_inicial = Column(Float, nullable=False, default=0.0)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
@@ -47,9 +56,20 @@ class FinancialAccount(Base):
     O campo 'ativo' permite inativar sem perder histórico.
     """
     __tablename__ = "financial_accounts"
+    __table_args__ = (
+        UniqueConstraint("office_id", "code", name="uq_financial_account_office_code"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    code = Column(String(60), nullable=False, unique=True, index=True)
+
+    office_id = Column(
+        Integer,
+        ForeignKey("offices.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    code = Column(String(60), nullable=False, index=True)
     nome = Column(String(120), nullable=False, index=True)
     ativo = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
@@ -62,6 +82,14 @@ class ExpenseTemplate(Base):
     __tablename__ = "expense_templates"
 
     id = Column(Integer, primary_key=True, index=True)
+
+    office_id = Column(
+        Integer,
+        ForeignKey("offices.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
     nome = Column(String(150), nullable=False, index=True)
     tipo = Column(String(20), nullable=False, default="FIXA")  # FIXA | VARIAVEL
     valor_padrao = Column(Float, nullable=False, default=0.0)
@@ -73,6 +101,14 @@ class Payable(Base):
     __tablename__ = "payables"
 
     id = Column(Integer, primary_key=True, index=True)
+
+    office_id = Column(
+        Integer,
+        ForeignKey("offices.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
     ym = Column(String(7), nullable=False, index=True)  # "YYYY-MM"
 
     descricao = Column(String(255), nullable=False)
@@ -92,6 +128,14 @@ class Receivable(Base):
     __tablename__ = "receivables"
 
     id = Column(Integer, primary_key=True, index=True)
+
+    office_id = Column(
+        Integer,
+        ForeignKey("offices.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
     ym = Column(String(7), nullable=False, index=True)  # "YYYY-MM"
 
     numero_processo = Column(String(100), nullable=False, index=True)

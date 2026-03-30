@@ -39,7 +39,13 @@
             <td>{{ u.nome }}</td>
             <td>{{ u.username }}</td>
             <td>{{ u.email }}</td>
-            <td>{{ "Ativo" if u.is_active else "Inativo" }}</td>
+            <td>
+              {% if u.is_active %}
+                <span class="status-badge status-active">Ativo</span>
+              {% else %}
+                <span class="status-badge status-inactive">Suspenso</span>
+              {% endif %}
+            </td>
             <td>{{ "Sim" if u.is_superuser else "Não" }}</td>
             <td>{{ u.last_login_at.strftime("%d/%m/%Y %H:%M") if u.last_login_at else "—" }}</td>
 
@@ -49,9 +55,19 @@
               <a href="/usuarios/{{ u.id }}/reset-senha">Senha</a>
 
               {% if current_user.id != u.id %}
-              <form method="post" action="/usuarios/{{ u.id }}/inativar" style="display:inline;">
-                <button type="submit" class="btn-link danger">Inativar</button>
-              </form>
+                {% if u.is_active %}
+                <form method="post" action="/usuarios/{{ u.id }}/suspender" style="display:inline;" onsubmit="return confirm('Deseja realmente suspender este usuário?');">
+                  <button type="submit" class="btn-link danger">Suspender</button>
+                </form>
+                {% else %}
+                <form method="post" action="/usuarios/{{ u.id }}/reativar" style="display:inline;" onsubmit="return confirm('Deseja reativar este usuário?');">
+                  <button type="submit" class="btn-link success">Reativar</button>
+                </form>
+                {% endif %}
+
+                <form method="post" action="/usuarios/{{ u.id }}/excluir" style="display:inline;" onsubmit="return confirm('ATENÇÃO: Deseja realmente excluir este usuário? Esta ação não pode ser desfeita.');">
+                  <button type="submit" class="btn-link danger">Excluir</button>
+                </form>
               {% endif %}
             </td>
           </tr>

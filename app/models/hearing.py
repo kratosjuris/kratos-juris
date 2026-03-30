@@ -10,6 +10,13 @@ class Hearing(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
+    office_id = Column(
+        Integer,
+        ForeignKey("offices.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
     process_number = Column(String(60), nullable=False, index=True)
     promovente = Column(String(255), nullable=True)
     promovido = Column(String(255), nullable=True)
@@ -25,7 +32,7 @@ class Hearing(Base):
 
     # vínculo com cliente (se encontrar)
     client_id = Column(Integer, ForeignKey("clients.id"), nullable=True, index=True)
-    client_name_guess = Column(String(255), nullable=True)  # nome lido do PDF (para conciliação)
+    client_name_guess = Column(String(255), nullable=True)  # nome lido do PDF
 
     # flags de notificação automática
     notified_client_at = Column(DateTime, nullable=True)
@@ -36,6 +43,10 @@ class Hearing(Base):
     client = relationship("Client", lazy="joined")
 
     __table_args__ = (
-        # REGRA 1: não repetir (processo + datahora). Mesmo processo, outra hora -> aceita.
-        UniqueConstraint("process_number", "starts_at", name="uq_hearing_process_datetime"),
+        UniqueConstraint(
+            "office_id",
+            "process_number",
+            "starts_at",
+            name="uq_hearing_office_process_datetime",
+        ),
     )
