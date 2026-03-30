@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title if title else "Contas Financeiras" }}</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/static/css/kj_theme.css">
+
+  <script>
+  (function(){
+    try{
+      const KEY = "kj_theme_mode";
+      const v = localStorage.getItem(KEY);
+      if(v === "day"){
+        document.documentElement.classList.add("kj-day");
+      }
+    }catch(e){}
+  })();
+  </script>
+
+  <style>
+    body{
+      background:
+        radial-gradient(circle at top left, rgba(255, 184, 0, .14), transparent 18%),
+        linear-gradient(180deg, #081120 0%, #040814 55%, #02050c 100%);
+      min-height: 100vh;
+      color: #f5f7fb;
+    }
+
+    .kj-day body{
+      background:
+        radial-gradient(circle at top left, rgba(212, 175, 55, .10), transparent 18%),
+        linear-gradient(180deg, #f6f8fc 0%, #edf2f8 100%);
+      color: #18202a;
+    }
+
+    .page-wrap{
+      padding: 24px 16px 40px;
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    .topbar{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+
+    .page-title{
+      font-size: 2rem;
+      font-weight: 700;
+      margin: 0;
+      letter-spacing: -.02em;
+    }
+
+    .top-actions{
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .panel-kratos{
+      background: linear-gradient(180deg, rgba(18, 28, 48, .92), rgba(6, 12, 24, .96));
+      border: 1px solid rgba(212, 175, 55, .18);
+      border-radius: 18px;
+      box-shadow:
+        0 10px 30px rgba(0,0,0,.28),
+        inset 0 1px 0 rgba(255,255,255,.03);
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+
+    .kj-day .panel-kratos{
+      background: linear-gradient(180deg, rgba(255,255,255,.97), rgba(245,248,252,.98));
+      border: 1px solid rgba(212, 175, 55, .24);
+      box-shadow: 0 10px 30px rgba(15, 23, 42, .08);
+    }
+
+    .section-title{
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 14px;
+      color: #f8d277;
+    }
+
+    .kj-day .section-title{
+      color: #8c6a12;
+    }
+
+    .form-label{
+      font-weight: 600;
+      font-size: .92rem;
+      margin-bottom: 6px;
+    }
+
+    .form-control,
+    .form-select{
+      border-radius: 12px;
+      min-height: 44px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      color: #f5f7fb;
+    }
+
+    .form-control:focus,
+    .form-select:focus{
+      border-color: rgba(212, 175, 55, .65);
+      box-shadow: 0 0 0 .2rem rgba(212, 175, 55, .14);
+      background: rgba(255,255,255,.06);
+      color: #fff;
+    }
+
+    .kj-day .form-control,
+    .kj-day .form-select{
+      background: #fff;
+      color: #18202a;
+      border: 1px solid rgba(15,23,42,.12);
+    }
+
+    .kj-day .form-control:focus,
+    .kj-day .form-select:focus{
+      background: #fff;
+      color: #18202a;
+    }
+
+    .btn-kj{
+      border-radius: 12px;
+      font-weight: 700;
+      min-height: 42px;
+      padding: 0 16px;
+      border: 1px solid rgba(212, 175, 55, .45);
+      background: linear-gradient(180deg, #2f3f63 0%, #18233b 100%);
+      color: #fff4d6;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+    }
+
+    .btn-kj:hover{
+      background: linear-gradient(180deg, #3a4e79 0%, #1d2a45 100%);
+      color: #fff8ea;
+      border-color: rgba(212, 175, 55, .75);
+    }
+
+    .btn-kj-outline{
+      border-radius: 12px;
+      font-weight: 700;
+      min-height: 42px;
+      padding: 0 16px;
+      border: 1px solid rgba(212, 175, 55, .35);
+      background: transparent;
+      color: #f6d37a;
+    }
+
+    .btn-kj-outline:hover{
+      background: rgba(212, 175, 55, .08);
+      color: #ffe8a6;
+      border-color: rgba(212, 175, 55, .70);
+    }
+
+    .kj-day .btn-kj-outline{
+      color: #8c6a12;
+      border-color: rgba(140, 106, 18, .28);
+    }
+
+    .kj-day .btn-kj-outline:hover{
+      background: rgba(140, 106, 18, .08);
+      color: #6d520a;
+    }
+
+    .table-wrap{
+      overflow-x: auto;
+    }
+
+    .table-kj{
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 10px;
+      margin: 0;
+    }
+
+    .table-kj thead th{
+      font-size: .84rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: #c8d3e3;
+      border: none;
+      padding: 0 12px 8px;
+      white-space: nowrap;
+    }
+
+    .kj-day .table-kj thead th{
+      color: #5d6b7c;
+    }
+
+    .table-kj tbody tr{
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.04);
+    }
+
+    .kj-day .table-kj tbody tr{
+      background: rgba(15,23,42,.025);
+    }
+
+    .table-kj tbody td{
+      vertical-align: middle;
+      padding: 14px 12px;
+      border-top: 1px solid rgba(255,255,255,.05);
+      border-bottom: 1px solid rgba(255,255,255,.05);
+    }
+
+    .table-kj tbody td:first-child{
+      border-left: 1px solid rgba(255,255,255,.05);
+      border-top-left-radius: 14px;
+      border-bottom-left-radius: 14px;
+    }
+
+    .table-kj tbody td:last-child{
+      border-right: 1px solid rgba(255,255,255,.05);
+      border-top-right-radius: 14px;
+      border-bottom-right-radius: 14px;
+    }
+
+    .kj-day .table-kj tbody td{
+      border-color: rgba(15,23,42,.06);
+    }
+
+    .badge-soft-success{
+      background: rgba(25, 135, 84, .15);
+      color: #71f0b0;
+      border: 1px solid rgba(25, 135, 84, .30);
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: .82rem;
+    }
+
+    .badge-soft-secondary{
+      background: rgba(108, 117, 125, .18);
+      color: #d9dde3;
+      border: 1px solid rgba(108, 117, 125, .28);
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: .82rem;
+    }
+
+    .kj-day .badge-soft-success{
+      color: #146c43;
+      background: rgba(25, 135, 84, .10);
+    }
+
+    .kj-day .badge-soft-secondary{
+      color: #5c636a;
+      background: rgba(108, 117, 125, .10);
+    }
+
+    .code-chip{
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.08);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: .84rem;
+      color: #dce6f7;
+    }
+
+    .kj-day .code-chip{
+      background: rgba(15,23,42,.04);
+      border-color: rgba(15,23,42,.08);
+      color: #314054;
+    }
+
+    .inline-form{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .inline-form .form-control,
+    .inline-form .form-select{
+      min-width: 180px;
+    }
+
+    .empty-box{
+      border: 1px dashed rgba(212, 175, 55, .25);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      color: #b9c6d8;
+      background: rgba(255,255,255,.02);
+    }
+
+    .kj-day .empty-box{
+      color: #5d6b7c;
+      background: rgba(15,23,42,.02);
+    }
+
+    @media (max-width: 768px){
+      .page-title{
+        font-size: 1.55rem;
+      }
+
+      .inline-form{
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .inline-form .form-control,
+      .inline-form .form-select,
+      .inline-form .btn{
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-wrap">
+
+    <div class="topbar">
+      <h1 class="page-title">Contas Financeiras</h1>
+
+      <div class="top-actions">
+        <a href="/financeiro/receber" class="btn btn-kj-outline">
+          <i class="bi bi-cash-stack me-1"></i> Contas a Receber
+        </a>
+        <a href="/financeiro" class="btn btn-kj-outline">
+          <i class="bi bi-arrow-left me-1"></i> Voltar ao Financeiro
+        </a>
+      </div>
+    </div>
+
+    <div class="panel-kratos">
+      <div class="section-title">Nova conta</div>
+
+      <form method="post" action="/financeiro/contas/nova" class="row g-3">
+        <div class="col-md-5">
+          <label class="form-label">Nome da conta</label>
+          <input
+            type="text"
+            name="nome"
+            class="form-control"
+            placeholder="Ex.: Conta Escritório 2"
+            required
+          >
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Código interno (opcional)</label>
+          <input
+            type="text"
+            name="code"
+            class="form-control"
+            placeholder="Ex.: CONTA_ESCRITORIO_2"
+          >
+        </div>
+
+        <div class="col-md-3 d-flex align-items-end">
+          <button type="submit" class="btn btn-kj w-100">
+            <i class="bi bi-plus-circle me-1"></i> Cadastrar conta
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class="panel-kratos">
+      <div class="section-title">Contas cadastradas</div>
+
+      {% if contas and contas|length > 0 %}
+        <div class="table-wrap">
+          <table class="table-kj">
+            <thead>
+              <tr>
+                <th style="width: 80px;">ID</th>
+                <th style="min-width: 220px;">Código</th>
+                <th style="min-width: 260px;">Nome</th>
+                <th style="width: 140px;">Status</th>
+                <th style="min-width: 360px;">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for conta in contas %}
+              <tr>
+                <td>{{ conta.id }}</td>
+
+                <td>
+                  <span class="code-chip">{{ conta.code }}</span>
+                </td>
+
+                <td>
+                  <form method="post" action="/financeiro/contas/{{ conta.id }}/editar" class="inline-form">
+                    <input
+                      type="text"
+                      name="nome"
+                      class="form-control"
+                      value="{{ conta.nome }}"
+                      required
+                    >
+
+                    <select name="ativo" class="form-select" style="max-width: 160px;">
+                      <option value="1" {% if conta.ativo %}selected{% endif %}>Ativa</option>
+                      <option value="0" {% if not conta.ativo %}selected{% endif %}>Inativa</option>
+                    </select>
+
+                    <button type="submit" class="btn btn-kj-outline">
+                      <i class="bi bi-check2-circle me-1"></i> Salvar
+                    </button>
+                  </form>
+                </td>
+
+                <td>
+                  {% if conta.ativo %}
+                    <span class="badge-soft-success">Ativa</span>
+                  {% else %}
+                    <span class="badge-soft-secondary">Inativa</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  <div class="d-flex flex-wrap gap-2">
+                    <form method="post" action="/financeiro/contas/{{ conta.id }}/editar" class="m-0">
+                      <input type="hidden" name="nome" value="{{ conta.nome }}">
+                      <input type="hidden" name="ativo" value="{% if conta.ativo %}0{% else %}1{% endif %}">
+                      <button type="submit" class="btn btn-kj-outline">
+                        {% if conta.ativo %}
+                          <i class="bi bi-pause-circle me-1"></i> Inativar
+                        {% else %}
+                          <i class="bi bi-play-circle me-1"></i> Ativar
+                        {% endif %}
+                      </button>
+                    </form>
+
+                    <form
+                      method="post"
+                      action="/financeiro/contas/{{ conta.id }}/excluir"
+                      class="m-0"
+                      onsubmit="return confirm('Tem certeza que deseja excluir esta conta? Se já houver lançamentos vinculados, o sistema deve apenas inativar a conta.');"
+                    >
+                      <button type="submit" class="btn btn-outline-danger">
+                        <i class="bi bi-trash me-1"></i> Excluir
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty-box">
+          <i class="bi bi-wallet2" style="font-size: 2rem; display:block; margin-bottom:10px;"></i>
+          Nenhuma conta financeira cadastrada até o momento.
+        </div>
+      {% endif %}
+    </div>
+
+  </div>
+</body>
+</html>

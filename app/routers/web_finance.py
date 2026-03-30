@@ -1,6 +1,7 @@
 # app/routers/web_finance.py
 
 import os
+import re
 import urllib.parse
 from datetime import date
 from pathlib import Path
@@ -12,13 +13,19 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, or_, and_
 
 from app.core.database import get_db
-from app.models.finance_models import FinanceMonth, ExpenseTemplate, Payable, Receivable
+from app.models.finance_models import (
+    FinanceMonth,
+    ExpenseTemplate,
+    Payable,
+    Receivable,
+    FinancialAccount,   # ✅ NOVO
+)
 
 router = APIRouter()
 
-# ✅ Caminho ABSOLUTO dos templates (resolve TemplateNotFound mesmo rodando uvicorn em outra pasta)
-APP_DIR = Path(__file__).resolve().parents[1]   # .../app
-TEMPLATES_DIR = APP_DIR / "templates"          # .../app/templates
+# ✅ Caminho ABSOLUTO dos templates
+APP_DIR = Path(__file__).resolve().parents[1]
+TEMPLATES_DIR = APP_DIR / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
@@ -139,24 +146,95 @@ def _parse_date_any(value: str | None, fallback: date | None = None) -> date | N
     return fallback
 
 
-def _conta_label(code: str) -> str:
-    return {
-        "CONTA_CSL": "Conta CSL",
-        "CONTA_TARCISIO": "Conta Tarcisio",
-        "CONTA_ANA": "Conta Ana Luisa",
-        "CONTA_TIAGO": "Conta Tiago",
-    }.get(code, code)
+# =========================================================
+# CONTAS FINANCEIRAS DINÂMICAS
+# =========================================================
+LEGACY_DEFAULT_ACCOUNTS = [
+    ("CONTA_CSL", "Conta CSL"),
+    ("CONTA_TARCISIO", "Conta Tarcisio"),
+    ("CONTA_ANA", "Conta Ana Luisa"),
+    ("CONTA_TIAGO", "Conta Tiago"),
+]
+
+
+def _slugify_account_code(nome: str) -> str:
+    txt = (nome or "").strip().upper()
+    txt = re.sub(r"[^A-Z0-9]+", "_", txt)
+    txt = re.sub(r"_+", "_", txt).strip("_")
+    if not txt:
+        txt = "CONTA"
+    if not txt.startswith("CONTA_"):
+        txt = f"CONTA_{txt}"
+    return txt[:60]
+
+
+def _ensure_default_accounts(db: Session):
+    """
+    Cria as contas antigas no banco apenas se não existir nenhuma.
+    Isso mantém compatibilidade com sua base atual.
+    """
+    total = db.query(func.count(FinancialAccount.id)).scalar() or 0
+    if total > 0:
+        return
+
+    for code, nome in LEGACY_DEFAULT_ACCOUNTS:
+        db.add(FinancialAccount(code=code, nome=nome, ativo=True))
+    db.commit()
+
+
+def _get_accounts(db: Session, only_active: bool = True):
+    _ensure_default_accounts(db)
+
+    query = db.query(FinancialAccount)
+    if only_active:
+        query = query.filter(FinancialAccount.ativo.is_(True))
+
+    return query.order_by(FinancialAccount.nome.asc()).all()
+
+
+def _get_account_map(db: Session, include_inactive: bool = True) -> dict[str, FinancialAccount]:
+    _ensure_default_accounts(db)
+
+    query = db.query(FinancialAccount)
+    if not include_inactive:
+        query = query.filter(FinancialAccount.ativo.is_(True))
+
+    rows = query.all()
+    return {str(a.code): a for a in rows}
+
+
+def _conta_label(db: Session, code: str) -> str:
+    if not code:
+        return "Sem conta"
+
+    account_map = _get_account_map(db, include_inactive=True)
+    acc = account_map.get(code)
+    if acc:
+        return acc.nome
+
+    # fallback para registros legados
+    legacy = dict(LEGACY_DEFAULT_ACCOUNTS)
+    return legacy.get(code, code)
+
+
+def _default_account_code(db: Session) -> str:
+    active = _get_accounts(db, only_active=True)
+    if active:
+        return active[0].code
+    return "CONTA_CSL"
+
+
+def _is_valid_account_code(db: Session, code: str) -> bool:
+    if not code:
+        return False
+    active_codes = {a.code for a in _get_accounts(db, only_active=True)}
+    return code in active_codes
 
 
 # =========================================================
 # ✅ COMPETÊNCIA (DESPESAS)
-# Regra: pago_em em mês X => competência mês X-1
-# Ex.: pago em Jan/2026 => competência Dez/2025
 # =========================================================
 def _ym_prev(ym: str) -> str:
-    """
-    Retorna o mês anterior de um ym 'YYYY-MM'.
-    """
     try:
         y = int(ym[:4])
         m = int(ym[5:7])
@@ -169,9 +247,6 @@ def _ym_prev(ym: str) -> str:
 
 
 def _competencia_ym_from_payment_date(paid_dt: date | None) -> str | None:
-    """
-    Converte uma data de pagamento em ym de competência (mês anterior).
-    """
     if not paid_dt:
         return None
     ym_pay = f"{paid_dt.year:04d}-{paid_dt.month:02d}"
@@ -179,11 +254,6 @@ def _competencia_ym_from_payment_date(paid_dt: date | None) -> str | None:
 
 
 def _competencia_ym_for_payable(p: Payable) -> str:
-    """
-    Define a competência de um Payable:
-    - se pago e tem pago_em: competência = mês anterior do pago_em
-    - fallback: usa p.ym (como está no seu banco hoje)
-    """
     if getattr(p, "pago", False) and getattr(p, "pago_em", None):
         comp = _competencia_ym_from_payment_date(p.pago_em)
         if comp:
@@ -264,6 +334,116 @@ def financeiro_home(request: Request):
         "finance/index.html",
         {"request": request, "title": "Financeiro"},
     )
+
+
+# ----------------------------
+# CRUD DE CONTAS FINANCEIRAS
+# ----------------------------
+@router.get("/financeiro/contas", response_class=HTMLResponse)
+def financeiro_contas(request: Request, db: Session = Depends(get_db)):
+    redir = _require_auth(request)
+    if redir:
+        return redir
+
+    contas = _get_accounts(db, only_active=False)
+
+    return templates.TemplateResponse(
+        "finance/contas.html",
+        {
+            "request": request,
+            "title": "Contas Financeiras",
+            "contas": contas,
+        },
+    )
+
+
+@router.post("/financeiro/contas/nova")
+def financeiro_conta_nova(
+    request: Request,
+    db: Session = Depends(get_db),
+    nome: str = Form(...),
+    code: str = Form(""),
+):
+    redir = _require_auth(request)
+    if redir:
+        return redir
+
+    nome = (nome or "").strip()
+    if not nome:
+        return RedirectResponse(url="/financeiro/contas", status_code=303)
+
+    code = (code or "").strip().upper() or _slugify_account_code(nome)
+
+    existe_code = db.query(FinancialAccount).filter(func.upper(FinancialAccount.code) == code.upper()).first()
+    if existe_code:
+        return RedirectResponse(url="/financeiro/contas", status_code=303)
+
+    existe_nome = db.query(FinancialAccount).filter(func.lower(FinancialAccount.nome) == nome.lower()).first()
+    if existe_nome:
+        if not bool(existe_nome.ativo):
+            existe_nome.ativo = True
+            db.add(existe_nome)
+            db.commit()
+        return RedirectResponse(url="/financeiro/contas", status_code=303)
+
+    db.add(FinancialAccount(code=code, nome=nome, ativo=True))
+    db.commit()
+    return RedirectResponse(url="/financeiro/contas", status_code=303)
+
+
+@router.post("/financeiro/contas/{cid}/editar")
+def financeiro_conta_editar(
+    request: Request,
+    cid: int,
+    db: Session = Depends(get_db),
+    nome: str = Form(...),
+    ativo: str = Form("1"),
+):
+    redir = _require_auth(request)
+    if redir:
+        return redir
+
+    conta = db.query(FinancialAccount).filter(FinancialAccount.id == cid).first()
+    if not conta:
+        return RedirectResponse(url="/financeiro/contas", status_code=303)
+
+    nome = (nome or "").strip()
+    if nome:
+        conta.nome = nome
+    conta.ativo = ativo == "1"
+
+    db.add(conta)
+    db.commit()
+    return RedirectResponse(url="/financeiro/contas", status_code=303)
+
+
+@router.post("/financeiro/contas/{cid}/excluir")
+def financeiro_conta_excluir(request: Request, cid: int, db: Session = Depends(get_db)):
+    redir = _require_auth(request)
+    if redir:
+        return redir
+
+    conta = db.query(FinancialAccount).filter(FinancialAccount.id == cid).first()
+    if not conta:
+        return RedirectResponse(url="/financeiro/contas", status_code=303)
+
+    uso = (
+        db.query(func.count(Receivable.id))
+        .filter(Receivable.conta == conta.code)
+        .scalar()
+        or 0
+    )
+
+    if uso > 0:
+        # ✅ segurança: se já tem lançamentos, apenas inativa
+        conta.ativo = False
+        db.add(conta)
+        db.commit()
+    else:
+        db.delete(conta)
+        db.commit()
+
+    return RedirectResponse(url="/financeiro/contas", status_code=303)
 
 
 # ----------------------------
@@ -481,7 +661,6 @@ def pagar_excluir(request: Request, pid: int, db: Session = Depends(get_db), ym:
 
 @router.post("/financeiro/pagar/modelo/{tid}/excluir")
 def pagar_modelo_excluir(request: Request, tid: int, db: Session = Depends(get_db), ym: str = Form(_ym_default())):
-    # ✅ Mantida apenas UMA rota (removida a duplicada no final do arquivo)
     redir = _require_auth(request)
     if redir:
         return redir
@@ -551,6 +730,9 @@ def receber_list(
     status = (status or "").strip()
     q = (q or "").strip()
 
+    account_map = _get_account_map(db, include_inactive=True)
+    active_accounts = _get_accounts(db, only_active=True)
+
     query = db.query(Receivable).filter(Receivable.ym == ym)
 
     if status == "Recebido":
@@ -576,9 +758,15 @@ def receber_list(
 
     hoje = date.today()
     rows = []
+    used_codes = set()
+
     for r in rows_db:
         valor = float(r.valor or 0.0)
         em_atraso = (not r.recebido) and bool(r.data_prevista) and (r.data_prevista < hoje)
+        used_codes.add(r.conta)
+
+        acc = account_map.get(r.conta)
+        conta_label = acc.nome if acc else r.conta
 
         rows.append(
             {
@@ -590,7 +778,7 @@ def receber_list(
                 "data_prevista": r.data_prevista,
                 "data_prevista_iso": r.data_prevista.isoformat() if r.data_prevista else "",
                 "conta": r.conta,
-                "conta_label": _conta_label(r.conta),
+                "conta_label": conta_label,
                 "valor": valor,
                 "valor_raw": f"{valor:.2f}",
                 "recebido": bool(r.recebido),
@@ -616,11 +804,13 @@ def receber_list(
         or 0.0
     )
 
-    contas = ["CONTA_CSL", "CONTA_TARCISIO", "CONTA_ANA", "CONTA_TIAGO"]
+    # ✅ usa contas ativas + contas já usadas no mês para não "sumir" com histórico
+    por_conta_codes = {a.code for a in active_accounts} | used_codes
     por_conta = []
-    for c in contas:
-        s = sum((r["valor"] or 0.0) for r in rows if r["conta"] == c)
-        por_conta.append({"conta": c, "label": _conta_label(c), "total": float(s)})
+
+    for code in sorted(por_conta_codes, key=lambda c: _conta_label(db, c).lower()):
+        s = sum((r["valor"] or 0.0) for r in rows if r["conta"] == code)
+        por_conta.append({"conta": code, "label": _conta_label(db, code), "total": float(s)})
 
     return templates.TemplateResponse(
         "finance/receber.html",
@@ -635,6 +825,7 @@ def receber_list(
             "ym_prev": ym_prev,
             "prev_total": float(prev_total),
             "por_conta": por_conta,
+            "contas_ativas": active_accounts,  # ✅ NOVO
             "status": status or None,
             "q": q or None,
         },
@@ -650,7 +841,7 @@ def receber_novo(
     parte_autora: str = Form(...),
     vara: str = Form(...),
     data_prevista: str = Form(""),
-    conta: str = Form("CONTA_CSL"),
+    conta: str = Form(""),
     valor: str = Form("0"),
     obs: str = Form(""),
 ):
@@ -660,17 +851,15 @@ def receber_novo(
 
     ym = _normalize_ym(ym)
     v = _parse_brl_number(valor or "0")
-
     dt = _parse_date_any(data_prevista, fallback=None)
 
-    # ✅ se existe data_prevista, competência acompanha
     ym_by_date = _ym_from_date(dt)
     if ym_by_date:
         ym = ym_by_date
 
-    conta = (conta or "CONTA_CSL").upper().strip()
-    if conta not in ("CONTA_CSL", "CONTA_TARCISIO", "CONTA_ANA", "CONTA_TIAGO"):
-        conta = "CONTA_CSL"
+    conta = (conta or "").upper().strip()
+    if not _is_valid_account_code(db, conta):
+        conta = _default_account_code(db)
 
     r = Receivable(
         ym=ym,
@@ -711,13 +900,13 @@ def receber_editar(
     request: Request,
     rid: int,
     db: Session = Depends(get_db),
-    ym: str = Form(...),               # mês da tela (fallback)
-    ym_novo: str = Form(""),           # ✅ competência escolhida no modal
+    ym: str = Form(...),
+    ym_novo: str = Form(""),
     numero_processo: str = Form(...),
     parte_autora: str = Form(...),
     vara: str = Form(...),
     data_prevista: str = Form(""),
-    conta: str = Form("CONTA_CSL"),
+    conta: str = Form(""),
     valor: str = Form("0"),
     obs: str = Form(""),
 ):
@@ -733,13 +922,12 @@ def receber_editar(
         return RedirectResponse(url=f"/financeiro/receber?ym={ym}", status_code=303)
 
     v = _parse_brl_number(valor or str(r.valor or 0.0))
-
-    # ✅ não apaga a data se usuário não mexeu
     dt = _parse_date_any(data_prevista, fallback=r.data_prevista)
 
-    conta = (conta or "CONTA_CSL").upper().strip()
-    if conta not in ("CONTA_CSL", "CONTA_TARCISIO", "CONTA_ANA", "CONTA_TIAGO"):
-        conta = "CONTA_CSL"
+    conta = (conta or "").upper().strip()
+    if not _is_valid_account_code(db, conta):
+        # mantém a conta já existente do registro, mesmo que esteja inativa
+        conta = r.conta or _default_account_code(db)
 
     r.numero_processo = (numero_processo or "").strip()
     r.parte_autora = (parte_autora or "").strip()
@@ -749,7 +937,6 @@ def receber_editar(
     r.valor = float(v)
     r.obs = (obs or "").strip() or None
 
-    # ✅ REGRA FINAL
     ym_by_date = _ym_from_date(dt)
     if ym_by_date:
         r.ym = ym_by_date
@@ -833,9 +1020,12 @@ def receber_relatorio_mes(request: Request, ym: str | None = None, db: Session =
 
     total = sum((r.valor or 0.0) for r in rows)
 
-    contas = ["CONTA_CSL", "CONTA_TARCISIO", "CONTA_ANA", "CONTA_TIAGO"]
+    used_codes = {r.conta for r in rows if r.conta}
+    active_codes = {a.code for a in _get_accounts(db, only_active=True)}
+    all_codes = used_codes | active_codes
+
     por_conta = []
-    for c in contas:
+    for c in sorted(all_codes, key=lambda code: _conta_label(db, code).lower()):
         s = (
             db.query(func.coalesce(func.sum(Receivable.valor), 0.0))
             .filter(Receivable.ym == ym)
@@ -843,7 +1033,7 @@ def receber_relatorio_mes(request: Request, ym: str | None = None, db: Session =
             .scalar()
             or 0.0
         )
-        por_conta.append({"conta": c, "label": _conta_label(c), "total": float(s)})
+        por_conta.append({"conta": c, "label": _conta_label(db, c), "total": float(s)})
 
     return templates.TemplateResponse(
         "finance/relatorio_receber_mes.html",
@@ -859,9 +1049,7 @@ def receber_relatorio_mes(request: Request, ym: str | None = None, db: Session =
 
 
 # ============================
-# ✅ RELATÓRIO ANUAL (COM COMPETÊNCIA DE DESPESAS)
-# Recebido por COMPETÊNCIA (Receivable.ym)
-# Despesas por COMPETÊNCIA (mês anterior ao pagamento: Payable.pago_em - 1 mês)
+# ✅ RELATÓRIO ANUAL
 # ============================
 @router.get("/financeiro/receber/relatorio-anual", response_class=HTMLResponse)
 def receber_relatorio_anual(request: Request, ano: int | None = None, db: Session = Depends(get_db)):
@@ -875,7 +1063,6 @@ def receber_relatorio_anual(request: Request, ano: int | None = None, db: Sessio
     recebido_por_mes = {m: 0.0 for m in range(1, 13)}
     despesas_por_mes = {m: 0.0 for m in range(1, 13)}
 
-    # 1) RECEBIDOS (fiel ao mensal): recebido=True por competência (ym)
     recebidos_db = (
         db.query(Receivable)
         .filter(Receivable.recebido.is_(True))
@@ -890,21 +1077,15 @@ def receber_relatorio_anual(request: Request, ano: int | None = None, db: Sessio
         if 1 <= mes <= 12:
             recebido_por_mes[mes] += float(r.valor or 0.0)
 
-    # 2) DESPESAS por competência:
-    #    Para competência do ANO:
-    #    - pagamentos de FEv/ANO até JAN/(ANO+1) entram no ANO (pois JAN/(ANO+1) => competência DEZ/ANO)
-    #    - pagamentos de JAN/ANO pertencem a DEZ/(ANO-1), então NÃO entram no ANO
-    dt_ini = date(ano, 2, 1)          # 01/02/ano
-    dt_fim = date(ano + 1, 2, 1)      # 01/02/(ano+1)
+    dt_ini = date(ano, 2, 1)
+    dt_fim = date(ano + 1, 2, 1)
 
     payables_db = (
         db.query(Payable)
         .filter(Payable.pago.is_(True))
         .filter(
             or_(
-                # ✅ preferencial: por data de pagamento
                 and_(Payable.pago_em.isnot(None), Payable.pago_em >= dt_ini, Payable.pago_em < dt_fim),
-                # ✅ fallback: registros antigos sem pago_em (usa p.ym como antes)
                 and_(Payable.pago_em.is_(None), Payable.ym.like(f"{ano:04d}-%")),
             )
         )
@@ -969,9 +1150,8 @@ def receber_relatorio_anual(request: Request, ano: int | None = None, db: Sessio
 
 
 # ============================
-# ✅ RELATÓRIO ANUAL CSL (COM COMPETÊNCIA DE DESPESAS)
-# Recebido CSL por COMPETÊNCIA (Receivable.ym)
-# Despesas por COMPETÊNCIA (mês anterior ao pagamento)
+# ✅ RELATÓRIO ANUAL CSL x DESPESAS
+# Mantido por compatibilidade
 # ============================
 @router.get("/financeiro/receber/relatorio-anual-csl", response_class=HTMLResponse)
 def receber_relatorio_anual_csl(request: Request, ano: int | None = None, db: Session = Depends(get_db)):
@@ -985,11 +1165,13 @@ def receber_relatorio_anual_csl(request: Request, ano: int | None = None, db: Se
     recebido_csl_por_mes = {m: 0.0 for m in range(1, 13)}
     despesas_por_mes = {m: 0.0 for m in range(1, 13)}
 
-    # 1) RECEBIDOS CSL: recebido=True + conta CSL por competência (ym)
+    # tenta usar a conta histórica CONTA_CSL
+    conta_base = "CONTA_CSL"
+
     recebidos_csl_db = (
         db.query(Receivable)
         .filter(Receivable.recebido.is_(True))
-        .filter(Receivable.conta == "CONTA_CSL")
+        .filter(Receivable.conta == conta_base)
         .filter(Receivable.ym.like(f"{ano:04d}-%"))
         .all()
     )
@@ -1001,7 +1183,6 @@ def receber_relatorio_anual_csl(request: Request, ano: int | None = None, db: Se
         if 1 <= mes <= 12:
             recebido_csl_por_mes[mes] += float(r.valor or 0.0)
 
-    # 2) DESPESAS por competência (mesma regra do anual)
     dt_ini = date(ano, 2, 1)
     dt_fim = date(ano + 1, 2, 1)
 

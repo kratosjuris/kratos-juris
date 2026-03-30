@@ -60,7 +60,6 @@
 
   /* =========================================================
      ✅ REGRA-CHAVE: no modo dia, zera “dourado”/gradiente/sombra
-     (isso é o que geralmente está vazando do tema night)
      ========================================================= */
   body.kj-day .fin-pagar .btn,
   body.kj-day .fin-pagar .btn:focus,
@@ -76,7 +75,6 @@
      ✅ BOTÕES (modo dia) — redefinição total dentro do pagar
      ========================================================= */
 
-  /* Primary (azul) */
   body.kj-day .fin-pagar .btn.btn-primary{
     border-radius: 12px !important;
     border: 1px solid #0d6efd !important;
@@ -89,7 +87,6 @@
     border-color: #0b5ed7 !important;
   }
 
-  /* Dark vira azul (você usa "Salvar saldo" com btn-dark) */
   body.kj-day .fin-pagar .btn.btn-dark{
     border-radius: 12px !important;
     border: 1px solid #0d6efd !important;
@@ -102,7 +99,6 @@
     border-color: #0b5ed7 !important;
   }
 
-  /* Outline Secondary (neutro) */
   body.kj-day .fin-pagar .btn.btn-outline-secondary{
     border-radius: 12px !important;
     border: 1px solid #9ca3af !important;
@@ -114,7 +110,6 @@
     background: rgba(17,24,39,.06) !important;
   }
 
-  /* Outline Dark (neutro) */
   body.kj-day .fin-pagar .btn.btn-outline-dark{
     border-radius: 12px !important;
     border: 1px solid #9ca3af !important;
@@ -126,7 +121,6 @@
     background: rgba(17,24,39,.06) !important;
   }
 
-  /* Outline Primary (azul) */
   body.kj-day .fin-pagar .btn.btn-outline-primary{
     border-radius: 12px !important;
     border: 1px solid #0d6efd !important;
@@ -138,7 +132,6 @@
     background: rgba(13,110,253,.10) !important;
   }
 
-  /* Success (verde) */
   body.kj-day .fin-pagar .btn.btn-success{
     border-radius: 12px !important;
     border: 1px solid #198754 !important;
@@ -151,7 +144,6 @@
     border-color: #157347 !important;
   }
 
-  /* Outline Success (verde) */
   body.kj-day .fin-pagar .btn.btn-outline-success{
     border-radius: 12px !important;
     border: 1px solid #198754 !important;
@@ -163,13 +155,11 @@
     background: rgba(25,135,84,.10) !important;
   }
 
-  /* Danger (vermelho) */
   body.kj-day .fin-pagar .btn.btn-danger,
   body.kj-day .fin-pagar .btn.btn-outline-danger{
     border-radius: 12px !important;
   }
 
-  /* Tabela */
   body.kj-day .fin-pagar .table{
     color: #0b1b33 !important;
     background: #fff !important;
@@ -185,26 +175,22 @@
     color: #0b1b33 !important;
   }
 
-  /* Zebra MUITO suave */
   body.kj-day .fin-pagar .table-striped>tbody>tr:nth-of-type(odd) > *{
     background-color: rgba(37,99,235,.015) !important;
   }
 
-  /* Linhas success precisam vencer a zebra */
   body.kj-day .fin-pagar tr.table-success > *{
     background-color: rgba(34,197,94,.14) !important;
     color: #0b1b33 !important;
     border-color: rgba(34,197,94,.22) !important;
   }
 
-  /* Badge bg-light no modo dia */
   body.kj-day .fin-pagar .badge.bg-light{
     background: rgba(37,99,235,.06) !important;
     color: rgba(11,27,51,.92) !important;
     border-color: rgba(37,99,235,.18) !important;
   }
 
-  /* Alerts */
   body.kj-day .fin-pagar .alert{
     border-radius: 16px !important;
     border: 1px solid rgba(37,99,235,.12) !important;
@@ -222,7 +208,6 @@
     border-color: rgba(245,158,11,.20) !important;
   }
 
-  /* Modal */
   body.kj-day .fin-pagar .modal-content{
     background: #fff !important;
     border: 1px solid rgba(37,99,235,.14) !important;
@@ -240,8 +225,9 @@
 
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h3 class="m-0">Contas a Pagar</h3>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
       <a class="btn btn-outline-secondary" href="/financeiro">Voltar</a>
+      <a class="btn btn-outline-secondary" href="/financeiro/contas">Gerenciar contas</a>
       <a class="btn btn-outline-dark" target="_blank" href="/financeiro/pagar/relatorio?ym={{ ym }}">Relatório</a>
     </div>
   </div>
@@ -265,7 +251,7 @@
       <input type="hidden" name="ym" value="{{ ym }}">
 
       <div class="col-md-4">
-        <label class="form-label">Faturamento do mes </label>
+        <label class="form-label">Faturamento do mes</label>
         <input class="form-control" name="saldo_inicial" value="{{ saldo_inicial | number_br }}">
         <div class="form-text">Aceita: 5000,00 ou 5.000,00</div>
       </div>
