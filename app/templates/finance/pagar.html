@@ -2,13 +2,6 @@
 {% block content %}
 
 <style>
-  /* =========================================================
-     ✅ FINANCEIRO / PAGAR — MODO DIA (escopado)
-     - não altera modo noite
-     - remove qualquer herança dourada do tema dark
-     - padroniza cards, tabela, botões e modal
-     ========================================================= */
-
   body.kj-day .fin-pagar{
     color: #0b1b33 !important;
   }
@@ -20,7 +13,6 @@
     letter-spacing: -0.02em;
   }
 
-  /* Cards */
   body.kj-day .fin-pagar .card{
     background: #fff !important;
     border: 1px solid rgba(37,99,235,.14) !important;
@@ -28,7 +20,6 @@
     box-shadow: 0 16px 38px rgba(2,6,23,.06) !important;
   }
 
-  /* Forms */
   body.kj-day .fin-pagar .form-label{
     color: #0b1b33 !important;
     font-weight: 750;
@@ -54,15 +45,11 @@
     box-shadow: 0 0 0 .2rem rgba(37,99,235,.14) !important;
   }
 
-  /* Painel "bg-light" (Modelos / Duplicação etc.) */
   body.kj-day .fin-pagar .bg-light{
     background: rgba(37,99,235,.035) !important;
     border: 1px solid rgba(37,99,235,.12) !important;
   }
 
-  /* =========================================================
-     ✅ REGRA-CHAVE: no modo dia, zera “dourado”/gradiente/sombra
-     ========================================================= */
   body.kj-day .fin-pagar .btn,
   body.kj-day .fin-pagar .btn:focus,
   body.kj-day .fin-pagar .btn:active{
@@ -72,10 +59,6 @@
     text-shadow: none !important;
     transform: none !important;
   }
-
-  /* =========================================================
-     ✅ BOTÕES (modo dia) — redefinição total dentro do pagar
-     ========================================================= */
 
   body.kj-day .fin-pagar .btn.btn-primary{
     border-radius: 12px !important;
@@ -246,6 +229,23 @@
     background: #fff !important;
     border: 1px solid rgba(37,99,235,.14) !important;
     box-shadow: 0 16px 38px rgba(2,6,23,.06) !important;
+  }
+
+  .bulk-toolbar{
+    display:flex;
+    gap:.75rem;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+
+  .check-col{
+    width: 44px;
+    text-align:center;
+  }
+
+  .select-payable{
+    width: 18px;
+    height: 18px;
   }
 </style>
 
@@ -471,30 +471,59 @@
     </div>
   </div>
 
+  <div class="card p-3 mb-3">
+    <div class="bulk-toolbar">
+      <div class="fw-semibold">Ações em lote</div>
+      <div class="text-muted" id="bulkSelectionInfo">Nenhum lançamento selecionado.</div>
+
+      <button type="button" class="btn btn-success" id="btnOpenBulkPay">
+        Pagar selecionados
+      </button>
+
+      <button type="button" class="btn btn-outline-danger" id="btnBulkUndo">
+        Desfazer selecionados
+      </button>
+    </div>
+  </div>
+
   <div class="card">
     <div class="table-responsive">
       <table class="table table-striped mb-0 align-middle">
         <thead>
           <tr>
-            <th>Pago</th>
+            <th class="check-col">
+              <input type="checkbox" id="checkAllPayables">
+            </th>
+            <th>Pagamento</th>
             <th>Descrição</th>
             <th>Tipo</th>
             <th>Vencimento</th>
             <th>Valor</th>
             <th>Observação</th>
-            <th style="width: 340px;">Ações</th>
+            <th style="width: 390px;">Ações</th>
           </tr>
         </thead>
         <tbody>
           {% for p in payables %}
             <tr class="{% if p.pago %}table-success{% endif %}">
+              <td class="check-col">
+                <input
+                  type="checkbox"
+                  class="select-payable"
+                  value="{{ p.id }}"
+                  data-paid="{{ 1 if p.pago else 0 }}"
+                >
+              </td>
+
               <td>
-                <form method="post" action="/financeiro/pagar/{{ p.id }}/toggle">
-                  <input type="hidden" name="ym" value="{{ ym }}">
-                  <button class="btn btn-sm {% if p.pago %}btn-success{% else %}btn-outline-success{% endif %}" type="submit">
-                    {% if p.pago %}Pago{% else %}Marcar pago{% endif %}
-                  </button>
-                </form>
+                {% if p.pago %}
+                  <div>
+                    <span class="badge bg-success">Pago</span><br>
+                    <small class="text-muted">{{ p.pago_em | date_br }}</small>
+                  </div>
+                {% else %}
+                  <span class="badge bg-light text-dark border">Pendente</span>
+                {% endif %}
               </td>
 
               <td>{{ p.descricao }}</td>
@@ -504,6 +533,37 @@
               <td>{{ p.obs or "" }}</td>
 
               <td class="d-flex flex-wrap gap-2">
+                {% if not p.pago %}
+                  <button
+                    class="btn btn-sm btn-outline-success"
+                    type="button"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalBaixarPagamento"
+                    data-id="{{ p.id }}"
+                    data-descricao="{{ p.descricao }}"
+                  >
+                    Marcar pago
+                  </button>
+                {% else %}
+                  <button
+                    class="btn btn-sm btn-outline-primary"
+                    type="button"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalEditarPagamento"
+                    data-id="{{ p.id }}"
+                    data-descricao="{{ p.descricao }}"
+                    data-pagamento="{{ p.pago_em.strftime('%Y-%m-%d') if p.pago_em else '' }}"
+                  >
+                    Editar pagamento
+                  </button>
+
+                  <form method="post" action="/financeiro/pagar/{{ p.id }}/desfazer"
+                        onsubmit="return confirm('Desfazer o pagamento deste lançamento?');">
+                    <input type="hidden" name="ym" value="{{ ym }}">
+                    <button class="btn btn-sm btn-outline-danger" type="submit">Desfazer pagamento</button>
+                  </form>
+                {% endif %}
+
                 <button class="btn btn-sm btn-outline-primary" type="button"
                         data-bs-toggle="collapse" data-bs-target="#edit{{ p.id }}">
                   Editar
@@ -518,7 +578,7 @@
             </tr>
 
             <tr class="collapse" id="edit{{ p.id }}">
-              <td colspan="7">
+              <td colspan="8">
                 <div class="p-3">
                   <form method="post" action="/financeiro/pagar/{{ p.id }}/editar" class="row g-2">
                     <input type="hidden" name="ym" value="{{ ym }}">
@@ -562,7 +622,7 @@
           {% endfor %}
 
           {% if payables|length == 0 %}
-            <tr><td colspan="7" class="text-center py-4">Nenhuma despesa lançada neste mês.</td></tr>
+            <tr><td colspan="8" class="text-center py-4">Nenhuma despesa lançada neste mês.</td></tr>
           {% endif %}
         </tbody>
       </table>
@@ -588,6 +648,108 @@
       </div>
     </div>
   </div>
+
+  <div class="modal fade" id="modalBaixarPagamento" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form method="post" id="formBaixarPagamento" action="">
+          <div class="modal-header">
+            <h5 class="modal-title">Registrar pagamento</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+
+          <div class="modal-body">
+            <input type="hidden" name="ym" value="{{ ym }}">
+
+            <div class="mb-3">
+              <label class="form-label">Lançamento</label>
+              <input type="text" class="form-control" id="baixarPagamentoDescricao" readonly>
+            </div>
+
+            <div class="mb-0">
+              <label class="form-label">Data real do pagamento</label>
+              <input type="date" class="form-control" name="pago_em" id="baixarPagamentoData" required>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+            <button class="btn btn-success" type="submit">Confirmar pagamento</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalEditarPagamento" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form method="post" id="formEditarPagamento" action="">
+          <div class="modal-header">
+            <h5 class="modal-title">Editar data do pagamento</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+
+          <div class="modal-body">
+            <input type="hidden" name="ym" value="{{ ym }}">
+
+            <div class="mb-3">
+              <label class="form-label">Lançamento</label>
+              <input type="text" class="form-control" id="editarPagamentoDescricao" readonly>
+            </div>
+
+            <div class="mb-0">
+              <label class="form-label">Data do pagamento</label>
+              <input type="date" class="form-control" name="pago_em" id="editarPagamentoData" required>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+            <button class="btn btn-primary" type="submit">Salvar data</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalBaixarPagamentoLote" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form method="post" id="formBaixarPagamentoLote" action="/financeiro/pagar/lote/baixar">
+          <div class="modal-header">
+            <h5 class="modal-title">Pagar selecionados</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+
+          <div class="modal-body">
+            <input type="hidden" name="ym" value="{{ ym }}">
+            <input type="hidden" name="selected_ids" id="bulkPaySelectedIds">
+
+            <div class="mb-3">
+              <label class="form-label">Itens selecionados</label>
+              <input type="text" class="form-control" id="bulkPayCount" readonly>
+            </div>
+
+            <div class="mb-0">
+              <label class="form-label">Data real do pagamento</label>
+              <input type="date" class="form-control" name="pago_em" id="bulkPayDate" required>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+            <button class="btn btn-success" type="submit">Pagar selecionados</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <form method="post" id="formDesfazerLote" action="/financeiro/pagar/lote/desfazer" class="d-none">
+    <input type="hidden" name="ym" value="{{ ym }}">
+    <input type="hidden" name="selected_ids" id="bulkUndoSelectedIds">
+  </form>
 
   <div class="modal fade" id="modalEditarModelo" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -671,6 +833,57 @@
 {% block scripts %}
 <script>
   (function(){
+    function todayIso(){
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    function getCheckedIds(){
+      return Array.from(document.querySelectorAll(".select-payable:checked"))
+        .map(el => el.value)
+        .filter(Boolean);
+    }
+
+    function getCheckedRows(){
+      return Array.from(document.querySelectorAll(".select-payable:checked"));
+    }
+
+    function updateBulkInfo(){
+      const ids = getCheckedIds();
+      const info = document.getElementById("bulkSelectionInfo");
+      if (!info) return;
+
+      if (!ids.length){
+        info.textContent = "Nenhum lançamento selecionado.";
+      } else {
+        info.textContent = `${ids.length} lançamento(s) selecionado(s).`;
+      }
+    }
+
+    const checkAll = document.getElementById("checkAllPayables");
+    if (checkAll){
+      checkAll.addEventListener("change", function(){
+        document.querySelectorAll(".select-payable").forEach(function(el){
+          el.checked = checkAll.checked;
+        });
+        updateBulkInfo();
+      });
+    }
+
+    document.querySelectorAll(".select-payable").forEach(function(el){
+      el.addEventListener("change", function(){
+        const all = document.querySelectorAll(".select-payable");
+        const checked = document.querySelectorAll(".select-payable:checked");
+        if (checkAll){
+          checkAll.checked = all.length > 0 && all.length === checked.length;
+        }
+        updateBulkInfo();
+      });
+    });
+
     const modalExcluir = document.getElementById("modalExcluirModelo");
     if(modalExcluir){
       modalExcluir.addEventListener("show.bs.modal", function(ev){
@@ -708,6 +921,87 @@
         document.getElementById("editarModeloObservacao").value = observacao;
       });
     }
+
+    const modalBaixar = document.getElementById("modalBaixarPagamento");
+    if(modalBaixar){
+      modalBaixar.addEventListener("show.bs.modal", function(ev){
+        const btn = ev.relatedTarget;
+        if(!btn) return;
+
+        const id = btn.getAttribute("data-id");
+        const descricao = btn.getAttribute("data-descricao") || "";
+
+        document.getElementById("baixarPagamentoDescricao").value = descricao;
+        document.getElementById("baixarPagamentoData").value = todayIso();
+
+        const form = document.getElementById("formBaixarPagamento");
+        form.action = "/financeiro/pagar/" + id + "/baixar";
+      });
+    }
+
+    const modalEditarPagamento = document.getElementById("modalEditarPagamento");
+    if(modalEditarPagamento){
+      modalEditarPagamento.addEventListener("show.bs.modal", function(ev){
+        const btn = ev.relatedTarget;
+        if(!btn) return;
+
+        const id = btn.getAttribute("data-id");
+        const descricao = btn.getAttribute("data-descricao") || "";
+        const pagoEm = btn.getAttribute("data-pagamento") || todayIso();
+
+        document.getElementById("editarPagamentoDescricao").value = descricao;
+        document.getElementById("editarPagamentoData").value = pagoEm;
+
+        const form = document.getElementById("formEditarPagamento");
+        form.action = "/financeiro/pagar/" + id + "/editar-pagamento";
+      });
+    }
+
+    const btnOpenBulkPay = document.getElementById("btnOpenBulkPay");
+    if (btnOpenBulkPay){
+      btnOpenBulkPay.addEventListener("click", function(){
+        const ids = getCheckedIds();
+        if (!ids.length){
+          alert("Selecione pelo menos um lançamento.");
+          return;
+        }
+
+        document.getElementById("bulkPaySelectedIds").value = ids.join(",");
+        document.getElementById("bulkPayCount").value = ids.length + " lançamento(s)";
+        document.getElementById("bulkPayDate").value = todayIso();
+
+        const modal = new bootstrap.Modal(document.getElementById("modalBaixarPagamentoLote"));
+        modal.show();
+      });
+    }
+
+    const btnBulkUndo = document.getElementById("btnBulkUndo");
+    if (btnBulkUndo){
+      btnBulkUndo.addEventListener("click", function(){
+        const rows = getCheckedRows();
+        const ids = rows.map(el => el.value);
+
+        if (!ids.length){
+          alert("Selecione pelo menos um lançamento.");
+          return;
+        }
+
+        const paidRows = rows.filter(el => el.getAttribute("data-paid") === "1");
+        if (!paidRows.length){
+          alert("Nenhum dos itens selecionados está marcado como pago.");
+          return;
+        }
+
+        if (!confirm("Desfazer o pagamento dos lançamentos selecionados?")){
+          return;
+        }
+
+        document.getElementById("bulkUndoSelectedIds").value = paidRows.map(el => el.value).join(",");
+        document.getElementById("formDesfazerLote").submit();
+      });
+    }
+
+    updateBulkInfo();
   })();
 </script>
 {% endblock %}

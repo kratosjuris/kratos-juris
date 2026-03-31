@@ -10,7 +10,7 @@ from fastapi import APIRouter, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_, and_
+from sqlalchemy import func
 
 from app.core.database import get_db
 from app.models.finance_models import (
@@ -308,6 +308,10 @@ def _resolve_report_account(
 
 # =========================================================
 # ✅ COMPETÊNCIA (DESPESAS)
+# Regra oficial:
+# pago em janeiro/2026  -> competência dezembro/2025
+# pago em fevereiro/2026 -> competência janeiro/2026
+# pago em março/2026 -> competência fevereiro/2026
 # =========================================================
 def _ym_prev(ym: str) -> str:
     try:
@@ -328,12 +332,75 @@ def _competencia_ym_from_payment_date(paid_dt: date | None) -> str | None:
     return _ym_prev(ym_pay)
 
 
-def _competencia_ym_for_payable(p: Payable) -> str:
+def _competencia_ym_for_payable(p: Payable) -> str | None:
+    """
+    Só considera competência real via pago_em.
+    Sem pago_em, a despesa não entra no breakdown/anual por competência.
+    """
     if getattr(p, "pago", False) and getattr(p, "pago_em", None):
         comp = _competencia_ym_from_payment_date(p.pago_em)
         if comp:
             return comp
-    return (getattr(p, "ym", None) or "").strip() or _ym_default()
+    return None
+
+
+def _build_despesas_breakdown(payables_db: list[Payable], ano: int):
+    despesas_por_mes = {m: 0.0 for m in range(1, 13)}
+    breakdown_map = {m: [] for m in range(1, 13)}
+
+    for p in payables_db:
+        comp_ym = _competencia_ym_for_payable(p)
+        if not comp_ym:
+            continue
+
+        try:
+            y_comp = int(comp_ym[:4])
+            m_comp = int(comp_ym[5:7])
+        except Exception:
+            continue
+
+        if y_comp != ano or not (1 <= m_comp <= 12):
+            continue
+
+        valor = float(p.valor or 0.0)
+        despesas_por_mes[m_comp] += valor
+
+        breakdown_map[m_comp].append(
+            {
+                "id": p.id,
+                "descricao": p.descricao,
+                "tipo": p.tipo,
+                "valor": valor,
+                "vencimento": p.vencimento,
+                "pago_em": p.pago_em,
+                "competencia_ym": comp_ym,
+                "obs": p.obs,
+            }
+        )
+
+    for m in range(1, 13):
+        breakdown_map[m].sort(
+            key=lambda item: (
+                item["pago_em"] or date.min,
+                item["descricao"] or "",
+                item["id"],
+            )
+        )
+
+    breakdown_rows = []
+    for m in range(1, 13):
+        ym = f"{ano:04d}-{m:02d}"
+        items = breakdown_map[m]
+        breakdown_rows.append(
+            {
+                "ym": ym,
+                "mes": m,
+                "total": float(despesas_por_mes[m]),
+                "items": items,
+            }
+        )
+
+    return despesas_por_mes, breakdown_rows
 
 
 # ----------------------------
@@ -578,6 +645,23 @@ def _get_or_create_month(db: Session, office_id: int, ym: str) -> FinanceMonth:
     return m
 
 
+def _parse_ids_csv(raw: str | None) -> list[int]:
+    if not raw:
+        return []
+    ids: list[int] = []
+    seen = set()
+
+    for part in str(raw).split(","):
+        txt = part.strip()
+        if not txt or not txt.isdigit():
+            continue
+        pid = int(txt)
+        if pid not in seen:
+            seen.add(pid)
+            ids.append(pid)
+    return ids
+
+
 @router.get("/financeiro/pagar", response_class=HTMLResponse)
 def pagar_list(request: Request, ym: str | None = None, db: Session = Depends(get_db)):
     redir = _require_auth(request)
@@ -737,6 +821,10 @@ def pagar_novo(
 
 @router.post("/financeiro/pagar/{pid}/toggle")
 def pagar_toggle(request: Request, pid: int, db: Session = Depends(get_db), ym: str = Form(...)):
+    """
+    Compatibilidade antiga.
+    O fluxo recomendado é usar /baixar, /desfazer e /editar-pagamento.
+    """
     redir = _require_auth(request)
     if redir:
         return redir
@@ -752,10 +840,192 @@ def pagar_toggle(request: Request, pid: int, db: Session = Depends(get_db), ym: 
         .first()
     )
     if p:
-        p.pago = not bool(p.pago)
-        p.pago_em = date.today() if p.pago else None
+        if p.pago:
+            p.pago = False
+            p.pago_em = None
+        else:
+            p.pago = True
+            p.pago_em = date.today()
         db.add(p)
         db.commit()
+    return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
+
+
+@router.post("/financeiro/pagar/{pid}/baixar")
+def pagar_baixar(
+    request: Request,
+    pid: int,
+    db: Session = Depends(get_db),
+    ym: str = Form(...),
+    pago_em: str = Form(""),
+):
+    redir = _require_auth(request)
+    if redir:
+        return redir
+
+    office_id = _get_office_id(request)
+    ym = _normalize_ym(ym)
+
+    p = (
+        db.query(Payable)
+        .filter(
+            Payable.office_id == office_id,
+            Payable.id == pid,
+        )
+        .first()
+    )
+    if not p:
+        return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
+
+    dt_pagamento = _parse_date_any(pago_em, fallback=None) or date.today()
+
+    p.pago = True
+    p.pago_em = dt_pagamento
+
+    db.add(p)
+    db.commit()
+    return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
+
+
+@router.post("/financeiro/pagar/lote/baixar")
+def pagar_baixar_lote(
+    request: Request,
+    db: Session = Depends(get_db),
+    ym: str = Form(...),
+    selected_ids: str = Form(""),
+    pago_em: str = Form(""),
+):
+    redir = _require_auth(request)
+    if redir:
+        return redir
+
+    office_id = _get_office_id(request)
+    ym = _normalize_ym(ym)
+    ids = _parse_ids_csv(selected_ids)
+
+    if not ids:
+        return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
+
+    dt_pagamento = _parse_date_any(pago_em, fallback=None) or date.today()
+
+    rows = (
+        db.query(Payable)
+        .filter(
+            Payable.office_id == office_id,
+            Payable.id.in_(ids),
+        )
+        .all()
+    )
+
+    for p in rows:
+        p.pago = True
+        p.pago_em = dt_pagamento
+        db.add(p)
+
+    db.commit()
+    return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
+
+
+@router.post("/financeiro/pagar/{pid}/desfazer")
+def pagar_desfazer(
+    request: Request,
+    pid: int,
+    db: Session = Depends(get_db),
+    ym: str = Form(...),
+):
+    redir = _require_auth(request)
+    if redir:
+        return redir
+
+    office_id = _get_office_id(request)
+    ym = _normalize_ym(ym)
+
+    p = (
+        db.query(Payable)
+        .filter(
+            Payable.office_id == office_id,
+            Payable.id == pid,
+        )
+        .first()
+    )
+    if p:
+        p.pago = False
+        p.pago_em = None
+        db.add(p)
+        db.commit()
+
+    return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
+
+
+@router.post("/financeiro/pagar/lote/desfazer")
+def pagar_desfazer_lote(
+    request: Request,
+    db: Session = Depends(get_db),
+    ym: str = Form(...),
+    selected_ids: str = Form(""),
+):
+    redir = _require_auth(request)
+    if redir:
+        return redir
+
+    office_id = _get_office_id(request)
+    ym = _normalize_ym(ym)
+    ids = _parse_ids_csv(selected_ids)
+
+    if not ids:
+        return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
+
+    rows = (
+        db.query(Payable)
+        .filter(
+            Payable.office_id == office_id,
+            Payable.id.in_(ids),
+        )
+        .all()
+    )
+
+    for p in rows:
+        p.pago = False
+        p.pago_em = None
+        db.add(p)
+
+    db.commit()
+    return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
+
+
+@router.post("/financeiro/pagar/{pid}/editar-pagamento")
+def pagar_editar_pagamento(
+    request: Request,
+    pid: int,
+    db: Session = Depends(get_db),
+    ym: str = Form(...),
+    pago_em: str = Form(""),
+):
+    redir = _require_auth(request)
+    if redir:
+        return redir
+
+    office_id = _get_office_id(request)
+    ym = _normalize_ym(ym)
+
+    p = (
+        db.query(Payable)
+        .filter(
+            Payable.office_id == office_id,
+            Payable.id == pid,
+        )
+        .first()
+    )
+    if not p:
+        return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
+
+    dt_pagamento = _parse_date_any(pago_em, fallback=p.pago_em) or date.today()
+
+    p.pago = True
+    p.pago_em = dt_pagamento
+
+    db.add(p)
+    db.commit()
     return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
 
 
@@ -938,7 +1208,6 @@ def pagar_relatorio(request: Request, ym: str | None = None, db: Session = Depen
             "total_pago": float(total_pago),
         },
     )
-
 
 # ----------------------------
 # Contas a Receber
@@ -1337,7 +1606,6 @@ def receber_relatorio_anual(request: Request, ano: int | None = None, db: Sessio
     ano = int(ano or hoje.year)
 
     recebido_por_mes = {m: 0.0 for m in range(1, 13)}
-    despesas_por_mes = {m: 0.0 for m in range(1, 13)}
 
     recebidos_db = (
         db.query(Receivable)
@@ -1356,6 +1624,8 @@ def receber_relatorio_anual(request: Request, ano: int | None = None, db: Sessio
         if 1 <= mes <= 12:
             recebido_por_mes[mes] += float(r.valor or 0.0)
 
+    # Para o ano de competência:
+    # entram pagamentos de 01/02/ANO até 31/01/(ANO+1)
     dt_ini = date(ano, 2, 1)
     dt_fim = date(ano + 1, 2, 1)
 
@@ -1364,28 +1634,15 @@ def receber_relatorio_anual(request: Request, ano: int | None = None, db: Sessio
         .filter(
             Payable.office_id == office_id,
             Payable.pago.is_(True),
+            Payable.pago_em.isnot(None),
+            Payable.pago_em >= dt_ini,
+            Payable.pago_em < dt_fim,
         )
-        .filter(
-            or_(
-                and_(Payable.pago_em.isnot(None), Payable.pago_em >= dt_ini, Payable.pago_em < dt_fim),
-                and_(Payable.pago_em.is_(None), Payable.ym.like(f"{ano:04d}-%")),
-            )
-        )
+        .order_by(Payable.pago_em.asc(), Payable.descricao.asc())
         .all()
     )
 
-    for p in payables_db:
-        comp_ym = _competencia_ym_for_payable(p)
-        try:
-            y_comp = int(comp_ym[:4])
-            m_comp = int(comp_ym[5:7])
-        except Exception:
-            continue
-
-        if y_comp != ano:
-            continue
-        if 1 <= m_comp <= 12:
-            despesas_por_mes[m_comp] += float(p.valor or 0.0)
+    despesas_por_mes, despesas_breakdown = _build_despesas_breakdown(payables_db, ano)
 
     meses = []
     chart_labels = []
@@ -1417,6 +1674,7 @@ def receber_relatorio_anual(request: Request, ano: int | None = None, db: Sessio
             "title": "Comparativo Anual Financeiro",
             "ano": ano,
             "meses": meses,
+            "despesas_breakdown": despesas_breakdown,
             "total_recebido": float(total_recebido),
             "total_despesas": float(total_despesas),
             "total_resultado": float(total_resultado),
@@ -1459,7 +1717,6 @@ def receber_relatorio_anual_conta_principal(
     conta_escolhida_id = conta_escolhida.id if conta_escolhida else None
 
     recebido_principal_por_mes = {m: 0.0 for m in range(1, 13)}
-    despesas_por_mes = {m: 0.0 for m in range(1, 13)}
 
     recebidos_principal_db = (
         db.query(Receivable)
@@ -1488,28 +1745,15 @@ def receber_relatorio_anual_conta_principal(
         .filter(
             Payable.office_id == office_id,
             Payable.pago.is_(True),
+            Payable.pago_em.isnot(None),
+            Payable.pago_em >= dt_ini,
+            Payable.pago_em < dt_fim,
         )
-        .filter(
-            or_(
-                and_(Payable.pago_em.isnot(None), Payable.pago_em >= dt_ini, Payable.pago_em < dt_fim),
-                and_(Payable.pago_em.is_(None), Payable.ym.like(f"{ano:04d}-%")),
-            )
-        )
+        .order_by(Payable.pago_em.asc(), Payable.descricao.asc())
         .all()
     )
 
-    for p in payables_db:
-        comp_ym = _competencia_ym_for_payable(p)
-        try:
-            y_comp = int(comp_ym[:4])
-            m_comp = int(comp_ym[5:7])
-        except Exception:
-            continue
-
-        if y_comp != ano:
-            continue
-        if 1 <= m_comp <= 12:
-            despesas_por_mes[m_comp] += float(p.valor or 0.0)
+    despesas_por_mes, despesas_breakdown = _build_despesas_breakdown(payables_db, ano)
 
     meses = []
     chart_labels = []
@@ -1553,6 +1797,7 @@ def receber_relatorio_anual_conta_principal(
             "conta_principal_nome": conta_nome,
             "conta_principal_code": conta_code,
             "meses": meses,
+            "despesas_breakdown": despesas_breakdown,
             "total_recebido_principal": float(total_recebido_principal),
             "total_despesas": float(total_despesas),
             "total_resultado": float(total_resultado),
