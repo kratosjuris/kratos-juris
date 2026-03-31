@@ -421,7 +421,7 @@
               <th>Nome</th>
               <th class="text-end">Valor padrão</th>
               <th>Observação</th>
-              <th class="text-end" style="width: 180px;">Ações</th>
+              <th class="text-end" style="width: 260px;">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -432,16 +432,32 @@
               <td class="text-end">{{ (t.valor_padrao or 0) | money_br }}</td>
               <td class="text-muted">{{ t.observacao or "" }}</td>
               <td class="text-end">
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-danger"
-                  data-bs-toggle="modal"
-                  data-bs-target="#modalExcluirModelo"
-                  data-id="{{ t.id }}"
-                  data-nome="{{ t.nome }}"
-                >
-                  Excluir
-                </button>
+                <div class="d-inline-flex gap-2 flex-wrap justify-content-end">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-primary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalEditarModelo"
+                    data-id="{{ t.id }}"
+                    data-nome="{{ t.nome }}"
+                    data-tipo="{{ t.tipo }}"
+                    data-valor="{{ (t.valor_padrao or 0) | number_br }}"
+                    data-observacao="{{ t.observacao or '' }}"
+                  >
+                    Editar
+                  </button>
+
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalExcluirModelo"
+                    data-id="{{ t.id }}"
+                    data-nome="{{ t.nome }}"
+                  >
+                    Excluir
+                  </button>
+                </div>
               </td>
             </tr>
             {% else %}
@@ -573,6 +589,53 @@
     </div>
   </div>
 
+  <div class="modal fade" id="modalEditarModelo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <form method="post" id="formEditarModelo" action="">
+          <div class="modal-header">
+            <h5 class="modal-title">Editar modelo</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+
+          <div class="modal-body">
+            <input type="hidden" name="ym" value="{{ ym }}">
+
+            <div class="row g-3">
+              <div class="col-md-5">
+                <label class="form-label">Nome</label>
+                <input type="text" class="form-control" name="nome" id="editarModeloNome" required>
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">Tipo</label>
+                <select class="form-select" name="tipo" id="editarModeloTipo">
+                  <option value="FIXA">FIXA</option>
+                  <option value="VARIAVEL">VARIÁVEL</option>
+                </select>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">Valor padrão</label>
+                <input type="text" class="form-control" name="valor_padrao" id="editarModeloValor" placeholder="0,00">
+              </div>
+
+              <div class="col-md-12">
+                <label class="form-label">Observação</label>
+                <input type="text" class="form-control" name="observacao" id="editarModeloObservacao">
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+            <button class="btn btn-primary" type="submit">Salvar alterações</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <div class="modal fade" id="modalExcluirModelo" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
@@ -608,22 +671,43 @@
 {% block scripts %}
 <script>
   (function(){
-    const modal = document.getElementById("modalExcluirModelo");
-    if(!modal) return;
+    const modalExcluir = document.getElementById("modalExcluirModelo");
+    if(modalExcluir){
+      modalExcluir.addEventListener("show.bs.modal", function(ev){
+        const btn = ev.relatedTarget;
+        if(!btn) return;
 
-    modal.addEventListener("show.bs.modal", function(ev){
-      const btn = ev.relatedTarget;
-      if(!btn) return;
+        const id = btn.getAttribute("data-id");
+        const nome = btn.getAttribute("data-nome") || "—";
 
-      const id = btn.getAttribute("data-id");
-      const nome = btn.getAttribute("data-nome") || "—";
+        document.getElementById("modeloNome").textContent = nome;
 
-      document.getElementById("modeloNome").textContent = nome;
+        const form = document.getElementById("formExcluirModelo");
+        form.action = "/financeiro/pagar/modelo/" + id + "/excluir";
+      });
+    }
 
-      const form = document.getElementById("formExcluirModelo");
-      form.action = "/financeiro/pagar/modelo/" + id + "/excluir";
-    });
+    const modalEditar = document.getElementById("modalEditarModelo");
+    if(modalEditar){
+      modalEditar.addEventListener("show.bs.modal", function(ev){
+        const btn = ev.relatedTarget;
+        if(!btn) return;
+
+        const id = btn.getAttribute("data-id");
+        const nome = btn.getAttribute("data-nome") || "";
+        const tipo = btn.getAttribute("data-tipo") || "FIXA";
+        const valor = btn.getAttribute("data-valor") || "0,00";
+        const observacao = btn.getAttribute("data-observacao") || "";
+
+        const form = document.getElementById("formEditarModelo");
+        form.action = "/financeiro/pagar/modelo/" + id + "/editar";
+
+        document.getElementById("editarModeloNome").value = nome;
+        document.getElementById("editarModeloTipo").value = tipo;
+        document.getElementById("editarModeloValor").value = valor;
+        document.getElementById("editarModeloObservacao").value = observacao;
+      });
+    }
   })();
 </script>
 {% endblock %}
-

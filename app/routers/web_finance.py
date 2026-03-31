@@ -612,6 +612,8 @@ def pagar_list(request: Request, ym: str | None = None, db: Session = Depends(ge
         .all()
     )
 
+    contas_ativas = _get_accounts(db, office_id, only_active=True)
+
     return templates.TemplateResponse(
         "finance/pagar.html",
         {
@@ -621,6 +623,7 @@ def pagar_list(request: Request, ym: str | None = None, db: Session = Depends(ge
             "month": month,
             "payables": payables,
             "templates_list": templates_list,
+            "contas_ativas": contas_ativas,
             "total_despesas": float(total_despesas),
             "total_pago": float(total_pago),
             "total_pendente": float(total_pendente),
@@ -822,6 +825,54 @@ def pagar_excluir(request: Request, pid: int, db: Session = Depends(get_db), ym:
     if p:
         db.delete(p)
         db.commit()
+    return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
+
+
+@router.post("/financeiro/pagar/modelo/{tid}/editar")
+def pagar_modelo_editar(
+    request: Request,
+    tid: int,
+    db: Session = Depends(get_db),
+    ym: str = Form(_ym_default()),
+    nome: str = Form(...),
+    tipo: str = Form("FIXA"),
+    valor_padrao: str = Form("0"),
+    observacao: str = Form(""),
+):
+    redir = _require_auth(request)
+    if redir:
+        return redir
+
+    office_id = _get_office_id(request)
+
+    t = (
+        db.query(ExpenseTemplate)
+        .filter(
+            ExpenseTemplate.office_id == office_id,
+            ExpenseTemplate.id == tid,
+        )
+        .first()
+    )
+    if not t:
+        ym = _normalize_ym(ym)
+        return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
+
+    nome_limpo = (nome or "").strip()
+    if not nome_limpo:
+        ym = _normalize_ym(ym)
+        return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
+
+    valor_num = _parse_brl_number(valor_padrao or "0")
+
+    t.nome = nome_limpo
+    t.tipo = (tipo or "FIXA").upper().strip()
+    t.valor_padrao = float(valor_num)
+    t.observacao = (observacao or "").strip() or None
+
+    db.add(t)
+    db.commit()
+
+    ym = _normalize_ym(ym)
     return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
 
 
