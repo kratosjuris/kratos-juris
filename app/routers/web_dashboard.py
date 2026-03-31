@@ -5,7 +5,7 @@ from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from sqlalchemy import extract, func, or_
+from sqlalchemy import extract, func
 
 from app.core.database import get_db
 from app.models.client import Client
@@ -146,7 +146,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     )
 
     # =========================
-    # PRAZOS
+    # PRAZOS (🔥 CORRIGIDO)
     # =========================
     fim_semana = _fim_da_semana(hoje)
 
@@ -154,13 +154,11 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         db.query(func.count(ProcessItem.id))
         .filter(
             ProcessItem.office_id == office_id,
+            ProcessItem.aba.in_(["PRAZOS", "Controle de Prazos"]),  # 🔥 CORREÇÃO
+            ProcessItem.cumprimento != "CUMPRIDO",
             ProcessItem.vencimento.isnot(None),
             ProcessItem.vencimento >= hoje,
             ProcessItem.vencimento <= fim_semana,
-            or_(
-                ProcessItem.cumprimento.is_(None),
-                ProcessItem.cumprimento != "CUMPRIDO"
-            )
         )
         .scalar() or 0
     )
@@ -196,7 +194,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         })
 
     # =========================
-    # AUDIÊNCIAS (CORRIGIDO)
+    # AUDIÊNCIAS
     # =========================
     inicio = datetime.combine(hoje, datetime.min.time())
     fim = datetime.combine(hoje + timedelta(days=2), datetime.min.time())
