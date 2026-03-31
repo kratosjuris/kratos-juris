@@ -637,6 +637,7 @@
 {# ✅ Fallbacks para evitar erro se algo não vier no contexto #}
 {% set aud_hoje = audiencias_hoje if audiencias_hoje is defined and audiencias_hoje else [] %}
 {% set aud_prox = audiencias_proximo if audiencias_proximo is defined and audiencias_proximo else [] %}
+{% set is_superadmin = is_superadmin if is_superadmin is defined else false %}
 
 <div id="kj-dashboard">
 
@@ -965,6 +966,7 @@
     </div>
   </div>
 
+  {% if is_superadmin %}
   <div class="row g-3 mb-3">
     <div class="col-12">
       <div class="soft-card p-3">
@@ -1024,6 +1026,7 @@
       </div>
     </div>
   </div>
+  {% endif %}
 
   <div class="row g-3">
     <div class="col-12 col-md-6 col-xl-4">

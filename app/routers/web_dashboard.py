@@ -13,6 +13,7 @@ from app.models.pericia_models import PericiaDiligencia
 from app.models.process_item import ProcessItem
 from app.models.finance_models import Payable
 from app.models.hearing import Hearing
+from app.models.user import User
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -26,6 +27,23 @@ def _get_office_id(request: Request) -> int:
     if not office_id:
         raise HTTPException(status_code=403, detail="Usuário sem escritório vinculado.")
     return int(office_id)
+
+
+def _is_superadmin(request: Request, db: Session) -> bool:
+    """
+    Detecta se o usuário logado é superadministrador.
+    Tenta primeiro pela sessão; se não encontrar, consulta no banco.
+    """
+    session_flag = request.session.get("is_superuser")
+    if session_flag is not None:
+        return bool(session_flag)
+
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return False
+
+    user = db.query(User).filter(User.id == user_id).first()
+    return bool(user and getattr(user, "is_superuser", False))
 
 
 # =========================
@@ -75,6 +93,7 @@ def _next_business_day(d: date) -> date:
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(get_db)):
     office_id = _get_office_id(request)
+    is_superadmin = _is_superadmin(request, db)
 
     hoje = date.today()
     agora = datetime.now()
@@ -154,7 +173,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         db.query(func.count(ProcessItem.id))
         .filter(
             ProcessItem.office_id == office_id,
-            ProcessItem.aba.in_(["PRAZOS", "Controle de Prazos"]),  # 🔥 CORREÇÃO
+            ProcessItem.aba.in_(["PRAZOS", "Controle de Prazos"]),
             ProcessItem.cumprimento != "CUMPRIDO",
             ProcessItem.vencimento.isnot(None),
             ProcessItem.vencimento >= hoje,
@@ -165,33 +184,36 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
     # =========================
     # FINANCEIRO
+    # ✅ SOMENTE SUPERADMINISTRADOR
     # =========================
-    payables_alert = (
-        db.query(Payable)
-        .filter(
-            Payable.office_id == office_id,
-            Payable.pago.is_(False),
-            Payable.vencimento.isnot(None),
-            Payable.vencimento <= hoje,
-        )
-        .order_by(Payable.vencimento.asc())
-        .all()
-    )
-
     payables_alert_itens = []
-    for p in payables_alert:
-        dias_atraso = 0
-        badge = "Hoje"
 
-        if p.vencimento and p.vencimento < hoje:
-            dias_atraso = (hoje - p.vencimento).days
-            badge = "Atrasada"
+    if is_superadmin:
+        payables_alert = (
+            db.query(Payable)
+            .filter(
+                Payable.office_id == office_id,
+                Payable.pago.is_(False),
+                Payable.vencimento.isnot(None),
+                Payable.vencimento <= hoje,
+            )
+            .order_by(Payable.vencimento.asc())
+            .all()
+        )
 
-        payables_alert_itens.append({
-            "p": p,
-            "badge": badge,
-            "dias_atraso": dias_atraso
-        })
+        for p in payables_alert:
+            dias_atraso = 0
+            badge = "Hoje"
+
+            if p.vencimento and p.vencimento < hoje:
+                dias_atraso = (hoje - p.vencimento).days
+                badge = "Atrasada"
+
+            payables_alert_itens.append({
+                "p": p,
+                "badge": badge,
+                "dias_atraso": dias_atraso
+            })
 
     # =========================
     # AUDIÊNCIAS
@@ -247,5 +269,6 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             "bday_mes_total": bday_mes_total,
             "clientes_total": clientes_total,
             "prazos_rompendo_semana_total": prazos_rompendo_semana_total,
+            "is_superadmin": is_superadmin,
         },
     )
