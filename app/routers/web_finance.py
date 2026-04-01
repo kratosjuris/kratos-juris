@@ -819,6 +819,81 @@ def pagar_novo(
     return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
 
 
+@router.post("/financeiro/pagar/lote/baixar")
+def pagar_baixar_lote(
+    request: Request,
+    db: Session = Depends(get_db),
+    ym: str = Form(...),
+    selected_ids: str = Form(""),
+    pago_em: str = Form(""),
+):
+    redir = _require_auth(request)
+    if redir:
+        return redir
+
+    office_id = _get_office_id(request)
+    ym = _normalize_ym(ym)
+    ids = _parse_ids_csv(selected_ids)
+
+    if not ids:
+        return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
+
+    dt_pagamento = _parse_date_any(pago_em, fallback=None) or date.today()
+
+    rows = (
+        db.query(Payable)
+        .filter(
+            Payable.office_id == office_id,
+            Payable.id.in_(ids),
+        )
+        .all()
+    )
+
+    for p in rows:
+        p.pago = True
+        p.pago_em = dt_pagamento
+        db.add(p)
+
+    db.commit()
+    return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
+
+
+@router.post("/financeiro/pagar/lote/desfazer")
+def pagar_desfazer_lote(
+    request: Request,
+    db: Session = Depends(get_db),
+    ym: str = Form(...),
+    selected_ids: str = Form(""),
+):
+    redir = _require_auth(request)
+    if redir:
+        return redir
+
+    office_id = _get_office_id(request)
+    ym = _normalize_ym(ym)
+    ids = _parse_ids_csv(selected_ids)
+
+    if not ids:
+        return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
+
+    rows = (
+        db.query(Payable)
+        .filter(
+            Payable.office_id == office_id,
+            Payable.id.in_(ids),
+        )
+        .all()
+    )
+
+    for p in rows:
+        p.pago = False
+        p.pago_em = None
+        db.add(p)
+
+    db.commit()
+    return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
+
+
 @router.post("/financeiro/pagar/{pid}/toggle")
 def pagar_toggle(request: Request, pid: int, db: Session = Depends(get_db), ym: str = Form(...)):
     """
@@ -887,45 +962,6 @@ def pagar_baixar(
     return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
 
 
-@router.post("/financeiro/pagar/lote/baixar")
-def pagar_baixar_lote(
-    request: Request,
-    db: Session = Depends(get_db),
-    ym: str = Form(...),
-    selected_ids: str = Form(""),
-    pago_em: str = Form(""),
-):
-    redir = _require_auth(request)
-    if redir:
-        return redir
-
-    office_id = _get_office_id(request)
-    ym = _normalize_ym(ym)
-    ids = _parse_ids_csv(selected_ids)
-
-    if not ids:
-        return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
-
-    dt_pagamento = _parse_date_any(pago_em, fallback=None) or date.today()
-
-    rows = (
-        db.query(Payable)
-        .filter(
-            Payable.office_id == office_id,
-            Payable.id.in_(ids),
-        )
-        .all()
-    )
-
-    for p in rows:
-        p.pago = True
-        p.pago_em = dt_pagamento
-        db.add(p)
-
-    db.commit()
-    return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
-
-
 @router.post("/financeiro/pagar/{pid}/desfazer")
 def pagar_desfazer(
     request: Request,
@@ -954,42 +990,6 @@ def pagar_desfazer(
         db.add(p)
         db.commit()
 
-    return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
-
-
-@router.post("/financeiro/pagar/lote/desfazer")
-def pagar_desfazer_lote(
-    request: Request,
-    db: Session = Depends(get_db),
-    ym: str = Form(...),
-    selected_ids: str = Form(""),
-):
-    redir = _require_auth(request)
-    if redir:
-        return redir
-
-    office_id = _get_office_id(request)
-    ym = _normalize_ym(ym)
-    ids = _parse_ids_csv(selected_ids)
-
-    if not ids:
-        return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
-
-    rows = (
-        db.query(Payable)
-        .filter(
-            Payable.office_id == office_id,
-            Payable.id.in_(ids),
-        )
-        .all()
-    )
-
-    for p in rows:
-        p.pago = False
-        p.pago_em = None
-        db.add(p)
-
-    db.commit()
     return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
 
 
