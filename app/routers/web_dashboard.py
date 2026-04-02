@@ -137,7 +137,12 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             f"Olá, {c.nome}! 🎉\n\n"
             f"A equipe do Escritório Clementino & Silva Lopes "
             f"lhe deseja um Feliz Aniversário!\n\n"
-            f"Conte sempre conosco."
+            f"Que este novo ano de vida seja repleto de saúde, conquistas e tranquilidade. "
+            f"Reafirmamos nosso compromisso de estarmos sempre à sua disposição, lado a lado, "
+            f"para auxiliá-lo(a) em todas as demandas jurídicas que se fizerem necessárias.\n\n"
+            f"Conte sempre conosco.\n\n"
+            f"Atenciosamente,\n"
+            f"Escritório Clementino & Silva Lopes"
         )
 
         wa = None
