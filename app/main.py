@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import RedirectResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -38,6 +40,14 @@ from app.routers import web_offices
 
 
 # =========================================================
+# APP / PATHS
+# =========================================================
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+FAVICON_PATH = STATIC_DIR / "favicon.ico"
+
+
+# =========================================================
 # HELPERS
 # =========================================================
 def _is_public_path(path: str) -> bool:
@@ -47,6 +57,7 @@ def _is_public_path(path: str) -> bool:
         "/acesso-negado",
         "/static",
         "/favicon.ico",
+        "/ping",
     )
     return path.startswith(public_prefixes)
 
@@ -131,9 +142,14 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path or ""
 
+        # Não carrega sessão para rotas públicas
+        # Isso evita poluir o terminal com logs do favicon/static/login etc.
+        if _is_public_path(path):
+            return await call_next(request)
+
         current_user = _load_user_from_session(request)
 
-        if not _is_public_path(path) and not current_user:
+        if not current_user:
             next_url = request.url.path or "/"
             if request.url.query:
                 next_url += f"?{request.url.query}"
@@ -149,7 +165,7 @@ app = FastAPI(title="Sistema do Escritório")
 # =========================================================
 # STATIC
 # =========================================================
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
 # =========================================================
@@ -232,6 +248,11 @@ def escritorio():
     return RedirectResponse(url="/dashboard")
 
 
+# =========================================================
+# FAVICON
+# =========================================================
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon():
+    if FAVICON_PATH.exists():
+        return FileResponse(FAVICON_PATH)
     return Response(status_code=204)

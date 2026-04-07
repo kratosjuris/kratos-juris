@@ -14,7 +14,9 @@ from app.core.permissions import require_permission
 from app.core.security import hash_password
 from app.core.session_manager import get_session_office_id
 from app.models.audit_log import AuditLog
+from app.models.permission import Permission
 from app.models.user import User
+from app.models.user_permission import UserPermission
 
 router = APIRouter(prefix="/usuarios", tags=["Usuários"])
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -35,6 +37,17 @@ def _log_action(db: Session, actor: User | None, action: str, module: str, descr
         )
     )
     db.commit()
+
+
+def _get_office_user_or_none(db: Session, office_id: int | None, user_id: int) -> User | None:
+    if office_id is None:
+        return None
+
+    return (
+        db.query(User)
+        .filter(User.id == user_id, User.office_id == office_id)
+        .first()
+    )
 
 
 # =========================================================
@@ -147,10 +160,7 @@ def users_edit_page(user_id: int, request: Request, db: Session = Depends(get_db
 
     office_id = get_session_office_id(request)
 
-    user_obj = db.query(User).filter(
-        User.id == user_id,
-        User.office_id == office_id
-    ).first()
+    user_obj = _get_office_user_or_none(db, office_id, user_id)
 
     if not user_obj:
         return RedirectResponse(url="/usuarios", status_code=303)
@@ -186,7 +196,7 @@ def users_edit_submit(
 
     office_id = get_session_office_id(request)
 
-    user = db.query(User).filter(User.id == user_id, User.office_id == office_id).first()
+    user = _get_office_user_or_none(db, office_id, user_id)
 
     if not user:
         return RedirectResponse(url="/usuarios", status_code=303)
@@ -206,84 +216,61 @@ def users_edit_submit(
 
 
 # =========================================================
-# 🔥 SUSPENDER
+# ✅ PERMISSÕES (CORRIGIDO AQUI)
 # =========================================================
-@router.post("/{user_id}/suspender")
-def users_suspend(user_id: int, request: Request, db: Session = Depends(get_db)):
+@router.get("/{user_id}/permissoes", response_class=HTMLResponse)
+def user_permissions_page(user_id: int, request: Request, db: Session = Depends(get_db)):
+    try:
+        require_permission(request, "usuarios.edit")
+    except HTTPException:
+        return _redirect_denied()
+
+    office_id = get_session_office_id(request)
+    user_obj = _get_office_user_or_none(db, office_id, user_id)
+
+    if not user_obj:
+        return RedirectResponse(url="/usuarios", status_code=303)
+
+    permissions = db.query(Permission).all()
+
+    user_permission_ids = {
+        p.permission_id for p in db.query(UserPermission).filter(UserPermission.user_id == user_id).all()
+    }
+
+    permissions_by_module = defaultdict(list)
+    for perm in permissions:
+        permissions_by_module[perm.module or "outros"].append(perm)
+
+    return templates.TemplateResponse(
+        "users/permissions.html",  # 🔥 CORREÇÃO AQUI
+        {
+            "request": request,
+            "user_obj": user_obj,
+            "permissions_by_module": dict(permissions_by_module),
+            "user_permission_ids": user_permission_ids,
+        },
+    )
+
+
+@router.post("/{user_id}/permissoes")
+def user_permissions_submit(
+    user_id: int,
+    request: Request,
+    permission_ids: list[int] | None = Form(None),
+    db: Session = Depends(get_db),
+):
     try:
         actor = require_permission(request, "usuarios.edit")
     except HTTPException:
         return _redirect_denied()
 
-    office_id = get_session_office_id(request)
+    db.query(UserPermission).filter(UserPermission.user_id == user_id).delete()
 
-    user = db.query(User).filter(User.id == user_id, User.office_id == office_id).first()
-
-    if not user:
-        return RedirectResponse(url="/usuarios", status_code=303)
-
-    user.suspend("Suspenso manualmente")
+    for perm_id in permission_ids or []:
+        db.add(UserPermission(user_id=user_id, permission_id=perm_id))
 
     db.commit()
 
-    _log_action(db, actor, "suspend_user", "users", f"Usuário suspenso: {user.username}", request.client.host)
-
-    return RedirectResponse(url="/usuarios", status_code=303)
-
-
-# =========================================================
-# 🔥 REATIVAR
-# =========================================================
-@router.post("/{user_id}/reativar")
-def users_reactivate(user_id: int, request: Request, db: Session = Depends(get_db)):
-    try:
-        actor = require_permission(request, "usuarios.edit")
-    except HTTPException:
-        return _redirect_denied()
-
-    office_id = get_session_office_id(request)
-
-    user = db.query(User).filter(User.id == user_id, User.office_id == office_id).first()
-
-    if not user:
-        return RedirectResponse(url="/usuarios", status_code=303)
-
-    user.reactivate()
-
-    db.commit()
-
-    _log_action(db, actor, "reactivate_user", "users", f"Usuário reativado: {user.username}", request.client.host)
-
-    return RedirectResponse(url="/usuarios", status_code=303)
-
-
-# =========================================================
-# 🔥 EXCLUIR
-# =========================================================
-@router.post("/{user_id}/excluir")
-def users_delete(user_id: int, request: Request, db: Session = Depends(get_db)):
-    try:
-        actor = require_permission(request, "usuarios.delete")
-    except HTTPException:
-        return _redirect_denied()
-
-    office_id = get_session_office_id(request)
-    current_user = request.state.current_user
-
-    user = db.query(User).filter(User.id == user_id, User.office_id == office_id).first()
-
-    if not user:
-        return RedirectResponse(url="/usuarios", status_code=303)
-
-    # 🚫 proteção: não excluir a si mesmo
-    if current_user and user.id == current_user.id:
-        raise HTTPException(status_code=400, detail="Você não pode excluir seu próprio usuário.")
-
-    username = user.username
-
-    db.delete(user)
-    db.commit()
-
-    _log_action(db, actor, "delete_user", "users", f"Usuário excluído: {username}", request.client.host)
+    _log_action(db, actor, "edit_permissions", "users", f"Permissões atualizadas para usuário {user_id}", request.client.host)
 
     return RedirectResponse(url="/usuarios", status_code=303)
