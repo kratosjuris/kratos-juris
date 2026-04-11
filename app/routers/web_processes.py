@@ -186,6 +186,8 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
             or 0
         )
 
+        pendentes = max(total - concluidos, 0)
+
         vence_hoje = (
             db.query(func.count(ProcessItem.id))
             .filter(
@@ -241,6 +243,7 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
 
         return {
             "total": total,
+            "pendentes": pendentes,
             "concluidos": concluidos,
             "vence_hoje": vence_hoje,
             "vence_semana": vence_semana,
