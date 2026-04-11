@@ -831,7 +831,8 @@
 {% set nav_active = {
   "dashboard": (_path == "/" or _path.startswith("/dashboard") or _path.startswith("/escritorio")),
   "usuarios":  (_path.startswith("/usuarios")),
-  "offices":   (_path.startswith("/offices"))
+  "offices":   (_path.startswith("/offices")),
+  "whatsapp":  (_path.startswith("/configuracoes/whatsapp"))
 } %}
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -845,6 +846,10 @@
 
       {% if current_user and current_user.is_superuser %}
         <a class="nav-link {% if nav_active.offices %}active{% endif %}" href="/offices">Escritórios</a>
+      {% endif %}
+
+      {% if current_user %}
+        <a class="nav-link {% if nav_active.whatsapp %}active{% endif %}" href="/configuracoes/whatsapp">WhatsApp</a>
       {% endif %}
     </div>
 

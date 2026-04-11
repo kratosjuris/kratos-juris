@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  .wa-templates-page .page-title{
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
+
+  .wa-templates-page .card{
+    border-radius: 18px;
+    overflow: hidden;
+  }
+
+  .wa-templates-page .badge-soft{
+    display: inline-block;
+    padding: .4rem .65rem;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .02em;
+  }
+
+  .wa-templates-page .badge-soft.ok{
+    background: rgba(34,197,94,.12);
+    color: #166534;
+    border: 1px solid rgba(34,197,94,.25);
+  }
+
+  .wa-templates-page .badge-soft.info{
+    background: rgba(59,130,246,.10);
+    color: #1d4ed8;
+    border: 1px solid rgba(59,130,246,.22);
+  }
+
+  .wa-templates-page .badge-soft.warn{
+    background: rgba(245,158,11,.12);
+    color: #b45309;
+    border: 1px solid rgba(245,158,11,.25);
+  }
+
+  .wa-templates-page .conteudo-preview{
+    max-width: 520px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+    vertical-align: bottom;
+  }
+
+  .wa-templates-page .acoes{
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+  }
+</style>
+
+<div class="container py-4 wa-templates-page">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="mb-0 page-title">Modelos de WhatsApp</h3>
+    <a href="/configuracoes/whatsapp/novo" class="btn btn-primary">
+      <i class="bi bi-plus-lg"></i> Novo Modelo
+    </a>
+  </div>
+
+  <div class="alert alert-info">
+    <strong>Variáveis disponíveis:</strong><br>
+    <code>{{ "{{cliente_nome}}" }}</code>,
+    <code>{{ "{{cliente_nome_maiusculo}}" }}</code>,
+    <code>{{ "{{numero_processo}}" }}</code>,
+    <code>{{ "{{promovido}}" }}</code>,
+    <code>{{ "{{data_audiencia}}" }}</code>,
+    <code>{{ "{{hora_audiencia}}" }}</code>,
+    <code>{{ "{{modalidade}}" }}</code>,
+    <code>{{ "{{codigo_acesso}}" }}</code>,
+    <code>{{ "{{nome_escritorio}}" }}</code>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th style="width: 210px;">Tipo</th>
+            <th>Título</th>
+            <th>Conteúdo</th>
+            <th style="width: 120px;">Ativo</th>
+            <th style="width: 120px;">Padrão</th>
+            <th style="width: 320px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td>
+              <strong>{{ get_tipo_label(row.tipo) }}</strong>
+            </td>
+            <td>{{ row.titulo }}</td>
+            <td>
+              <span class="conteudo-preview" title="{{ row.conteudo }}">
+                {{ row.conteudo[:120] }}{% if row.conteudo|length > 120 %}...{% endif %}
+              </span>
+            </td>
+            <td>
+              {% if row.is_active %}
+                <span class="badge-soft ok">ATIVO</span>
+              {% else %}
+                <span class="badge-soft warn">INATIVO</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if row.is_default %}
+                <span class="badge-soft info">SIM</span>
+              {% else %}
+                <span class="text-muted">Não</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="acoes">
+                <a href="/configuracoes/whatsapp/{{ row.id }}/editar" class="btn btn-sm btn-outline-primary">
+                  Editar
+                </a>
+
+                {% if not row.is_active %}
+                <form method="post" action="/configuracoes/whatsapp/{{ row.id }}/ativar">
+                  <button type="submit" class="btn btn-sm btn-outline-success">
+                    Ativar
+                  </button>
+                </form>
+                {% endif %}
+
+                <form method="post" action="/configuracoes/whatsapp/{{ row.id }}/restaurar-padrao"
+                      onsubmit="return confirm('Deseja restaurar o conteúdo padrão deste modelo?');">
+                  <button type="submit" class="btn btn-sm btn-outline-secondary">
+                    Restaurar Padrão
+                  </button>
+                </form>
+
+                {% if not row.is_default %}
+                <form method="post" action="/configuracoes/whatsapp/{{ row.id }}/excluir"
+                      onsubmit="return confirm('Deseja excluir este modelo?');">
+                  <button type="submit" class="btn btn-sm btn-outline-danger">
+                    Excluir
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+
+          {% if rows|length == 0 %}
+          <tr>
+            <td colspan="6" class="text-center py-4">
+              Nenhum modelo encontrado.
+            </td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

@@ -219,7 +219,7 @@
             <th>Promovido</th>
             <th>Modalidade</th>
             <th>Extensão</th>
-            <th style="width: 420px;">Ações</th>
+            <th style="width: 560px;">Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -260,7 +260,19 @@
 
                 {% if h.client_id and h.client and (h.client.phone or h.client.telefone) %}
                   <a class="btn btn-sm btn-success whats-btn" href="/audiencias/{{ h.id }}/whatsapp" target="_blank">
-                    <i class="bi bi-whatsapp whats-ico"></i> WhatsApp
+                    <i class="bi bi-whatsapp whats-ico"></i> WhatsApp Intimação
+                  </a>
+
+                  <a class="btn btn-sm btn-outline-success whats-btn" href="/audiencias/{{ h.id }}/whatsapp-cadastrada" target="_blank">
+                    <i class="bi bi-whatsapp whats-ico"></i> WhatsApp Cadastrada
+                  </a>
+                {% elif has_manual_phone and h.manual_phone %}
+                  <a class="btn btn-sm btn-success whats-btn" href="/audiencias/{{ h.id }}/whatsapp" target="_blank">
+                    <i class="bi bi-whatsapp whats-ico"></i> WhatsApp Intimação
+                  </a>
+
+                  <a class="btn btn-sm btn-outline-success whats-btn" href="/audiencias/{{ h.id }}/whatsapp-cadastrada" target="_blank">
+                    <i class="bi bi-whatsapp whats-ico"></i> WhatsApp Cadastrada
                   </a>
                 {% else %}
                   <a class="btn btn-sm btn-outline-secondary" href="/audiencias/{{ h.id }}/create-client">

@@ -37,6 +37,7 @@ from app.routers import (
 from app.routers.web_doc import router as web_doc_router
 from app.routers import web_auth, web_users
 from app.routers import web_offices
+from app.routers import web_whatsapp_templates
 
 
 # =========================================================
@@ -214,6 +215,7 @@ def on_startup():
 app.include_router(web_auth.router)
 app.include_router(web_users.router)
 app.include_router(web_offices.router)
+app.include_router(web_whatsapp_templates.router)
 
 app.include_router(web_dashboard.router)
 app.include_router(web_clients.router)

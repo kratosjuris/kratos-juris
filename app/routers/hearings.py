@@ -15,7 +15,7 @@ from app.models.hearing_contact import HearingContact
 from app.models.client import Client
 
 from app.services.hearing_import import extract_hearings_from_file, extract_hearings_from_archive
-from app.services.whatsapp import build_client_message, build_wa_me_link
+from app.services.whatsapp import build_message_by_tipo, build_wa_me_link
 from app.services.hearing_pdf import build_hearing_orientations_pdf
 
 from fastapi.templating import Jinja2Templates
@@ -29,6 +29,20 @@ def _get_office_id(request: Request) -> int:
     if not office_id:
         raise HTTPException(status_code=403, detail="Usuário sem escritório vinculado.")
     return int(office_id)
+
+
+def _get_user_id(request: Request) -> int | None:
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return None
+    return int(user_id)
+
+
+def _get_office_name(request: Request) -> str:
+    current_user = getattr(request.state, "current_user", None)
+    office = getattr(current_user, "office", None) if current_user else None
+    office_name = getattr(office, "nome", None) if office else None
+    return (office_name or "Escritório").strip()
 
 
 def _norm_name(s: str) -> str:
@@ -253,6 +267,84 @@ def _build_lawyer_daily_message(hearings: List[Hearing], when: date) -> str:
     lines.append("")
     lines.append("— Kratos Juris")
     return "\n".join(lines)
+
+
+def _resolve_client_phone(h: Hearing, client) -> str | None:
+    phone = None
+    if client:
+        phone = (
+            getattr(client, "telefone", None)
+            or getattr(client, "phone", None)
+            or getattr(client, "celular", None)
+        )
+
+    if not phone:
+        phone = getattr(h, "manual_phone", None)
+
+    return phone
+
+
+def _resolve_client_name(h: Hearing, client) -> str:
+    return (
+        (getattr(client, "nome", None) if client else None)
+        or (getattr(client, "name", None) if client else None)
+        or (h.promovente or "Cliente")
+    )
+
+
+def _build_whatsapp_redirect_for_hearing(
+    *,
+    request: Request,
+    db: Session,
+    hearing_id: int,
+    tipo_template: str,
+) -> RedirectResponse:
+    office_id = _get_office_id(request)
+    user_id = _get_user_id(request)
+    office_name = _get_office_name(request)
+
+    q = db.query(Hearing)
+    if _has_client_rel():
+        q = q.options(joinedload(Hearing.client))  # type: ignore[arg-type]
+
+    h = q.filter(
+        Hearing.id == hearing_id,
+        Hearing.office_id == office_id,
+    ).first()
+
+    if not h:
+        return RedirectResponse(url="/audiencias", status_code=303)
+
+    client = getattr(h, "client", None)
+    phone = _resolve_client_phone(h, client)
+
+    if not phone:
+        try:
+            request.session["audiencias_import_msg"] = (
+                "Não foi possível enviar WhatsApp: cliente sem telefone cadastrado e audiência sem telefone manual."
+            )
+        except Exception:
+            pass
+        return RedirectResponse(url="/audiencias", status_code=303)
+
+    client_name = _resolve_client_name(h, client)
+
+    msg = build_message_by_tipo(
+        db=db,
+        office_id=office_id,
+        tipo=tipo_template,
+        client_name=client_name,
+        process_number=h.process_number or "",
+        promovido=h.promovido or "",
+        starts_at=h.starts_at,
+        modalidade=h.modalidade or "",
+        extension_code=h.extension_code,
+        office_name=office_name,
+        user_id=user_id,
+    )
+
+    link = build_wa_me_link(phone, msg)
+    return RedirectResponse(url=link, status_code=302)
 
 
 @router.get("/enviar-advogados", response_class=HTMLResponse)
@@ -739,61 +831,22 @@ def pdf_orientacoes(hearing_id: int, request: Request, db: Session = Depends(get
 
 @router.get("/{hearing_id}/whatsapp")
 def whatsapp_client(hearing_id: int, request: Request, db: Session = Depends(get_db)):
-    office_id = _get_office_id(request)
-
-    q = db.query(Hearing)
-    if _has_client_rel():
-        q = q.options(joinedload(Hearing.client))  # type: ignore[arg-type]
-    h = q.filter(
-        Hearing.id == hearing_id,
-        Hearing.office_id == office_id,
-    ).first()
-
-    if not h:
-        return RedirectResponse(url="/audiencias", status_code=303)
-
-    client = getattr(h, "client", None)
-
-    phone = None
-    if client:
-        phone = (
-            getattr(client, "telefone", None)
-            or getattr(client, "phone", None)
-            or getattr(client, "celular", None)
-        )
-
-    if not phone:
-        phone = getattr(h, "manual_phone", None)
-
-    if not phone:
-        try:
-            request.session["audiencias_import_msg"] = (
-                "Não foi possível enviar WhatsApp: cliente sem telefone cadastrado e audiência sem telefone manual."
-            )
-        except Exception:
-            pass
-        return RedirectResponse(url="/audiencias", status_code=303)
-
-    public_base_url = str(request.base_url).rstrip("/")
-
-    client_name = (
-        (getattr(client, "nome", None) if client else None)
-        or (getattr(client, "name", None) if client else None)
-        or (h.promovente or "Cliente")
+    return _build_whatsapp_redirect_for_hearing(
+        request=request,
+        db=db,
+        hearing_id=hearing_id,
+        tipo_template="audiencia_intimacao",
     )
 
-    msg = build_client_message(
-        client_name=client_name,
-        process_number=h.process_number,
-        promovido=h.promovido or "",
-        starts_at=h.starts_at,
-        modalidade=h.modalidade or "",
-        extension_code=h.extension_code,
-        public_base_url=public_base_url,
-    )
 
-    link = build_wa_me_link(phone, msg)
-    return RedirectResponse(url=link, status_code=302)
+@router.get("/{hearing_id}/whatsapp-cadastrada")
+def whatsapp_client_cadastrada(hearing_id: int, request: Request, db: Session = Depends(get_db)):
+    return _build_whatsapp_redirect_for_hearing(
+        request=request,
+        db=db,
+        hearing_id=hearing_id,
+        tipo_template="audiencia_cadastrada",
+    )
 
 
 @router.get("/{hearing_id}/create-client")
