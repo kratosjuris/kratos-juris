@@ -75,6 +75,13 @@ def _has_client_rel() -> bool:
     return hasattr(Hearing, "client")
 
 
+def _query_hearing_contacts(db: Session, office_id: int):
+    return (
+        db.query(HearingContact)
+        .filter(HearingContact.office_id == office_id)
+    )
+
+
 def _week_bounds(d: date) -> tuple[date, date]:
     start = d - timedelta(days=d.weekday())
     end = start + timedelta(days=6)
@@ -270,7 +277,7 @@ def enviar_advogados(request: Request, db: Session = Depends(get_db)):
         .all()
     )
 
-    contacts = db.query(HearingContact).order_by(HearingContact.name.asc()).all()
+    contacts = _query_hearing_contacts(db, office_id).order_by(HearingContact.name.asc()).all()
     enabled = [c for c in contacts if getattr(c, "is_enabled", True)]
 
     msg = _build_lawyer_daily_message(hearings, target_date)
@@ -337,7 +344,7 @@ def index(request: Request, db: Session = Depends(get_db)):
 
     performed_hearings = q_done.order_by(Hearing.starts_at.desc()).limit(250).all()
 
-    contacts = db.query(HearingContact).order_by(HearingContact.name.asc()).all()
+    contacts = _query_hearing_contacts(db, office_id).order_by(HearingContact.name.asc()).all()
 
     try:
         msg = request.session.pop("audiencias_import_msg", None)
@@ -810,20 +817,36 @@ def create_client_redirect(request: Request, hearing_id: int, db: Session = Depe
 
 @router.get("/config", response_class=HTMLResponse)
 def config(request: Request, db: Session = Depends(get_db)):
-    contacts = db.query(HearingContact).order_by(HearingContact.name.asc()).all()
+    office_id = _get_office_id(request)
+    contacts = _query_hearing_contacts(db, office_id).order_by(HearingContact.name.asc()).all()
     return templates.TemplateResponse("audiencias/config.html", {"request": request, "contacts": contacts})
 
 
 @router.post("/config/add")
-def config_add(name: str = Form(...), phone: str = Form(...), db: Session = Depends(get_db)):
-    db.add(HearingContact(name=name.strip(), phone=phone.strip(), is_enabled=True))
+def config_add(request: Request, name: str = Form(...), phone: str = Form(...), db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+
+    data = {
+        "office_id": office_id,
+        "name": name.strip(),
+        "phone": phone.strip(),
+        "is_enabled": True,
+    }
+
+    db.add(HearingContact(**data))
     db.commit()
     return RedirectResponse(url="/audiencias/config", status_code=303)
 
 
 @router.post("/config/{contact_id}/toggle")
-def config_toggle(contact_id: int, db: Session = Depends(get_db)):
-    c = db.query(HearingContact).filter(HearingContact.id == contact_id).first()
+def config_toggle(request: Request, contact_id: int, db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+
+    c = (
+        _query_hearing_contacts(db, office_id)
+        .filter(HearingContact.id == contact_id)
+        .first()
+    )
     if c:
         c.is_enabled = not c.is_enabled
         db.commit()
@@ -831,8 +854,14 @@ def config_toggle(contact_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/config/{contact_id}/delete")
-def config_delete(contact_id: int, db: Session = Depends(get_db)):
-    c = db.query(HearingContact).filter(HearingContact.id == contact_id).first()
+def config_delete(request: Request, contact_id: int, db: Session = Depends(get_db)):
+    office_id = _get_office_id(request)
+
+    c = (
+        _query_hearing_contacts(db, office_id)
+        .filter(HearingContact.id == contact_id)
+        .first()
+    )
     if c:
         db.delete(c)
         db.commit()
