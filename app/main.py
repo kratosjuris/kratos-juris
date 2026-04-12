@@ -22,6 +22,7 @@ from app.models.user import User
 from app.models.user_permission import UserPermission
 from app.models.office import Office
 from app.models.office_permission import OfficePermission
+from app.models.document_template import OfficeDocumentTemplate  # noqa: F401
 
 from app.routers import (
     web_dashboard,
@@ -35,6 +36,7 @@ from app.routers import (
     hearings,
 )
 from app.routers.web_doc import router as web_doc_router
+from app.routers.web_doc_templates import router as web_doc_templates_router
 from app.routers import web_auth, web_users
 from app.routers import web_offices
 from app.routers import web_whatsapp_templates
@@ -87,10 +89,7 @@ def _load_user_from_session(request: Request):
         user = (
             db.query(User)
             .options(
-                # permissões diretas do usuário
                 joinedload(User.permission_links).joinedload(UserPermission.permission),
-
-                # escritório + permissões do escritório + objeto Permission
                 joinedload(User.office)
                 .joinedload(Office.permission_links)
                 .joinedload(OfficePermission.permission),
@@ -143,8 +142,6 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path or ""
 
-        # Não carrega sessão para rotas públicas
-        # Isso evita poluir o terminal com logs do favicon/static/login etc.
         if _is_public_path(path):
             return await call_next(request)
 
@@ -227,6 +224,7 @@ app.include_router(web_pericias.router)
 app.include_router(web_migrations.router)
 app.include_router(hearings.router)
 app.include_router(web_doc_router)
+app.include_router(web_doc_templates_router)
 
 
 # =========================================================

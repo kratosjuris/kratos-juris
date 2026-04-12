@@ -409,7 +409,7 @@
     body:not(.kj-day).kj-theme .btn.btn-outline-secondary:focus,
     body:not(.kj-day).kj-theme .btn.btn-success:focus,
     body:not(.kj-day).kj-theme .btn.btn-outline-success:focus,
-    body:not(.kj-day).kj-theme .btn.btn.warning:focus,
+    body:not(.kj-day).kj-theme .btn.warning:focus,
     body:not(.kj-day).kj-theme .btn.btn-outline-warning:focus,
     body:not(.kj-day).kj-theme .btn.btn-info:focus,
     body:not(.kj-day).kj-theme .btn.btn-outline-info:focus{
@@ -832,7 +832,8 @@
   "dashboard": (_path == "/" or _path.startswith("/dashboard") or _path.startswith("/escritorio")),
   "usuarios":  (_path.startswith("/usuarios")),
   "offices":   (_path.startswith("/offices")),
-  "whatsapp":  (_path.startswith("/configuracoes/whatsapp"))
+  "whatsapp":  (_path.startswith("/configuracoes/whatsapp")),
+  "doc_templates": (_path.startswith("/doc-templates"))
 } %}
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -846,6 +847,10 @@
 
       {% if current_user and current_user.is_superuser %}
         <a class="nav-link {% if nav_active.offices %}active{% endif %}" href="/offices">Escritórios</a>
+      {% endif %}
+
+      {% if current_user %}
+        <a class="nav-link {% if nav_active.doc_templates %}active{% endif %}" href="/doc-templates">Modelos de documentos</a>
       {% endif %}
 
       {% if current_user %}

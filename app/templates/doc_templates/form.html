@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container py-4">
+  <div class="mb-4">
+    <h3 class="mb-1">Enviar modelo — {{ title }}</h3>
+    <div class="text-muted">Somente arquivos .docx. Limite: {{ max_mb }} MB.</div>
+  </div>
+
+  {% if msg %}
+    <div class="alert alert-warning">{{ msg }}</div>
+  {% endif %}
+
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <form method="post" enctype="multipart/form-data">
+            <div class="mb-3">
+              <label class="form-label">Arquivo .docx</label>
+              <input type="file" name="arquivo" class="form-control" accept=".docx" required>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button class="btn btn-primary">Salvar modelo</button>
+              <a href="/doc-templates" class="btn btn-outline-secondary">Voltar</a>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {% if validation %}
+        <div class="card shadow-sm mt-4">
+          <div class="card-body">
+            <h5 class="mb-3">Resultado da validação</h5>
+
+            <div class="mb-3">
+              <div class="small text-muted mb-1">Placeholders detectados</div>
+              <div class="d-flex flex-wrap gap-2">
+                {% if validation.detected_placeholders %}
+                  {% for item in validation.detected_placeholders %}
+                    <code>{{ item }}</code>
+                  {% endfor %}
+                {% else %}
+                  <span class="text-muted">Nenhum placeholder {{ "{{...}}" }} encontrado.</span>
+                {% endif %}
+              </div>
+            </div>
+
+            {% if validation.invalid_placeholders %}
+              <div class="alert alert-danger mb-0">
+                <div class="fw-bold mb-2">Placeholders inválidos encontrados:</div>
+                <ul class="mb-0">
+                  {% for item in validation.invalid_placeholders %}
+                    <li><code>{{ item }}</code></li>
+                  {% endfor %}
+                </ul>
+              </div>
+            {% else %}
+              <div class="alert alert-success mb-0">
+                O modelo passou na validação.
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="col-lg-5">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="mb-3">Placeholders permitidos</h5>
+          <div class="d-flex flex-wrap gap-2">
+            {% for item in allowed_placeholders %}
+              <code>{{ item }}</code>
+            {% endfor %}
+          </div>
+
+          <hr>
+
+          <div class="small text-muted">
+            Use exatamente os placeholders acima no Word.
+            O sistema rejeitará placeholders fora deste padrão.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
