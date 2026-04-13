@@ -135,11 +135,25 @@
 
             <hr>
             <div>
-              <div class="small text-muted mb-2">Placeholders permitidos</div>
-              <div class="d-flex flex-wrap gap-2">
-                {% for item in spec.allowed_placeholders %}
-                  <code>{{ item }}</code>
-                {% endfor %}
+              <div class="small text-muted mb-2">Texto orientativo</div>
+
+              <div class="small text-danger" style="white-space: normal; line-height: 1.6;">
+
+                {% if doc_key == "procuracao" or doc_key == "procuracao-a-rogo" %}
+                  OUTORGANTE: {{ "{{nome}}" }}, {{ "{{estado_civil}}" }}, {{ "{{profissao}}" }}, portador(a) da cédula de identidade RG nº {{ "{{rg}}" }}, inscrito(a) no CPF sob o nº {{ "{{cpf}}" }}, residente e domiciliado(a) à {{ "{{endereco}}" }}, telefone {{ "{{telefone}}" }}, endereço eletrônico {{ "{{email}}" }}.
+
+                {% elif doc_key == "residencia" %}
+                  Eu, {{ "{{nome}}" }}, {{ "{{estado_civil}}" }}, {{ "{{profissao}}" }}, portador(a) da cédula de identidade RG nº {{ "{{rg}}" }}, inscrito(a) no CPF sob o nº {{ "{{cpf}}" }}, na falta de documento para comprovação de residência em nome próprio, DECLARO para os devidos fins, sob as penas da Lei, ser residente e domiciliado(a) à {{ "{{endereco}}" }}, telefone {{ "{{telefone}}" }}, endereço eletrônico {{ "{{email}}" }}, Declaro ainda, estar ciente de que, se comprovadamente falsa a declaração, estar sujeito às sanções civis, administrativas e criminais previstas na legislação aplicável.
+
+                {% elif doc_key == "hipossuficiencia" %}
+                  {{ "{{nome}}" }}, {{ "{{estado_civil}}" }}, {{ "{{profissao}}" }}, portador(a) da cédula de identidade RG nº {{ "{{rg}}" }}, inscrito(a) no CPF sob o nº {{ "{{cpf}}" }}, residente e domiciliado(a) à {{ "{{endereco}}" }}, telefone {{ "{{telefone}}" }}, endereço eletrônico {{ "{{email}}" }}.
+
+                {% else %}
+                  {% for item in spec.allowed_placeholders %}
+                    <code>{{ item }}</code>
+                  {% endfor %}
+                {% endif %}
+
               </div>
             </div>
 

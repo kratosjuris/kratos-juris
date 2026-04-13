@@ -23,6 +23,12 @@ DOC_TEMPLATE_SPECS = {
             "{{email}}",
             "{{nascimento}}",
         ],
+        "screen_text": (
+            "OUTORGANTE: {{nome}}, {{estado_civil}}, {{profissao}}, "
+            "portador(a) da cédula de identidade RG nº {{rg}}, inscrito(a) no CPF sob o nº {{cpf}}, "
+            "residente e domiciliado(a) à {{endereco}}, telefone {{telefone}}, "
+            "endereço eletrônico {{email}}."
+        ),
     },
     "procuracao-a-rogo": {
         "title": "Procuração a rogo",
@@ -39,6 +45,12 @@ DOC_TEMPLATE_SPECS = {
             "{{email}}",
             "{{nascimento}}",
         ],
+        "screen_text": (
+            "OUTORGANTE: {{nome}}, {{estado_civil}}, {{profissao}}, "
+            "portador(a) da cédula de identidade RG nº {{rg}}, inscrito(a) no CPF sob o nº {{cpf}}, "
+            "residente e domiciliado(a) à {{endereco}}, telefone {{telefone}}, "
+            "endereço eletrônico {{email}}."
+        ),
     },
     "hipossuficiencia": {
         "title": "Declaração de Hipossuficiência",
@@ -55,6 +67,12 @@ DOC_TEMPLATE_SPECS = {
             "{{email}}",
             "{{nascimento}}",
         ],
+        "screen_text": (
+            "{{nome}}, {{estado_civil}}, {{profissao}}, "
+            "portador(a) da cédula de identidade RG nº {{rg}}, inscrito(a) no CPF sob o nº {{cpf}}, "
+            "residente e domiciliado(a) à {{endereco}}, telefone {{telefone}}, "
+            "endereço eletrônico {{email}}."
+        ),
     },
     "residencia": {
         "title": "Declaração de Residência",
@@ -71,6 +89,14 @@ DOC_TEMPLATE_SPECS = {
             "{{email}}",
             "{{nascimento}}",
         ],
+        "screen_text": (
+            "Eu, {{nome}}, {{estado_civil}}, {{profissao}}, "
+            "portador(a) da cédula de identidade RG nº {{rg}}, inscrito(a) no CPF sob o nº {{cpf}}, "
+            "na falta de documento para comprovação de residência em nome próprio, DECLARO para os devidos fins, "
+            "sob as penas da Lei, ser residente e domiciliado(a) à {{endereco}}, telefone {{telefone}}, "
+            "endereço eletrônico {{email}}, Declaro ainda, estar ciente de que, se comprovadamente falsa a declaração, "
+            "estar sujeito às sanções civis, administrativas e criminais previstas na legislação aplicável."
+        ),
     },
 }
 
