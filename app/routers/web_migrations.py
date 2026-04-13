@@ -2,6 +2,8 @@ import re
 from datetime import datetime, date, timedelta
 from typing import List, Tuple, Optional
 
+import pdfplumber
+
 from fastapi import APIRouter, Request, Depends, UploadFile, File, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -221,7 +223,7 @@ def _find_existing_process_item(db: Session, office_id: int, numero: str) -> Opt
 
 
 # =========================
-# Parser (HTML/XLS/XLSX/TXT)
+# Parser (HTML/XLS/XLSX/TXT/PDF)
 # =========================
 PERIODO_RX = re.compile(
     r"per[ií]odo:\s*(\d{2}/\d{2}/\d{4})\s*at[eé]\s*(\d{2}/\d{2}/\d{4})",
@@ -298,6 +300,12 @@ def _is_zip_xlsx(file_bytes: bytes) -> bool:
 def _is_html(file_bytes: bytes) -> bool:
     head = file_bytes[:4096].lstrip().lower()
     return head.startswith(b"<html") or b"<table" in head
+
+
+def _is_pdf(file_bytes: bytes, filename: str = "") -> bool:
+    if (filename or "").lower().endswith(".pdf"):
+        return True
+    return file_bytes[:5] == b"%PDF-"
 
 
 def _read_text_table_to_matrix(file_bytes: bytes) -> List[List[object]]:
@@ -389,6 +397,243 @@ def _choose_best_table(tables: List[List[List[object]]]) -> List[List[object]]:
     return best
 
 
+def _clean_pdf_text(text: str) -> str:
+    text = text or ""
+    text = text.replace("\u00a0", " ")
+    text = text.replace("\ufeff", " ")
+    text = text.replace("\ufffd", " ")
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{2,}", "\n", text)
+    return text.strip()
+
+
+def _extract_text_from_pdf_bytes(file_bytes: bytes) -> str:
+    import io
+
+    pages = []
+    with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+        for page in pdf.pages:
+            txt = page.extract_text() or ""
+            if txt:
+                pages.append(txt)
+    texto = "\n".join(pages)
+    texto = _clean_pdf_text(texto)
+    if not texto:
+        raise ValueError("Não consegui extrair texto do PDF.")
+    return texto
+
+
+def _split_pdf_publication_blocks(texto: str) -> List[str]:
+    texto = _clean_pdf_text(texto)
+    if not texto:
+        return []
+
+    # Modelo 1: PUBLICAÇÃO: X de Y
+    if re.search(r"(?mi)^PUBLICAÇÃO:\s*\d+", texto):
+        matches = list(re.finditer(r"(?mi)^PUBLICAÇÃO:\s*\d+(?:\s+de\s+\d+)?", texto))
+        blocos = []
+        for i, m in enumerate(matches):
+            start = m.start()
+            end = matches[i + 1].start() if i + 1 < len(matches) else len(texto)
+            bloco = texto[start:end].strip()
+            if bloco:
+                blocos.append(bloco)
+        if blocos:
+            return blocos
+
+    # Modelo 2: Sequencial: X
+    if re.search(r"(?mi)^Sequencial:\s*\d+", texto):
+        matches = list(re.finditer(r"(?mi)^Sequencial:\s*\d+", texto))
+        blocos = []
+        for i, m in enumerate(matches):
+            start = m.start()
+            end = matches[i + 1].start() if i + 1 < len(matches) else len(texto)
+            bloco = texto[start:end].strip()
+            if bloco:
+                blocos.append(bloco)
+        if blocos:
+            return blocos
+
+    return [texto]
+
+
+def _extract_vara_from_conteudo(txt: str) -> Optional[str]:
+    txt = _clean_pdf_text(txt)
+
+    patterns = [
+        r"Conteúdo:\s*Processo:\s*[0-9\.\-]+\s+(.+?)\s+(?:CUMPRIMENTO|PROCEDIMENTO|RECURSO|EXECUÇÃO|EXECUCAO|MANDADO|AÇÃO|ACAO|INTIMAÇÃO|INTIMACAO)\b",
+        r"Conteúdo:\s*Processo:\s*[0-9]+\s+(.+?)\s+(?:CUMPRIMENTO|PROCEDIMENTO|RECURSO|EXECUÇÃO|EXECUCAO|MANDADO|AÇÃO|ACAO|INTIMAÇÃO|INTIMACAO)\b",
+        r"Processo:\s*[0-9]+\s+(.+?)\s+(?:CUMPRIMENTO|PROCEDIMENTO|RECURSO|EXECUÇÃO|EXECUCAO|MANDADO|AÇÃO|ACAO|INTIMAÇÃO|INTIMACAO)\b",
+    ]
+
+    for pat in patterns:
+        m = re.search(pat, txt, flags=re.IGNORECASE | re.DOTALL)
+        if m:
+            vara = re.sub(r"\s+", " ", m.group(1)).strip(" -:\n\r\t")
+            if vara and "vara não informada" not in vara.lower():
+                return vara
+
+    return None
+
+
+def _extract_cliente_from_pdf_block(txt: str) -> Optional[str]:
+    txt = _clean_pdf_text(txt)
+
+    patterns = [
+        r"POLO ATIVO:\s*(.+?)\s+ADVOGADO:",
+        r"PARTE:\s*(.+?)\s*-\s*POLO ATIVO",
+        r"PARTE:\s*(.+?)\s*-\s*POLO PASSIVO",
+        r"PARTE:\s*(.+?)\s+ADVOGADO:",
+        r"POLO PASSIVO:\s*(.+?)\s+ADVOGADO:",
+    ]
+
+    for pat in patterns:
+        m = re.search(pat, txt, flags=re.IGNORECASE | re.DOTALL)
+        if m:
+            nome = re.sub(r"\s+", " ", m.group(1)).strip(" -:\n\r\t")
+            if nome:
+                return nome
+
+    return None
+
+
+def _extract_numero_processo_from_pdf_block(txt: str) -> Optional[str]:
+    txt = _clean_pdf_text(txt)
+
+    patterns = [
+        r"N[º°]?\s*do\s*processo:\s*([0-9\.-]+)",
+        r"Nº do processo:\s*([0-9\.-]+)",
+        r"Processo:\s*([0-9]{7}-[0-9]{2}\.[0-9]{4}\.[0-9]\.[0-9]{2}\.[0-9]{4})",
+        r"PROCESSO:\s*([0-9]{7}-[0-9]{2}\.[0-9]{4}\.[0-9]\.[0-9]{2}\.[0-9]{4})",
+    ]
+
+    for pat in patterns:
+        m = re.search(pat, txt, flags=re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+
+    # fallback: número só com dígitos CNJ sem máscara
+    m = re.search(r"\b([0-9]{20})\b", txt)
+    if m:
+        digits = m.group(1)
+        return f"{digits[0:7]}-{digits[7:9]}.{digits[9:13]}.{digits[13]}.{digits[14:16]}.{digits[16:20]}"
+
+    return None
+
+
+def _extract_vara_from_pdf_block(txt: str) -> Optional[str]:
+    txt = _clean_pdf_text(txt)
+
+    patterns = [
+        r"Vara:\s*(.+?)\s+Cidade:",
+        r"Vara:\s*(.+?)\s+Termo de pesquisa:",
+        r"Vara:\s*(.+?)\s+Conteúdo:",
+        r"Vara:\s*(.+)",
+    ]
+
+    for pat in patterns:
+        m = re.search(pat, txt, flags=re.IGNORECASE | re.DOTALL)
+        if m:
+            vara = re.sub(r"\s+", " ", m.group(1)).strip(" -:\n\r\t")
+            if vara and "vara não informada" not in vara.lower():
+                return vara
+
+    vara_conteudo = _extract_vara_from_conteudo(txt)
+    if vara_conteudo:
+        return vara_conteudo
+
+    return None
+
+
+def _extract_diario_from_pdf_block(txt: str) -> Optional[str]:
+    txt = _clean_pdf_text(txt)
+
+    patterns = [
+        r"Jornal:\s*(.+?)\s+Tribunal:",
+        r"Jornal:\s*(.+?)\s+Página:",
+        r"Jornal:\s*(.+?)\s+Data publicação:",
+        r"Jornal:\s*(.+)",
+    ]
+
+    for pat in patterns:
+        m = re.search(pat, txt, flags=re.IGNORECASE | re.DOTALL)
+        if m:
+            diario = re.sub(r"\s+", " ", m.group(1)).strip(" -:\n\r\t")
+            if diario:
+                return diario
+
+    return None
+
+
+def _parse_pdf_block_to_row(txt: str) -> Optional[dict]:
+    txt = _clean_pdf_text(txt)
+    if not txt:
+        return None
+
+    data_disp = None
+    data_pub = None
+
+    m = re.search(r"Data Disponibilização:\s*(\d{2}/\d{2}/\d{4})", txt, flags=re.IGNORECASE)
+    if m:
+        data_disp = _parse_date_br(m.group(1))
+
+    m = re.search(r"Data disponibilização:\s*(\d{2}/\d{2}/\d{4})", txt, flags=re.IGNORECASE)
+    if m and not data_disp:
+        data_disp = _parse_date_br(m.group(1))
+
+    m = re.search(r"Data publicação:\s*(\d{2}/\d{2}/\d{4})", txt, flags=re.IGNORECASE)
+    if m:
+        data_pub = _parse_date_br(m.group(1))
+
+    numero = _extract_numero_processo_from_pdf_block(txt)
+    if not numero:
+        return None
+
+    cliente = _extract_cliente_from_pdf_block(txt)
+    vara = _extract_vara_from_pdf_block(txt)
+    diario = _extract_diario_from_pdf_block(txt)
+
+    return {
+        "data_disponibilizacao": data_disp,
+        "data_publicacao": data_pub,
+        "numero_processo": numero,
+        "diario": diario,
+        "cliente": cliente,
+        "vara_tramitacao": vara,
+    }
+
+
+def parse_pdf_bytes(file_bytes: bytes, filename: str) -> Tuple[List[dict], Optional[date], Optional[date]]:
+    texto = _extract_text_from_pdf_bytes(file_bytes)
+    blocos = _split_pdf_publication_blocks(texto)
+
+    rows = []
+    periodo_ini = None
+    periodo_fim = None
+
+    for bloco in blocos:
+        item = _parse_pdf_block_to_row(bloco)
+        if not item:
+            continue
+
+        disp = item.get("data_disponibilizacao")
+        pub = item.get("data_publicacao")
+
+        if disp and (periodo_ini is None or disp < periodo_ini):
+            periodo_ini = disp
+        if pub and (periodo_fim is None or pub > periodo_fim):
+            periodo_fim = pub
+        elif disp and (periodo_fim is None or disp > periodo_fim):
+            periodo_fim = disp
+
+        rows.append(item)
+
+    if not rows:
+        raise ValueError("Não consegui localizar publicações válidas dentro do PDF.")
+
+    return rows, periodo_ini, periodo_fim
+
+
 def _read_any_to_matrix(file_bytes: bytes, filename: str) -> Tuple[List[List[object]], Optional[date], Optional[date]]:
     import io
     import pandas as pd
@@ -423,6 +668,9 @@ def _read_any_to_matrix(file_bytes: bytes, filename: str) -> Tuple[List[List[obj
 
 
 def parse_planilha_bytes(file_bytes: bytes, filename: str) -> Tuple[List[dict], Optional[date], Optional[date]]:
+    if _is_pdf(file_bytes, filename):
+        return parse_pdf_bytes(file_bytes, filename)
+
     matrix, periodo_ini, periodo_fim = _read_any_to_matrix(file_bytes, filename)
     header_r, col_map = _find_header_in_matrix(matrix)
 
@@ -460,6 +708,8 @@ def parse_planilha_bytes(file_bytes: bytes, filename: str) -> Tuple[List[dict], 
                 "data_publicacao": pub,
                 "numero_processo": numero_str,
                 "diario": diario,
+                "cliente": None,
+                "vara_tramitacao": None,
             }
         )
 
@@ -558,8 +808,8 @@ async def migracoes_upload(
             continue
 
         ext = _ext(f.filename)
-        if ext not in {"xls", "xlsx", "xlsm", "csv", "txt", "html", "htm"}:
-            msg = f"Arquivo '{f.filename}' não suportado. Envie .XLS/.XLSX/.XLSM (ou exportações texto/HTML)."
+        if ext not in {"xls", "xlsx", "xlsm", "csv", "txt", "html", "htm", "pdf"}:
+            msg = f"Arquivo '{f.filename}' não suportado. Envie .XLS/.XLSX/.XLSM/.PDF (ou exportações texto/HTML)."
             return RedirectResponse(url=f"/migracoes?msg={msg}", status_code=303)
 
         try:
@@ -597,6 +847,10 @@ async def migracoes_upload(
                 numero_processo=num,
                 diario=r.get("diario"),
             )
+
+            _safe_set(row, "cliente", (r.get("cliente") or "").strip() or None)
+            _safe_set(row, "vara_tramitacao", (r.get("vara_tramitacao") or "").strip() or None)
+
             db.add(row)
 
             try:

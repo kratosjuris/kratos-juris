@@ -374,13 +374,36 @@
   {% endif %}
 
   <div class="alert alert-warning">
-    <strong>⏱ Última migração:</strong>
-    {% if last_batch and last_batch.periodo_inicio and last_batch.periodo_fim %}
-      Período: {{ last_batch.periodo_inicio | br_date }} até {{ last_batch.periodo_fim | br_date }}
-    {% else %}
-      (ainda não há período registrado)
-    {% endif %}
-  </div>
+  <strong>⏱ Última migração:</strong>
+  {% if last_batch and last_batch.criado_em %}
+    {{ last_batch.criado_em | br_date }}
+  {% else %}
+    (ainda não há migração registrada)
+  {% endif %}
+
+  {% if last_batch and last_batch.periodo_inicio and last_batch.periodo_fim %}
+    <br>
+    <strong>📄 Período importado:</strong>
+    {{ last_batch.periodo_inicio | br_date }} até {{ last_batch.periodo_fim | br_date }}
+  {% endif %}
+      <br>
+      (Obs: O período importado considera a primeira data de disponibilização e a última data de publicação do documento obtido no site Publicações Online).
+      <br>
+      <br>
+      Sites para Extração do arquivo para migração:
+      <br>
+     <strong>
+  <a href="https://recortedigital.oab-ba.org.br/" target="_blank">
+    https://recortedigital.oab-ba.org.br/
+  </a>
+</strong>
+<br>
+<strong>
+  <a href="https://publicacoesonline.com.br/" target="_blank">
+    https://publicacoesonline.com.br/
+  </a>
+</strong>
+</div>
 
   <form method="post" action="/migracoes/upload" enctype="multipart/form-data" class="mb-3">
     <div class="d-flex gap-2 align-items-center mb-2">
