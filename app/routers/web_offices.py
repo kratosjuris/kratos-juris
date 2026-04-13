@@ -4,16 +4,18 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.config import TEMPLATES_DIR
 from app.core.database import get_db
 from app.core.security import hash_password
 from app.models.audit_log import AuditLog
+from app.models.client import Client
 from app.models.office import Office
-from app.models.user import User
-from app.models.permission import Permission
 from app.models.office_permission import OfficePermission
+from app.models.permission import Permission
+from app.models.user import User
 
 router = APIRouter(prefix="/offices", tags=["Escritórios"])
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -78,6 +80,27 @@ def offices_list(request: Request, db: Session = Depends(get_db)):
         return _redirect_denied()
 
     offices = db.query(Office).order_by(Office.nome.asc()).all()
+
+    # contagem de usuários por escritório
+    user_counts = dict(
+        db.query(User.office_id, func.count(User.id))
+        .filter(User.office_id.isnot(None))
+        .group_by(User.office_id)
+        .all()
+    )
+
+    # contagem de clientes por escritório
+    client_counts = dict(
+        db.query(Client.office_id, func.count(Client.id))
+        .filter(Client.office_id.isnot(None))
+        .group_by(Client.office_id)
+        .all()
+    )
+
+    # injeta os totais em cada escritório para uso direto no template
+    for office in offices:
+        office.total_usuarios = int(user_counts.get(office.id, 0) or 0)
+        office.total_clientes = int(client_counts.get(office.id, 0) or 0)
 
     return templates.TemplateResponse(
         "offices/list.html",

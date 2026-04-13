@@ -1,9 +1,15 @@
 # app/core/permissions.py
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 from fastapi import HTTPException, Request, status
 
 from app.models.user import User
+
+
+# intervalo mínimo para atualizar atividade do escritório (evita sobrecarga)
+ACTIVITY_UPDATE_INTERVAL_MINUTES = 5
 
 
 def _get_user_permission_codes(user: User) -> set[str]:
@@ -24,9 +30,6 @@ def _get_user_permission_codes(user: User) -> set[str]:
 def _get_office_permission_codes(user: User) -> set[str]:
     """
     Retorna os códigos de permissão herdados do escritório do usuário.
-
-    Funciona se o relacionamento user.office -> office.permission_links
-    estiver carregado no contexto atual.
     """
     codes: set[str] = set()
 
@@ -46,13 +49,6 @@ def _get_office_permission_codes(user: User) -> set[str]:
 def user_has_permission(user: User | None, code: str) -> bool:
     """
     Verifica se o usuário possui determinada permissão.
-
-    Ordem:
-    1. usuário autenticado
-    2. usuário ativo
-    3. superuser
-    4. permissão direta do usuário
-    5. permissão herdada do escritório
     """
     if not user:
         return False
@@ -74,9 +70,40 @@ def user_has_permission(user: User | None, code: str) -> bool:
     return False
 
 
+def _update_office_activity(request: Request, user: User) -> None:
+    """
+    Atualiza a última atividade do escritório de forma controlada.
+    Evita commit em toda requisição.
+    """
+    office = getattr(user, "office", None)
+    if not office:
+        return
+
+    db = getattr(request.state, "db", None)
+    if not db:
+        return
+
+    now = datetime.utcnow()
+
+    last_activity = getattr(office, "last_activity_at", None)
+
+    if (
+        not last_activity
+        or (now - last_activity) >= timedelta(minutes=ACTIVITY_UPDATE_INTERVAL_MINUTES)
+    ):
+        office.last_activity_at = now
+        office.last_user_id = user.id
+
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+
+
 def require_login_user(request: Request) -> User:
     """
-    Exige que exista um usuário autenticado em request.state.current_user.
+    Exige que exista um usuário autenticado.
+    Também atualiza a atividade do escritório.
     """
     user = getattr(request.state, "current_user", None)
 
@@ -99,13 +126,15 @@ def require_login_user(request: Request) -> User:
             detail="O escritório do usuário está suspenso ou inativo.",
         )
 
+    # 🔥 ATUALIZA ATIVIDADE DO ESCRITÓRIO
+    _update_office_activity(request, user)
+
     return user
 
 
 def require_permission(request: Request, code: str) -> User:
     """
-    Exige que o usuário logado possua a permissão informada,
-    seja diretamente ou herdada do escritório.
+    Exige que o usuário tenha permissão.
     """
     user = require_login_user(request)
 

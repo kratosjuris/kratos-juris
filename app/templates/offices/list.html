@@ -19,7 +19,12 @@
               <th>ID</th>
               <th>Nome</th>
               <th>Status</th>
+              <th>Usuários</th>
+              <th>Clientes</th>
               <th>Criado em</th>
+              <th>Último login</th>
+              <th>Última atividade</th>
+              <th>Último usuário</th>
               <th style="width: 360px;">Ações</th>
             </tr>
           </thead>
@@ -41,8 +46,46 @@
               </td>
 
               <td>
+                <span class="badge bg-primary-subtle text-dark border">
+                  {{ office.total_usuarios if office.total_usuarios is defined else 0 }}
+                </span>
+              </td>
+
+              <td>
+                <span class="badge bg-info-subtle text-dark border">
+                  {{ office.total_clientes if office.total_clientes is defined else 0 }}
+                </span>
+              </td>
+
+              <td>
                 {% if office.created_at %}
                   {{ office.created_at.strftime("%d/%m/%Y %H:%M") }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+
+              <td>
+                {% if office.last_login_at %}
+                  {{ office.last_login_at.strftime("%d/%m/%Y %H:%M") }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+
+              <td>
+                {% if office.last_activity_at %}
+                  {{ office.last_activity_at.strftime("%d/%m/%Y %H:%M") }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+
+              <td>
+                {% if office.last_user %}
+                  {{ office.last_user.nome }}
+                {% elif office.last_user_id %}
+                  Usuário #{{ office.last_user_id }}
                 {% else %}
                   -
                 {% endif %}

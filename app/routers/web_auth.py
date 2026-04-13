@@ -1,6 +1,8 @@
 # app/routers/web_auth.py
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -16,7 +18,6 @@ from app.services.auth_service import (
     register_login_success,
     register_logout,
 )
-from app.core.security import verify_password
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -77,7 +78,6 @@ def login_submit(
     # 🔥 VALIDAÇÕES NOVAS AQUI
     # =========================
     if raw_user:
-
         # 🚫 BLOQUEIO: USUÁRIO SUSPENSO
         if not raw_user.is_active:
             print("LOGIN BLOQUEADO: usuário suspenso")
@@ -146,12 +146,36 @@ def login_submit(
             status_code=403,
         )
 
-    # login normal
+    # =========================
+    # 🔥 LOGIN NORMAL
+    # =========================
     login_user(request, user.id, user.office_id)
 
     if "session" in request.scope:
         request.session["office_id"] = getattr(user, "office_id", None)
 
+    # =========================
+    # 🔥 ATUALIZA USUÁRIO E ESCRITÓRIO
+    # =========================
+    now = datetime.utcnow()
+
+    # atualiza usuário
+    user.last_login_at = now
+
+    # atualiza escritório
+    if user.office_id:
+        office = user.office  # lazy="joined" no model User
+
+        if office:
+            office.last_login_at = now
+            office.last_activity_at = now
+            office.last_user_id = user.id
+
+    db.commit()
+
+    # =========================
+    # 🔥 AUDITORIA
+    # =========================
     register_login_success(db, user=user, ip_address=client_ip)
 
     print(f"Sessão criada para user_id={user.id}")

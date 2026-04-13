@@ -59,6 +59,7 @@ class User(Base):
     office = relationship(
         "Office",
         back_populates="users",
+        foreign_keys=[office_id],
         lazy="joined",
     )
 

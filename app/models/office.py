@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -29,10 +29,27 @@ class Office(Base):
         onupdate=datetime.utcnow,
     )
 
+    # controle de uso do escritório
+    last_login_at = Column(DateTime, nullable=True)
+    last_activity_at = Column(DateTime, nullable=True)
+    last_user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     users = relationship(
         "User",
         back_populates="office",
+        foreign_keys="User.office_id",
         lazy="select",
+    )
+
+    last_user = relationship(
+        "User",
+        foreign_keys=[last_user_id],
+        lazy="joined",
     )
 
     permission_links = relationship(
