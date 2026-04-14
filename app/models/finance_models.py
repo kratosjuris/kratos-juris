@@ -1,4 +1,3 @@
-from datetime import datetime, date
 
 from sqlalchemy import (
     Column,
@@ -14,6 +13,7 @@ from sqlalchemy import (
 )
 
 from app.core.database import Base
+from app.core.datetime_utils import now_br
 
 
 class FinanceMonth(Base):
@@ -38,7 +38,7 @@ class FinanceMonth(Base):
 
     ym = Column(String(7), nullable=False, index=True)  # "YYYY-MM"
     saldo_inicial = Column(Float, nullable=False, default=0.0)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=now_br)
 
 
 class FinancialAccount(Base):
@@ -72,7 +72,7 @@ class FinancialAccount(Base):
     code = Column(String(60), nullable=False, index=True)
     nome = Column(String(120), nullable=False, index=True)
     ativo = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=now_br)
 
 
 class ExpenseTemplate(Base):
@@ -94,7 +94,7 @@ class ExpenseTemplate(Base):
     tipo = Column(String(20), nullable=False, default="FIXA")  # FIXA | VARIAVEL
     valor_padrao = Column(Float, nullable=False, default=0.0)
     observacao = Column(Text, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=now_br)
 
 
 class Payable(Base):
@@ -121,7 +121,7 @@ class Payable(Base):
 
     obs = Column(Text, nullable=True)
 
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=now_br)
 
 
 class Receivable(Base):
@@ -153,4 +153,4 @@ class Receivable(Base):
 
     obs = Column(Text, nullable=True)
 
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=now_br)

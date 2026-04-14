@@ -1,12 +1,11 @@
 # app/models/office.py
 from __future__ import annotations
 
-from datetime import datetime
-
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+from app.core.datetime_utils import now_br
 
 
 class Office(Base):
@@ -20,13 +19,13 @@ class Office(Base):
     suspended_at = Column(DateTime, nullable=True)
     suspension_reason = Column(String(255), nullable=True)
 
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=now_br)
 
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=now_br,
+        onupdate=now_br,
     )
 
     # controle de uso do escritório
@@ -65,7 +64,7 @@ class Office(Base):
 
     def suspend(self, reason: str | None = None) -> None:
         self.is_active = False
-        self.suspended_at = datetime.utcnow()
+        self.suspended_at = now_br()
         self.suspension_reason = (reason or "").strip() or None
 
     def reactivate(self) -> None:

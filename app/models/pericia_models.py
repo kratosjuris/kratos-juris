@@ -1,6 +1,6 @@
-from datetime import datetime
 from sqlalchemy import Column, Integer, String, Date, DateTime, Boolean, Text, ForeignKey
 from app.core.database import Base
+from app.core.datetime_utils import now_br
 
 
 class PericiaDiligencia(Base):
@@ -27,4 +27,4 @@ class PericiaDiligencia(Base):
     concluido = Column(Boolean, nullable=False, default=False)
     concluido_em = Column(Date, nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=now_br)

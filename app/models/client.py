@@ -3,6 +3,7 @@ from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey, func
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+from app.core.datetime_utils import now_br
 
 
 class Client(Base):
@@ -37,7 +38,7 @@ class Client(Base):
     nascimento = Column(Date, nullable=True)
     obs = Column(String, nullable=True)
 
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, nullable=False, default=now_br)
 
     # relacionamento com escritório
     office = relationship("Office", lazy="joined")

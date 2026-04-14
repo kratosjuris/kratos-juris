@@ -5,6 +5,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
+from app.core.datetime_utils import now_br
 from app.core.database import get_db
 from app.models.process_item import ProcessItem
 
@@ -88,14 +89,14 @@ def add_business_days(start: date, days: int) -> date:
 def dias_restantes(vencimento: date | None) -> int | None:
     if not vencimento:
         return None
-    return (vencimento - date.today()).days
+    return (vencimento - now_br().date()).days
 
 
 def cor_por_item(aba_norm: str, p: ProcessItem) -> str | None:
     if not getattr(p, "vencimento", None):
         return None
 
-    dias = (p.vencimento - date.today()).days
+    dias = (p.vencimento - now_br().date()).days
 
     if aba_norm == "PRAZOS" and getattr(p, "cumprimento", None) == "CUMPRIDO":
         return "success"
@@ -156,7 +157,7 @@ def _inicio_da_semana(d: date) -> date:
 
 
 def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | None:
-    hoje = date.today()
+    hoje = now_br().date()
 
     fim_semana = _fim_da_semana(hoje)
     inicio_proxima = fim_semana + timedelta(days=1)

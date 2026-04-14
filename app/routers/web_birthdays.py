@@ -1,5 +1,4 @@
-from datetime import date
-
+from app.core.datetime_utils import now_br
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -57,7 +56,7 @@ def aniversarios_mes(request: Request, db: Session = Depends(get_db)):
     user_id = _get_user_id(request)
     office_name = _get_office_name(request)
 
-    hoje = date.today()
+    hoje = now_br().date()
     mes = hoje.month
 
     clientes = (

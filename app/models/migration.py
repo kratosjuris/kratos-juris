@@ -1,4 +1,3 @@
-from datetime import datetime
 from sqlalchemy import (
     Column,
     Integer,
@@ -11,6 +10,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+from app.core.datetime_utils import now_br
 
 
 class MigrationBatch(Base):
@@ -30,7 +30,7 @@ class MigrationBatch(Base):
     periodo_inicio = Column(Date, nullable=True)
     periodo_fim = Column(Date, nullable=True)
 
-    criado_em = Column(DateTime, default=datetime.utcnow, nullable=False)
+    criado_em = Column(DateTime, default=now_br, nullable=False)
 
     rows = relationship(
         "MigrationRow",

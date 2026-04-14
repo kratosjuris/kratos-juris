@@ -1,5 +1,6 @@
-from datetime import date, datetime
+from datetime import date
 from flask_sqlalchemy import SQLAlchemy
+from app.core.datetime_utils import now_br
 
 db = SQLAlchemy()
 
@@ -26,5 +27,5 @@ class Receber(db.Model):
 
     obs = db.Column(db.Text, nullable=True)
 
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=now_br)
+    updated_at = db.Column(db.DateTime, nullable=False, default=now_br, onupdate=now_br)

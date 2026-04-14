@@ -1,12 +1,12 @@
 # app/models/user.py
 from __future__ import annotations
 
-from datetime import datetime
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+from app.core.datetime_utils import now_br
 
 
 class User(Base):
@@ -44,13 +44,13 @@ class User(Base):
     deactivated_at = Column(DateTime, nullable=True)
     deactivation_reason = Column(String(255), nullable=True)
 
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=now_br)
 
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=now_br,
+        onupdate=now_br,
     )
 
     last_login_at = Column(DateTime, nullable=True)
@@ -84,7 +84,7 @@ class User(Base):
 
     def suspend(self, reason: str | None = None) -> None:
         self.is_active = False
-        self.deactivated_at = datetime.utcnow()
+        self.deactivated_at = now_br()
         self.deactivation_reason = (reason or "").strip() or None
 
     def reactivate(self) -> None:

@@ -1,6 +1,7 @@
-from datetime import datetime, date
+from datetime import date
 from sqlalchemy import Column, Integer, String, Date, DateTime, Text, ForeignKey
 from app.core.database import Base
+from app.core.datetime_utils import now_br
 
 # abas: PROCEDENTE | EXECUCAO | PRAZOS
 # cumprimento (para PRAZOS): PENDENTE | CUMPRIDO | ROMPIDO
@@ -36,4 +37,4 @@ class ProcessItem(Base):
 
     cumprimento = Column(String, nullable=False, default="PENDENTE")
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=now_br)

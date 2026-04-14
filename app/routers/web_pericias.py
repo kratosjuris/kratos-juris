@@ -3,6 +3,7 @@ from fastapi import APIRouter, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+from app.core.datetime_utils import now_br
 
 from app.core.database import get_db
 from app.models.pericia_models import PericiaDiligencia
@@ -62,7 +63,7 @@ def pericias_list(
             "title": "Perícias & Diligências",
             "rows": rows,
             "status": status,
-            "hoje": date.today(),
+            "hoje": now_br().date(),
         },
     )
 
@@ -153,7 +154,7 @@ def pericias_toggle(request: Request, pid: int, db: Session = Depends(get_db)):
     )
     if item:
         item.concluido = not item.concluido
-        item.concluido_em = date.today() if item.concluido else None
+        item.concluido_em = now_br().date() if item.concluido else None
         db.commit()
 
     return RedirectResponse(url="/pericias", status_code=303)

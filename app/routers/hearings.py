@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, func
 from sqlalchemy.exc import IntegrityError
 
+from app.core.datetime_utils import now_br
 from app.core.database import get_db
 from app.models.hearing import Hearing
 from app.models.hearing_contact import HearingContact
@@ -351,7 +352,7 @@ def _build_whatsapp_redirect_for_hearing(
 def enviar_advogados(request: Request, db: Session = Depends(get_db)):
     office_id = _get_office_id(request)
 
-    today = date.today()
+    today = now_br().date()
     target_date = _next_business_day(today)
 
     start = datetime.combine(target_date, datetime.min.time())
@@ -399,7 +400,8 @@ def enviar_advogados(request: Request, db: Session = Depends(get_db)):
 @router.get("", response_class=HTMLResponse)
 def index(request: Request, db: Session = Depends(get_db)):
     office_id = _get_office_id(request)
-    now = datetime.now()
+    now = now_br()
+
     has_flag = _has_is_performed()
 
     stats = _build_hearing_stats(db, now, office_id)
@@ -609,6 +611,10 @@ def create_save(
 
     try:
         dt = datetime.fromisoformat(_safe_strip(starts_at))
+
+        # FORÇA horário de Brasília
+        dt = dt.replace(tzinfo=None)  # garante naive consistente
+
     except Exception:
         return RedirectResponse(url="/audiencias/novo", status_code=303)
 
@@ -1018,7 +1024,7 @@ def unmark_performed_batch(request: Request, ids: str = Form(...), db: Session =
 @router.get("/realizadas", response_class=HTMLResponse)
 def realizadas(request: Request, db: Session = Depends(get_db)):
     office_id = _get_office_id(request)
-    now = datetime.now()
+    now = now_br()
     has_flag = _has_is_performed()
 
     if has_flag:

@@ -1,4 +1,5 @@
 import re
+from app.core.datetime_utils import now_br
 from datetime import datetime, date, timedelta
 from typing import List, Tuple, Optional
 
@@ -774,7 +775,7 @@ async def migracoes_upload(
 
     batch = MigrationBatch(
         office_id=office_id,
-        criado_em=datetime.utcnow(),
+        criado_em=now_br(),
     )
     db.add(batch)
     db.commit()
@@ -943,7 +944,7 @@ def _migrar_row_para_process_item(
         if aba_code == "PRAZOS" and hasattr(existing, "cumprimento"):
             _safe_set(existing, "cumprimento", "PENDENTE")
 
-        _safe_set(existing, "atualizado_em", datetime.utcnow())
+        _safe_set(existing, "atualizado_em", now_br())
         db.add(existing)
         db.flush()
 
@@ -970,8 +971,8 @@ def _migrar_row_para_process_item(
         if aba_code == "PRAZOS" and hasattr(item, "cumprimento"):
             _safe_set(item, "cumprimento", "PENDENTE")
 
-        _safe_set(item, "criado_em", datetime.utcnow())
-        _safe_set(item, "atualizado_em", datetime.utcnow())
+        _safe_set(item, "criado_em", now_br())
+        _safe_set(item, "atualizado_em", now_br())
 
         db.add(item)
         try:
@@ -998,7 +999,7 @@ def _migrar_row_para_process_item(
                 if aba_code == "PRAZOS" and hasattr(existing2, "cumprimento"):
                     _safe_set(existing2, "cumprimento", "PENDENTE")
 
-                _safe_set(existing2, "atualizado_em", datetime.utcnow())
+                _safe_set(existing2, "atualizado_em", now_br())
                 db.add(existing2)
                 db.flush()
             else:
@@ -1010,7 +1011,7 @@ def _migrar_row_para_process_item(
     row.observacao = obs
     row.rompe_em_dias = prazo_int if str(rompe_em or "").strip() else None
     row.enviar_para = aba_code
-    row.enviado_em = datetime.utcnow()
+    row.enviado_em = now_br()
     row.enviado_para_status = aba_code
     db.add(row)
 

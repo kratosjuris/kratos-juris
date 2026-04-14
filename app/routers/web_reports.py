@@ -8,6 +8,7 @@ from starlette.responses import StreamingResponse
 
 from sqlalchemy.orm import Session
 
+from app.core.datetime_utils import now_br
 from app.core.database import get_db
 from app.models.client import Client
 from app.models.process_item import ProcessItem
@@ -147,7 +148,7 @@ def relatorio_clientes_pdf(request: Request, db: Session = Depends(get_db)):
         _header(
             story,
             "Relatório — Cadastro de Clientes",
-            f"Gerado em: {_fmt_date(date.today())} | Total: {len(rows)}",
+            f"Gerado em: {_fmt_date(now_br().date())} | Total: {len(rows)}",
         )
 
         data = [["Nome", "Telefone", "Nascimento", "Observações"]]
@@ -200,7 +201,7 @@ def _processos_pdf(db: Session, aba: str, titulo: str, filename: str, office_id:
         _header(
             story,
             f"Relatório — {titulo}",
-            f"Gerado em: {_fmt_date(date.today())} | Total: {len(rows)}",
+            f"Gerado em: {_fmt_date(now_br().date())} | Total: {len(rows)}",
         )
 
         data = [["Nº Processo", "Parte", "Vara", "Int.", "Prazo", "Venc.", "Status", "Obs"]]
@@ -337,7 +338,7 @@ def relatorio_prazos_pdf(request: Request, db: Session = Depends(get_db)):
         _header(
             story,
             "Relatório — Controle de Prazos",
-            f"Gerado em: {_fmt_date(date.today())} | Total: {total} | Pendentes: {len(pendentes)} | Cumpridos: {len(cumpridos)}",
+            f"Gerado em: {_fmt_date(now_br().date())} | Total: {total} | Pendentes: {len(pendentes)} | Cumpridos: {len(cumpridos)}",
         )
 
         story.append(Paragraph(f"<b>PENDENTES</b> (Quantidade: {len(pendentes)})", styles["Heading2"]))
@@ -389,7 +390,7 @@ def relatorio_pericias_pdf(request: Request, db: Session = Depends(get_db)):
         _header(
             story,
             "Relatório — Perícias e Diligências",
-            f"Gerado em: {_fmt_date(date.today())} | Total: {len(rows)}",
+            f"Gerado em: {_fmt_date(now_br().date())} | Total: {len(rows)}",
         )
 
         data = [["Nº Processo", "Parte", "Observação", "Local", "Data", "Concluído"]]

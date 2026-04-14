@@ -1,7 +1,6 @@
 # app/routers/web_auth.py
 from __future__ import annotations
-
-from datetime import datetime
+from app.core.datetime_utils import now_br
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -157,7 +156,7 @@ def login_submit(
     # =========================
     # 🔥 ATUALIZA USUÁRIO E ESCRITÓRIO
     # =========================
-    now = datetime.utcnow()
+    now = now_br()
 
     # atualiza usuário
     user.last_login_at = now

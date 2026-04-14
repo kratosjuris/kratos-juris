@@ -12,6 +12,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
+from app.core.datetime_utils import now_br
 from app.core.database import get_db
 from app.models.finance_models import (
     FinanceMonth,
@@ -115,7 +116,7 @@ def _require_auth(request: Request):
 
 
 def _ym_default() -> str:
-    hoje = date.today()
+    hoje = now_br().date()
     return f"{hoje.year:04d}-{hoje.month:02d}"
 
 
@@ -838,7 +839,7 @@ def pagar_baixar_lote(
     if not ids:
         return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
 
-    dt_pagamento = _parse_date_any(pago_em, fallback=None) or date.today()
+    dt_pagamento = _parse_date_any(pago_em, fallback=None) or now_br().date()
 
     rows = (
         db.query(Payable)
@@ -920,7 +921,7 @@ def pagar_toggle(request: Request, pid: int, db: Session = Depends(get_db), ym: 
             p.pago_em = None
         else:
             p.pago = True
-            p.pago_em = date.today()
+            p.pago_em = now_br().date()
         db.add(p)
         db.commit()
     return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
@@ -952,7 +953,7 @@ def pagar_baixar(
     if not p:
         return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
 
-    dt_pagamento = _parse_date_any(pago_em, fallback=None) or date.today()
+    dt_pagamento = _parse_date_any(pago_em, fallback=None) or now_br().date()
 
     p.pago = True
     p.pago_em = dt_pagamento
@@ -1019,7 +1020,7 @@ def pagar_editar_pagamento(
     if not p:
         return RedirectResponse(url=f"/financeiro/pagar?ym={ym}", status_code=303)
 
-    dt_pagamento = _parse_date_any(pago_em, fallback=p.pago_em) or date.today()
+    dt_pagamento = _parse_date_any(pago_em, fallback=p.pago_em) or now_br().date()
 
     p.pago = True
     p.pago_em = dt_pagamento
@@ -1258,7 +1259,7 @@ def receber_list(
         ).all()
     )
 
-    hoje = date.today()
+    hoje = now_br().date()
     rows = []
     used_codes = set()
 
@@ -1403,7 +1404,7 @@ def receber_toggle(request: Request, rid: int, db: Session = Depends(get_db), ym
     )
     if r:
         r.recebido = not bool(r.recebido)
-        r.recebido_em = date.today() if r.recebido else None
+        r.recebido_em = now_br().date() if r.recebido else None
         db.add(r)
         db.commit()
     return RedirectResponse(url=f"/financeiro/receber?ym={ym}", status_code=303)
@@ -1506,7 +1507,7 @@ def receber_baixar(
     dt = _parse_date_any(recebido_em, fallback=None)
 
     r.recebido = True
-    r.recebido_em = dt or date.today()
+    r.recebido_em = dt or now_br().date()
 
     obs_new = (obs or "").strip()
     if obs_new:
@@ -1602,7 +1603,7 @@ def receber_relatorio_anual(request: Request, ano: int | None = None, db: Sessio
         return redir
 
     office_id = _get_office_id(request)
-    hoje = date.today()
+    hoje = now_br().date()
     ano = int(ano or hoje.year)
 
     recebido_por_mes = {m: 0.0 for m in range(1, 13)}
@@ -1706,7 +1707,7 @@ def receber_relatorio_anual_conta_principal(
         return redir
 
     office_id = _get_office_id(request)
-    hoje = date.today()
+    hoje = now_br().date()
     ano = int(ano or hoje.year)
 
     contas = _get_accounts(db, office_id, only_active=True)

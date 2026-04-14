@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import extract, func
 
 from app.core.database import get_db
+from app.core.datetime_utils import now_br
 from app.models.client import Client
 from app.models.pericia_models import PericiaDiligencia
 from app.models.process_item import ProcessItem
@@ -83,6 +84,18 @@ def _money_br(value) -> str:
     return f"R$ {s}"
 
 
+def _to_naive_datetime(dt: datetime | None) -> datetime | None:
+    """
+    Converte datetime aware para naive, preservando a mesma data/hora local.
+    Se já vier naive, retorna como está.
+    """
+    if dt is None:
+        return None
+    if getattr(dt, "tzinfo", None) is not None:
+        return dt.replace(tzinfo=None)
+    return dt
+
+
 templates.env.filters["money_br"] = _money_br
 
 
@@ -111,8 +124,9 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     office_name = _get_office_name(request)
     is_superadmin = _is_superadmin(request, db)
 
-    hoje = date.today()
-    agora = datetime.now()
+    agora = now_br()
+    agora_cmp = _to_naive_datetime(agora)
+    hoje = agora.date()
 
     # =========================
     # CLIENTES
@@ -266,9 +280,13 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         if not h.starts_at:
             continue
 
-        d = h.starts_at.date()
+        starts_at_cmp = _to_naive_datetime(h.starts_at)
+        if not starts_at_cmp:
+            continue
 
-        if d == hoje and h.starts_at < agora:
+        d = starts_at_cmp.date()
+
+        if d == hoje and agora_cmp and starts_at_cmp < agora_cmp:
             continue
 
         if d == hoje:
