@@ -719,14 +719,20 @@ def office_delete(office_id: int, request: Request, db: Session = Depends(get_db
     ip = request.client.host if request.client else None
 
     try:
+        # remove permissões vinculadas ao escritório
         db.query(OfficePermission).filter(
             OfficePermission.office_id == office.id
-        ).delete()
+        ).delete(synchronize_session=False)
 
+        # desvincula todos os usuários do escritório ANTES de excluir o Office
+        # isso evita CircularDependencyError entre User e Office
         users = db.query(User).filter(User.office_id == office.id).all()
         for u in users:
-            db.delete(u)
+            u.office_id = None
 
+        db.flush()
+
+        # agora exclui o escritório com segurança
         db.delete(office)
         db.commit()
 
