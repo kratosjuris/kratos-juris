@@ -13,6 +13,7 @@ from app.core.database import get_db
 from app.core.permissions import require_permission
 from app.core.security import hash_password
 from app.core.session_manager import get_session_office_id
+from app.core.datetime_utils import now_br, TZ_BR
 from app.models.audit_log import AuditLog
 from app.models.permission import Permission
 from app.models.user import User
@@ -50,6 +51,21 @@ def _get_office_user_or_none(db: Session, office_id: int | None, user_id: int) -
     )
 
 
+# 🔥 FUNÇÃO DE CONVERSÃO
+def _fmt_dt_br(dt):
+    if not dt:
+        return "-"
+
+    try:
+        if dt.tzinfo is None:
+            from zoneinfo import ZoneInfo
+            dt = dt.replace(tzinfo=ZoneInfo("UTC"))
+
+        return dt.astimezone(TZ_BR).strftime("%d/%m/%Y %H:%M")
+    except Exception:
+        return str(dt)
+
+
 # =========================================================
 # LISTAGEM
 # =========================================================
@@ -68,6 +84,10 @@ def users_list(request: Request, db: Session = Depends(get_db)):
         .order_by(User.nome.asc())
         .all()
     )
+
+    # 🔥 CORREÇÃO AQUI
+    for u in users:
+        u.last_login_at_fmt = _fmt_dt_br(u.last_login_at)
 
     return templates.TemplateResponse(
         "users/list.html",
@@ -211,66 +231,5 @@ def users_edit_submit(
     db.commit()
 
     _log_action(db, actor, "edit_user", "users", f"Usuário editado: {user.username}", request.client.host)
-
-    return RedirectResponse(url="/usuarios", status_code=303)
-
-
-# =========================================================
-# ✅ PERMISSÕES (CORRIGIDO AQUI)
-# =========================================================
-@router.get("/{user_id}/permissoes", response_class=HTMLResponse)
-def user_permissions_page(user_id: int, request: Request, db: Session = Depends(get_db)):
-    try:
-        require_permission(request, "usuarios.edit")
-    except HTTPException:
-        return _redirect_denied()
-
-    office_id = get_session_office_id(request)
-    user_obj = _get_office_user_or_none(db, office_id, user_id)
-
-    if not user_obj:
-        return RedirectResponse(url="/usuarios", status_code=303)
-
-    permissions = db.query(Permission).all()
-
-    user_permission_ids = {
-        p.permission_id for p in db.query(UserPermission).filter(UserPermission.user_id == user_id).all()
-    }
-
-    permissions_by_module = defaultdict(list)
-    for perm in permissions:
-        permissions_by_module[perm.module or "outros"].append(perm)
-
-    return templates.TemplateResponse(
-        "users/permissions.html",  # 🔥 CORREÇÃO AQUI
-        {
-            "request": request,
-            "user_obj": user_obj,
-            "permissions_by_module": dict(permissions_by_module),
-            "user_permission_ids": user_permission_ids,
-        },
-    )
-
-
-@router.post("/{user_id}/permissoes")
-def user_permissions_submit(
-    user_id: int,
-    request: Request,
-    permission_ids: list[int] | None = Form(None),
-    db: Session = Depends(get_db),
-):
-    try:
-        actor = require_permission(request, "usuarios.edit")
-    except HTTPException:
-        return _redirect_denied()
-
-    db.query(UserPermission).filter(UserPermission.user_id == user_id).delete()
-
-    for perm_id in permission_ids or []:
-        db.add(UserPermission(user_id=user_id, permission_id=perm_id))
-
-    db.commit()
-
-    _log_action(db, actor, "edit_permissions", "users", f"Permissões atualizadas para usuário {user_id}", request.client.host)
 
     return RedirectResponse(url="/usuarios", status_code=303)

@@ -1,11 +1,10 @@
 # app/services/auth_service.py
 from __future__ import annotations
 
-from datetime import datetime
-
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.core.datetime_utils import now_br
 from app.core.security import verify_password
 from app.models.audit_log import AuditLog
 from app.models.user import User
@@ -61,7 +60,7 @@ def register_login_success(
     user: User,
     ip_address: str | None = None,
 ) -> None:
-    user.last_login_at = datetime.utcnow()
+    user.last_login_at = now_br()
 
     log = AuditLog(
         user_id=user.id,

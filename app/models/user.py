@@ -1,7 +1,6 @@
 # app/models/user.py
 from __future__ import annotations
 
-
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
@@ -41,19 +40,19 @@ class User(Base):
     must_change_password = Column(Boolean, nullable=False, default=False)
 
     # controle administrativo de suspensão
-    deactivated_at = Column(DateTime, nullable=True)
+    deactivated_at = Column(DateTime(timezone=True), nullable=True)
     deactivation_reason = Column(String(255), nullable=True)
 
-    created_at = Column(DateTime, nullable=False, default=now_br)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=now_br)
 
     updated_at = Column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=False,
         default=now_br,
         onupdate=now_br,
     )
 
-    last_login_at = Column(DateTime, nullable=True)
+    last_login_at = Column(DateTime(timezone=True), nullable=True)
 
     # relacionamento com escritório
     office = relationship(

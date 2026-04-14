@@ -47,7 +47,7 @@
               {% endif %}
             </td>
             <td>{{ "Sim" if u.is_superuser else "Não" }}</td>
-            <td>{{ u.last_login_at.strftime("%d/%m/%Y %H:%M") if u.last_login_at else "—" }}</td>
+            <td>{{ u.last_login_at_fmt }}</td>
 
             <td class="actions">
               <a href="/usuarios/{{ u.id }}/editar">Editar</a>
