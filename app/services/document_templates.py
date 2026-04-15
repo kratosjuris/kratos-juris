@@ -3,6 +3,7 @@ import os
 import re
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 
 from docx import Document
 
@@ -101,10 +102,21 @@ DOC_TEMPLATE_SPECS = {
 }
 
 
-DOC_TEMPLATES_STORAGE_DIR = os.getenv(
-    "DOC_TEMPLATES_STORAGE_DIR",
-    os.path.join("storage", "offices"),
-)
+# =========================================================
+# DIRETÓRIO BASE ABSOLUTO DO PROJETO
+# app/services/document_templates.py -> volta 2 níveis até /app,
+# depois mais 1 até a raiz do projeto
+# =========================================================
+BASE_DIR = Path(__file__).resolve().parents[2]
+
+# Se houver variável de ambiente, usa ela.
+# Senão, usa caminho absoluto estável dentro do projeto.
+DOC_TEMPLATES_STORAGE_DIR = Path(
+    os.getenv(
+        "DOC_TEMPLATES_STORAGE_DIR",
+        str(BASE_DIR / "storage" / "offices"),
+    )
+).resolve()
 
 DOC_TEMPLATES_MAX_MB = int(os.getenv("DOC_TEMPLATES_MAX_MB", "5"))
 DOC_TEMPLATES_MAX_BYTES = DOC_TEMPLATES_MAX_MB * 1024 * 1024
@@ -140,14 +152,9 @@ def sanitize_filename(name: str) -> str:
 
 
 def ensure_storage_dir(office_id: int, doc_key: str) -> str:
-    path = os.path.join(
-        DOC_TEMPLATES_STORAGE_DIR,
-        str(office_id),
-        "doc_templates",
-        doc_key,
-    )
-    os.makedirs(path, exist_ok=True)
-    return path
+    path = DOC_TEMPLATES_STORAGE_DIR / str(office_id) / "doc_templates" / doc_key
+    path.mkdir(parents=True, exist_ok=True)
+    return str(path)
 
 
 def build_storage_path(
@@ -156,23 +163,26 @@ def build_storage_path(
     version: int,
     original_filename: str,
 ) -> str:
-    base_dir = ensure_storage_dir(office_id, doc_key)
+    base_dir = Path(ensure_storage_dir(office_id, doc_key))
     safe_name = sanitize_filename(original_filename or f"{doc_key}.docx")
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     final_name = f"v{version}_{timestamp}_{safe_name}"
-    return os.path.join(base_dir, final_name)
+    return str((base_dir / final_name).resolve())
 
 
 def write_template_bytes(file_bytes: bytes, destination_path: str) -> None:
-    os.makedirs(os.path.dirname(destination_path), exist_ok=True)
-    with open(destination_path, "wb") as f:
+    destination = Path(destination_path).resolve()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with open(destination, "wb") as f:
         f.write(file_bytes)
 
 
 def remove_file_silently(path: str | None) -> None:
     try:
-        if path and os.path.exists(path):
-            os.remove(path)
+        if path:
+            file_path = Path(path).resolve()
+            if file_path.exists() and file_path.is_file():
+                file_path.unlink()
     except Exception:
         pass
 
