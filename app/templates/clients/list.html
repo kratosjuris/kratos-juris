@@ -4,16 +4,13 @@
 <style>
   /* =========================================================
      ✅ AJUSTES CLIENTES — SOMENTE MODO DIA
-     (não altera nada no modo noite)
      ========================================================= */
 
-  /* Nomes e conteúdo da tabela em preto no modo dia */
   body.kj-day .clients-page td,
   body.kj-day .clients-page th{
     color: rgba(11,18,32,.94) !important;
   }
 
-  /* Se algum dia você trocar Nome por link <a>, já fica preto também */
   body.kj-day .clients-page td a{
     color: rgba(11,18,32,.94) !important;
     text-decoration-color: rgba(37,99,235,.30) !important;
@@ -22,24 +19,20 @@
     color: rgba(29,78,216,.98) !important;
   }
 
-  /* Cabeçalho da tabela com prata mais marcada */
   body.kj-day .clients-page .table thead th{
     background: rgba(203,213,225,.60) !important;
     color: rgba(11,18,32,.96) !important;
   }
 
-  /* Linha zebrada (mantém leve e elegante) */
   body.kj-day .clients-page .table-striped > tbody > tr:nth-of-type(odd) > *{
     background-color: rgba(15,23,42,.035) !important;
   }
 
-  /* Botões pequenos (Abrir/Excluir) — mantém premium no modo dia */
   body.kj-day .clients-page .btn.btn-sm{
     border-radius: 12px !important;
     font-weight: 850 !important;
   }
 
-  /* ✅ FORÇAR "NOVO CLIENTE" AZUL NO MODO DIA (mesmo se algum CSS global tentar dourar) */
   body.kj-day .clients-page a.btn.btn-primary{
     border: 1px solid rgba(37,99,235,.35) !important;
     background: linear-gradient(180deg, rgba(37,99,235,.98), rgba(29,78,216,.98)) !important;
@@ -47,12 +40,7 @@
     box-shadow: 0 12px 22px rgba(2,6,23,.10) !important;
     font-weight: 900 !important;
   }
-  body.kj-day .clients-page a.btn.btn-primary:hover{
-    transform: translateY(-1px);
-    box-shadow: 0 18px 34px rgba(2,6,23,.12) !important;
-  }
 
-  /* ✅ BUSCAR (outline-secondary) coerente com o modo dia */
   body.kj-day .clients-page button.btn.btn-outline-secondary{
     border: 1px solid rgba(37,99,235,.28) !important;
     background: rgba(37,99,235,.06) !important;
@@ -60,28 +48,27 @@
     font-weight: 850 !important;
     border-radius: 12px !important;
   }
-  body.kj-day .clients-page button.btn.btn-outline-secondary:hover{
-    background: rgba(37,99,235,.10) !important;
-    transform: translateY(-1px);
+
+  .clients-page .generated-link-box{
+    border: 1px solid rgba(148,163,184,.22);
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    background: rgba(15,23,42,.28);
   }
 
-  /* ✅ “ABRIR” (outline-primary) -> AZUL no modo dia (corrige o dourado) */
-  body.kj-day .clients-page .btn.btn-outline-primary{
-    border: 1px solid rgba(37,99,235,.35) !important;
-    background: linear-gradient(180deg, rgba(37,99,235,.98), rgba(29,78,216,.98)) !important;
-    color: rgba(255,255,255,.98) !important;
-    box-shadow: 0 12px 22px rgba(2,6,23,.10) !important;
-  }
-  body.kj-day .clients-page .btn.btn-outline-primary:hover{
-    transform: translateY(-1px);
-    box-shadow: 0 18px 34px rgba(2,6,23,.12) !important;
-    filter: saturate(1.05) brightness(.98);
+  body.kj-day .clients-page .generated-link-box{
+    background: rgba(37,99,235,.05);
+    border: 1px solid rgba(37,99,235,.16);
   }
 
-  /* Excluir: mantém vermelho (ação destrutiva) porém legível no modo dia */
-  body.kj-day .clients-page .btn.btn-outline-danger{
-    border-radius: 12px !important;
-    font-weight: 900 !important;
+  .clients-page .generated-link-box .link-label{
+    font-weight: 800;
+    margin-bottom: 6px;
+  }
+
+  .clients-page .generated-link-box a{
+    word-break: break-all;
   }
 </style>
 
@@ -89,14 +76,79 @@
 
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h3 class="m-0">Clientes</h3>
-    <a class="btn btn-primary" href="/clientes/novo">Novo Cliente</a>
+    <div class="d-flex gap-2">
+      <form method="post" action="/clientes/gerar-link-cadastro" class="m-0">
+        <button class="btn btn-outline-secondary" type="submit">
+          Gerar link de cadastro
+        </button>
+      </form>
+      <a class="btn btn-primary" href="/clientes/novo">Novo Cliente</a>
+    </div>
   </div>
 
-  <!-- ✅ NOVO: alerta -->
   {% if msg %}
     <div class="alert alert-warning py-2">
       {{ msg }}
     </div>
+  {% endif %}
+
+  {% if invite_link %}
+    <div class="generated-link-box">
+      <div class="link-label">Link de cadastro gerado:</div>
+
+      <div class="mb-2">
+        <a href="{{ invite_link }}" target="_blank">{{ invite_link }}</a>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-outline-secondary" type="button" onclick="copiarLink()">
+          Copiar link
+        </button>
+
+        <button class="btn btn-sm btn-outline-primary" type="button" onclick="compartilharLink()">
+          Compartilhar
+        </button>
+      </div>
+
+      <div id="feedback-link" style="margin-top:8px; font-size:13px;"></div>
+    </div>
+
+    <script>
+      const linkCadastro = {{ invite_link | tojson }};
+
+      function mostrarFeedback(msg, ok=true){
+        const el = document.getElementById("feedback-link");
+        el.innerText = msg;
+        el.style.color = ok ? "#16a34a" : "#dc2626";
+      }
+
+      async function copiarLink(){
+        try{
+          await navigator.clipboard.writeText(linkCadastro);
+          mostrarFeedback("Link copiado com sucesso.");
+        }catch(e){
+          mostrarFeedback("Erro ao copiar o link.", false);
+        }
+      }
+
+      async function compartilharLink(){
+        try{
+          if(navigator.share){
+            await navigator.share({
+              title: "Cadastro de Cliente",
+              text: "Preencha seu cadastro:",
+              url: linkCadastro
+            });
+            mostrarFeedback("Compartilhado com sucesso.");
+          }else{
+            await navigator.clipboard.writeText(linkCadastro);
+            mostrarFeedback("Navegador não suporta compartilhamento. Link copiado.");
+          }
+        }catch(e){
+          mostrarFeedback("Erro ao compartilhar.", false);
+        }
+      }
+    </script>
   {% endif %}
 
   <form class="row g-2 mb-3" method="get" action="/clientes">

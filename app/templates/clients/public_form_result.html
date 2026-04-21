@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title or "Cadastro de Cliente" }}</title>
+</head>
+<body>
+  <div style="max-width: 720px; margin: 60px auto; font-family: Arial, sans-serif;">
+    <h2>{{ title or "Cadastro de Cliente" }}</h2>
+
+    {% if success %}
+      <p style="color: green; font-size: 18px; font-weight: bold;">
+        {{ message }}
+      </p>
+    {% else %}
+      <p style="color: red; font-size: 18px; font-weight: bold;">
+        {{ message }}
+      </p>
+    {% endif %}
+  </div>
+</body>
+</html>
