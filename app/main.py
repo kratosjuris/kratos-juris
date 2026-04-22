@@ -61,6 +61,8 @@ def _is_public_path(path: str) -> bool:
         "/static",
         "/favicon.ico",
         "/ping",
+        "/clientes/cadastro",
+        "/clientes/cadastro/",
     )
     return path.startswith(public_prefixes)
 
