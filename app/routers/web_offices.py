@@ -69,9 +69,6 @@ def _build_form_data(
     }
 
 
-# =========================================================
-# LISTAGEM
-# =========================================================
 @router.get("", response_class=HTMLResponse)
 def offices_list(request: Request, db: Session = Depends(get_db)):
     try:
@@ -81,7 +78,6 @@ def offices_list(request: Request, db: Session = Depends(get_db)):
 
     offices = db.query(Office).order_by(Office.nome.asc()).all()
 
-    # contagem de usuários por escritório
     user_counts = dict(
         db.query(User.office_id, func.count(User.id))
         .filter(User.office_id.isnot(None))
@@ -89,7 +85,6 @@ def offices_list(request: Request, db: Session = Depends(get_db)):
         .all()
     )
 
-    # contagem de clientes por escritório
     client_counts = dict(
         db.query(Client.office_id, func.count(Client.id))
         .filter(Client.office_id.isnot(None))
@@ -97,7 +92,6 @@ def offices_list(request: Request, db: Session = Depends(get_db)):
         .all()
     )
 
-    # injeta os totais em cada escritório para uso direto no template
     for office in offices:
         office.total_usuarios = int(user_counts.get(office.id, 0) or 0)
         office.total_clientes = int(client_counts.get(office.id, 0) or 0)
@@ -112,9 +106,6 @@ def offices_list(request: Request, db: Session = Depends(get_db)):
     )
 
 
-# =========================================================
-# PERMISSÕES DO ESCRITÓRIO
-# =========================================================
 @router.get("/{office_id}/permissoes", response_class=HTMLResponse)
 def office_permissions_page(
     office_id: int,
@@ -212,9 +203,6 @@ def office_permissions_save(
     return RedirectResponse(url="/offices", status_code=303)
 
 
-# =========================================================
-# NOVO
-# =========================================================
 @router.get("/novo", response_class=HTMLResponse)
 def offices_new_page(request: Request):
     try:
@@ -395,9 +383,6 @@ def offices_new_submit(
     return RedirectResponse(url="/offices", status_code=303)
 
 
-# =========================================================
-# EDITAR
-# =========================================================
 @router.get("/{office_id}/editar", response_class=HTMLResponse)
 def office_edit_page(
     office_id: int,
@@ -633,11 +618,12 @@ def office_edit_submit(
     return RedirectResponse(url="/offices", status_code=303)
 
 
-# =========================================================
-# SUSPENDER
-# =========================================================
 @router.post("/{office_id}/suspender")
-def office_suspend(office_id: int, request: Request, db: Session = Depends(get_db)):
+def office_suspend(
+    office_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
     actor = require_superuser(request)
 
     office = db.query(Office).filter(Office.id == office_id).first()
@@ -645,31 +631,43 @@ def office_suspend(office_id: int, request: Request, db: Session = Depends(get_d
     if not office:
         return RedirectResponse(url="/offices", status_code=303)
 
-    office.suspend("Inadimplência")
+    ip = request.client.host if request.client else None
+    office_nome = office.nome
 
-    users = db.query(User).filter(User.office_id == office.id).all()
-    for u in users:
-        u.suspend("Office suspenso")
+    try:
+        office.suspend("Inadimplência")
 
-    db.commit()
+        office.last_user = None
+        office.last_user_id = None
+
+        users = db.query(User).filter(User.office_id == office.id).all()
+        for u in users:
+            u.suspend("Office suspenso")
+
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
 
     _log_action(
         db,
         actor,
         "suspend_office",
         "offices",
-        f"Suspenso: {office.nome}",
-        request.client.host if request.client else None,
+        f"Suspenso: {office_nome}",
+        ip,
     )
 
     return RedirectResponse(url="/offices", status_code=303)
 
 
-# =========================================================
-# REATIVAR
-# =========================================================
 @router.post("/{office_id}/reativar")
-def office_reactivate(office_id: int, request: Request, db: Session = Depends(get_db)):
+def office_reactivate(
+    office_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
     actor = require_superuser(request)
 
     office = db.query(Office).filter(Office.id == office_id).first()
@@ -677,31 +675,40 @@ def office_reactivate(office_id: int, request: Request, db: Session = Depends(ge
     if not office:
         return RedirectResponse(url="/offices", status_code=303)
 
-    office.reactivate()
+    ip = request.client.host if request.client else None
+    office_nome = office.nome
 
-    users = db.query(User).filter(User.office_id == office.id).all()
-    for u in users:
-        u.reactivate()
+    try:
+        office.reactivate()
 
-    db.commit()
+        users = db.query(User).filter(User.office_id == office.id).all()
+        for u in users:
+            u.reactivate()
+
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
 
     _log_action(
         db,
         actor,
         "reactivate_office",
         "offices",
-        f"Reativado: {office.nome}",
-        request.client.host if request.client else None,
+        f"Reativado: {office_nome}",
+        ip,
     )
 
     return RedirectResponse(url="/offices", status_code=303)
 
 
-# =========================================================
-# EXCLUIR (SEGURO)
-# =========================================================
 @router.post("/{office_id}/excluir")
-def office_delete(office_id: int, request: Request, db: Session = Depends(get_db)):
+def office_delete(
+    office_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
     actor = require_superuser(request)
 
     if actor.office_id == office_id:
@@ -719,20 +726,20 @@ def office_delete(office_id: int, request: Request, db: Session = Depends(get_db
     ip = request.client.host if request.client else None
 
     try:
-        # remove permissões vinculadas ao escritório
+        office.last_user = None
+        office.last_user_id = None
+        db.flush()
+
         db.query(OfficePermission).filter(
             OfficePermission.office_id == office.id
         ).delete(synchronize_session=False)
 
-        # desvincula todos os usuários do escritório ANTES de excluir o Office
-        # isso evita CircularDependencyError entre User e Office
         users = db.query(User).filter(User.office_id == office.id).all()
         for u in users:
             u.office_id = None
 
         db.flush()
 
-        # agora exclui o escritório com segurança
         db.delete(office)
         db.commit()
 

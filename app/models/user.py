@@ -19,8 +19,6 @@ class User(Base):
 
     username = Column(String(80), nullable=False, unique=True, index=True)
 
-    # vínculo com escritório (multiempresa / multi-tenant)
-    # nullable=True para não quebrar usuários já existentes
     office_id = Column(
         Integer,
         ForeignKey("offices.id", ondelete="SET NULL"),
@@ -28,18 +26,14 @@ class User(Base):
         index=True,
     )
 
-    # senha armazenada com hash
     password_hash = Column(String(255), nullable=False)
 
-    # controla se o usuário pode acessar o sistema
-    # True = ativo | False = suspenso/inativo
     is_active = Column(Boolean, nullable=False, default=True, index=True)
 
     is_superuser = Column(Boolean, nullable=False, default=False)
 
     must_change_password = Column(Boolean, nullable=False, default=False)
 
-    # controle administrativo de suspensão
     deactivated_at = Column(DateTime(timezone=True), nullable=True)
     deactivation_reason = Column(String(255), nullable=True)
 
@@ -54,7 +48,6 @@ class User(Base):
 
     last_login_at = Column(DateTime(timezone=True), nullable=True)
 
-    # relacionamento com escritório
     office = relationship(
         "Office",
         back_populates="users",
@@ -62,7 +55,6 @@ class User(Base):
         lazy="joined",
     )
 
-    # relacionamento com permissões
     permission_links = relationship(
         "UserPermission",
         back_populates="user",
@@ -70,7 +62,6 @@ class User(Base):
         lazy="joined",
     )
 
-    # logs de auditoria
     audit_logs = relationship(
         "AuditLog",
         back_populates="user",

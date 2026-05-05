@@ -28,9 +28,9 @@ class Office(Base):
         onupdate=now_br,
     )
 
-    # controle de uso do escritório
     last_login_at = Column(DateTime, nullable=True)
     last_activity_at = Column(DateTime, nullable=True)
+
     last_user_id = Column(
         Integer,
         ForeignKey("users.id", ondelete="SET NULL"),
@@ -49,12 +49,21 @@ class Office(Base):
         "User",
         foreign_keys=[last_user_id],
         lazy="joined",
+        post_update=True,
     )
 
     permission_links = relationship(
         "OfficePermission",
         back_populates="office",
         cascade="all, delete-orphan",
+        lazy="select",
+    )
+
+    hearing_contacts = relationship(
+        "HearingContact",
+        back_populates="office",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
         lazy="select",
     )
 
