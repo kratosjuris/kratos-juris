@@ -1,7 +1,6 @@
 import gc
 import os
 import re
-import shutil
 import tempfile
 from datetime import datetime, date, timedelta
 from typing import List, Tuple, Optional, Iterable
@@ -221,7 +220,7 @@ def _norm_numproc(s: str) -> Tuple[str, str]:
 
 
 def _set_process_number(item: ProcessItem, numero: str) -> bool:
-    raw, digits = _norm_numproc(numero)
+    raw, _digits = _norm_numproc(numero)
 
     for f in _process_number_fields():
         if hasattr(item, f):
@@ -701,9 +700,7 @@ def _iter_pdf_blocks_from_path(path: str) -> Iterable[str]:
         raise RuntimeError("Biblioteca 'pypdf' não instalada. Rode: pip install pypdf")
 
     reader = PdfReader(path)
-
     buffer = ""
-    found_markers = False
 
     for page in reader.pages:
         try:
@@ -720,8 +717,6 @@ def _iter_pdf_blocks_from_path(path: str) -> Iterable[str]:
         matches = list(PDF_BLOCK_MARKER_RX.finditer(combined))
 
         if len(matches) >= 2:
-            found_markers = True
-
             for i in range(len(matches) - 1):
                 start = matches[i].start()
                 end = matches[i + 1].start()
@@ -732,8 +727,6 @@ def _iter_pdf_blocks_from_path(path: str) -> Iterable[str]:
             buffer = combined[matches[-1].start():].strip()
 
         elif len(matches) == 1:
-            found_markers = True
-
             if buffer and matches[0].start() > 0:
                 prefix = combined[:matches[0].start()].strip()
                 if prefix and _extract_numero_processo_from_pdf_block(prefix):
@@ -752,10 +745,15 @@ def _iter_pdf_blocks_from_path(path: str) -> Iterable[str]:
                 else:
                     buffer = buffer[-1_000_000:]
 
+        del txt
+        del combined
+        gc.collect()
+
     if buffer.strip():
         yield buffer.strip()
 
     del reader
+    gc.collect()
 
 
 def _iter_pdf_rows_from_path(path: str) -> Iterable[dict]:
@@ -1109,6 +1107,8 @@ async def migracoes_upload(
     db.commit()
     db.refresh(batch)
 
+    batch_id = batch.id
+
     periodo_ini_final = None
     periodo_fim_final = None
 
@@ -1154,6 +1154,9 @@ async def migracoes_upload(
             if not total_bytes:
                 continue
 
+            content = None
+            parsed_rows = None
+
             if _is_pdf_by_path(temp_path, filename):
                 parsed_iter = _iter_pdf_rows_from_path(temp_path)
             else:
@@ -1178,7 +1181,7 @@ async def migracoes_upload(
             ) = _process_parsed_rows_into_migration_rows(
                 db=db,
                 office_id=office_id,
-                batch_id=batch.id,
+                batch_id=batch_id,
                 parsed_rows=parsed_iter,
                 nums_hoje=nums_hoje,
                 seen_in_this_upload=seen_in_this_upload,
@@ -1213,7 +1216,11 @@ async def migracoes_upload(
 
             gc.collect()
 
-        batch = db.query(MigrationBatch).filter(MigrationBatch.id == batch.id).first()
+        batch = db.query(MigrationBatch).filter(MigrationBatch.id == batch_id).first()
+
+        if not batch:
+            raise ValueError("Lote de migração não encontrado após processamento.")
+
         batch.periodo_inicio = periodo_ini_final
         batch.periodo_fim = periodo_fim_final
 
@@ -1231,7 +1238,7 @@ async def migracoes_upload(
         db.rollback()
 
         try:
-            batch = db.query(MigrationBatch).filter(MigrationBatch.id == batch.id).first()
+            batch = db.query(MigrationBatch).filter(MigrationBatch.id == batch_id).first()
             if batch:
                 _set_batch_status(
                     db=db,
