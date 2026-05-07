@@ -1279,7 +1279,7 @@ async def migracoes_upload(
 
     return _redirect_msg(
         f"Migração concluída. Extraídos: {total_extraidos_final}. "
-        f"Inseridos: {total_inseridos_final}. Ignorados: {total_ignorados_final}."
+        f"Inseridos: {total_inseridos_final}. Ignorados por Duplicidades: {total_ignorados_final}."
     )
 
 
