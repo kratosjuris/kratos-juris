@@ -1,9 +1,16 @@
+import gc
+import os
 import re
-from app.core.datetime_utils import now_br
+import shutil
+import tempfile
 from datetime import datetime, date, timedelta
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Iterable
+from urllib.parse import quote
 
-import pdfplumber
+try:
+    from pypdf import PdfReader
+except Exception:
+    PdfReader = None
 
 from fastapi import APIRouter, Request, Depends, UploadFile, File, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -13,11 +20,22 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
 
 from app.core.database import get_db
+from app.core.datetime_utils import now_br
 from app.models.migration import MigrationBatch, MigrationRow
 from app.models.process_item import ProcessItem
 
+
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+
+
+MAX_UPLOAD_MB = 150
+MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
+INSERT_CHUNK_SIZE = 300
+
+
+def _redirect_msg(msg: str) -> RedirectResponse:
+    return RedirectResponse(url=f"/migracoes?msg={quote(str(msg))}", status_code=303)
 
 
 def _get_office_id(request: Request) -> int:
@@ -27,15 +45,51 @@ def _get_office_id(request: Request) -> int:
     return int(office_id)
 
 
-# ==========================================================
-# ✅ FILTRO JINJA: br_date (DD/MM/AAAA)
-# ==========================================================
+def _safe_set(obj, field: str, value):
+    if hasattr(obj, field):
+        setattr(obj, field, value)
+
+
+def _set_batch_status(
+    db: Session,
+    batch: MigrationBatch,
+    status: str,
+    erro: Optional[str] = None,
+    total_extraidos: Optional[int] = None,
+    total_inseridos: Optional[int] = None,
+    total_ignorados: Optional[int] = None,
+    processado: bool = False,
+):
+    _safe_set(batch, "status", status)
+
+    if erro is not None:
+        _safe_set(batch, "erro_processamento", str(erro)[:10000])
+
+    if total_extraidos is not None:
+        _safe_set(batch, "total_extraidos", int(total_extraidos or 0))
+
+    if total_inseridos is not None:
+        _safe_set(batch, "total_inseridos", int(total_inseridos or 0))
+
+    if total_ignorados is not None:
+        _safe_set(batch, "total_ignorados", int(total_ignorados or 0))
+
+    if processado:
+        _safe_set(batch, "processado_em", now_br())
+
+    db.add(batch)
+    db.commit()
+    db.refresh(batch)
+
+
 def _br_date(value) -> str:
     if value is None:
         return ""
+
     try:
         if isinstance(value, datetime):
             return value.strftime("%d/%m/%Y")
+
         if isinstance(value, date):
             return value.strftime("%d/%m/%Y")
 
@@ -60,9 +114,6 @@ def _br_date(value) -> str:
 templates.env.filters["br_date"] = _br_date
 
 
-# =========================
-# Utils
-# =========================
 def _ext(filename: str) -> str:
     filename = (filename or "").lower().strip()
     if "." not in filename:
@@ -73,6 +124,7 @@ def _ext(filename: str) -> str:
 def _parse_date_br(val) -> Optional[date]:
     if val is None:
         return None
+
     try:
         if hasattr(val, "to_pydatetime"):
             return val.to_pydatetime().date()
@@ -81,6 +133,7 @@ def _parse_date_br(val) -> Optional[date]:
 
     if isinstance(val, datetime):
         return val.date()
+
     if isinstance(val, date):
         return val
 
@@ -104,38 +157,33 @@ def _parse_date_br(val) -> Optional[date]:
 def add_business_days(start: date, days: int) -> date:
     if days <= 0:
         return start
+
     cur = start
     added = 0
+
     while added < days:
         cur += timedelta(days=1)
         if cur.weekday() < 5:
             added += 1
+
     return cur
 
 
 def _normalize_status(dest: str) -> str:
-    """
-    Retorna o CÓDIGO da aba usado em /processos?status=...
-    """
     dest_up = (dest or "").strip().upper()
+
     if dest_up in {"PRAZOS", "PRAZO", "CONTROLE DE PRAZOS", "CONTROLE DE PRAZO"}:
         return "PRAZOS"
+
     if dest_up in {"PROCEDENTE", "AÇÕES PROCEDENTES", "ACOES PROCEDENTES"}:
         return "PROCEDENTE"
+
     if dest_up in {"EXECUCAO", "EXECUÇÃO", "AÇÕES EM EXECUÇÃO", "ACOES EM EXECUCAO"}:
         return "EXECUCAO"
+
     return "PRAZOS"
 
 
-def _safe_set(obj, field: str, value):
-    """Seta somente se o atributo existir no modelo (evita quebrar por diferença de schema)."""
-    if hasattr(obj, field):
-        setattr(obj, field, value)
-
-
-# ==========================================================
-# ✅ Campos NOT NULL do ProcessItem (defaults seguros)
-# ==========================================================
 def _default_parte_autora(cliente: str) -> str:
     c = (cliente or "").strip()
     return c if c else "(não informado)"
@@ -147,20 +195,14 @@ def _default_vara(vara: str) -> str:
 
 
 def _set_obs_compat(obj, text: str):
-    """
-    Sua tela de processos usa 'obs' (não 'observacao').
-    Alguns bancos antigos podem ter 'observacao' -> então preenche os dois, se existirem.
-    """
     t = (text or "").strip()
     if not t:
         return
+
     _safe_set(obj, "obs", t)
     _safe_set(obj, "observacao", t)
 
 
-# ==========================================================
-# ✅ Campo do número do processo no ProcessItem + normalização
-# ==========================================================
 def _process_number_fields():
     return [
         "numero_processo",
@@ -180,15 +222,18 @@ def _norm_numproc(s: str) -> Tuple[str, str]:
 
 def _set_process_number(item: ProcessItem, numero: str) -> bool:
     raw, digits = _norm_numproc(numero)
+
     for f in _process_number_fields():
         if hasattr(item, f):
             setattr(item, f, raw)
             return True
+
     return False
 
 
 def _find_existing_process_item(db: Session, office_id: int, numero: str) -> Optional[ProcessItem]:
     raw, digits = _norm_numproc(numero)
+
     if not raw and not digits:
         return None
 
@@ -223,12 +268,60 @@ def _find_existing_process_item(db: Session, office_id: int, numero: str) -> Opt
     return None
 
 
-# =========================
-# Parser (HTML/XLS/XLSX/TXT/PDF)
-# =========================
+def _find_existing_process_items_map(
+    db: Session,
+    office_id: int,
+    numeros: List[str],
+) -> dict:
+    result = {}
+
+    cleaned = []
+    for n in numeros:
+        raw, digits = _norm_numproc(n)
+        if raw:
+            cleaned.append(raw)
+        if digits:
+            cleaned.append(digits)
+
+    cleaned = list(set(cleaned))
+
+    if not cleaned:
+        return result
+
+    for f in _process_number_fields():
+        if not hasattr(ProcessItem, f):
+            continue
+
+        col = getattr(ProcessItem, f)
+
+        found = (
+            db.query(ProcessItem)
+            .filter(
+                ProcessItem.office_id == office_id,
+                col.in_(cleaned),
+            )
+            .all()
+        )
+
+        for item in found:
+            val = getattr(item, f, None)
+            raw, digits = _norm_numproc(val)
+            if raw:
+                result[raw] = item
+            if digits:
+                result[digits] = item
+
+    return result
+
+
 PERIODO_RX = re.compile(
     r"per[ií]odo:\s*(\d{2}/\d{2}/\d{4})\s*at[eé]\s*(\d{2}/\d{2}/\d{4})",
     re.IGNORECASE,
+)
+
+
+PDF_BLOCK_MARKER_RX = re.compile(
+    r"(?mi)^(PUBLICAÇÃO:\s*\d+(?:\s+de\s+\d+)?|Sequencial:\s*\d+)"
 )
 
 
@@ -237,8 +330,14 @@ def _norm_label(v) -> str:
     s = s.replace("º", "").replace("°", "")
     s = re.sub(r"\s+", " ", s)
     s = re.sub(r"^data(?=[a-zà-ú])", "data ", s, flags=re.IGNORECASE)
-    s = s.replace("datadisponibilização", "data disponibilização").replace("datadisponibilizacao", "data disponibilizacao")
-    s = s.replace("datapublicação", "data publicação").replace("datapublicacao", "data publicacao")
+    s = s.replace("datadisponibilização", "data disponibilização").replace(
+        "datadisponibilizacao",
+        "data disponibilizacao",
+    )
+    s = s.replace("datapublicação", "data publicação").replace(
+        "datapublicacao",
+        "data publicacao",
+    )
     return s.strip()
 
 
@@ -247,43 +346,67 @@ def _find_periodo_in_matrix(matrix: List[List[object]]) -> Tuple[Optional[date],
         for cell in row[:60]:
             if cell is None:
                 continue
+
             s = str(cell)
             m = PERIODO_RX.search(s)
+
             if m:
                 ini = _parse_date_br(m.group(1))
                 fim = _parse_date_br(m.group(2))
                 return ini, fim
+
     return None, None
 
 
 def _find_header_in_matrix(matrix: List[List[object]]) -> Tuple[int, dict]:
     want = {
         "disp": {
-            "disponibilização", "data disponibilização", "data de disponibilização", "disponibilizacao",
-            "data disponibilizacao", "data de disponibilizacao",
+            "disponibilização",
+            "data disponibilização",
+            "data de disponibilização",
+            "disponibilizacao",
+            "data disponibilizacao",
+            "data de disponibilizacao",
         },
         "pub": {
-            "publicação", "data publicação", "data da publicação", "publicacao",
-            "data publicacao", "data da publicacao",
+            "publicação",
+            "data publicação",
+            "data da publicação",
+            "publicacao",
+            "data publicacao",
+            "data da publicacao",
         },
         "proc": {
-            "n processo", "no processo", "nº processo",
-            "número do processo", "numero do processo",
-            "processo", "n. processo",
+            "n processo",
+            "no processo",
+            "nº processo",
+            "número do processo",
+            "numero do processo",
+            "processo",
+            "n. processo",
         },
-        "diario": {"diário", "diario", "dj", "djen", "diário de justiça"},
+        "diario": {
+            "diário",
+            "diario",
+            "dj",
+            "djen",
+            "diário de justiça",
+        },
     }
 
     for r in range(min(120, len(matrix))):
         row = matrix[r]
         col_map = {}
+
         for c in range(min(120, len(row))):
             label = _norm_label(row[c])
             if not label:
                 continue
+
             for key, variants in want.items():
                 if label in variants:
                     col_map[key] = c
+
         if "disp" in col_map and "pub" in col_map and "proc" in col_map:
             return r, col_map
 
@@ -303,10 +426,15 @@ def _is_html(file_bytes: bytes) -> bool:
     return head.startswith(b"<html") or b"<table" in head
 
 
-def _is_pdf(file_bytes: bytes, filename: str = "") -> bool:
+def _is_pdf_by_path(path: str, filename: str = "") -> bool:
     if (filename or "").lower().endswith(".pdf"):
         return True
-    return file_bytes[:5] == b"%PDF-"
+
+    try:
+        with open(path, "rb") as fp:
+            return fp.read(5) == b"%PDF-"
+    except Exception:
+        return False
 
 
 def _read_text_table_to_matrix(file_bytes: bytes) -> List[List[object]]:
@@ -322,8 +450,10 @@ def _read_text_table_to_matrix(file_bytes: bytes) -> List[List[object]]:
                 encoding="utf-8-sig",
                 engine="python",
             )
+
             if df.shape[1] <= 1 and sep != ",":
                 continue
+
             return df.where(df.notna(), None).values.tolist()
         except Exception:
             continue
@@ -347,6 +477,7 @@ def _read_html_tables_stdlib(file_bytes: bytes) -> List[List[List[object]]]:
 
         def handle_starttag(self, tag, attrs):
             tag = tag.lower()
+
             if tag == "table":
                 self._in_table = True
                 self._cur_table = []
@@ -363,6 +494,7 @@ def _read_html_tables_stdlib(file_bytes: bytes) -> List[List[List[object]]]:
 
         def handle_endtag(self, tag):
             tag = tag.lower()
+
             if tag in ("td", "th") and self._in_cell:
                 self._in_cell = False
                 txt = re.sub(r"\s+", " ", self._cell).strip()
@@ -387,14 +519,17 @@ def _read_html_tables_stdlib(file_bytes: bytes) -> List[List[List[object]]]:
 
 def _choose_best_table(tables: List[List[List[object]]]) -> List[List[object]]:
     best = None
+
     for t in tables:
         try:
             _find_header_in_matrix(t)
             return t
         except Exception:
             best = best or t
+
     if best is None:
         raise ValueError("Não encontrei nenhuma tabela no HTML.")
+
     return best
 
 
@@ -408,56 +543,6 @@ def _clean_pdf_text(text: str) -> str:
     return text.strip()
 
 
-def _extract_text_from_pdf_bytes(file_bytes: bytes) -> str:
-    import io
-
-    pages = []
-    with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
-        for page in pdf.pages:
-            txt = page.extract_text() or ""
-            if txt:
-                pages.append(txt)
-    texto = "\n".join(pages)
-    texto = _clean_pdf_text(texto)
-    if not texto:
-        raise ValueError("Não consegui extrair texto do PDF.")
-    return texto
-
-
-def _split_pdf_publication_blocks(texto: str) -> List[str]:
-    texto = _clean_pdf_text(texto)
-    if not texto:
-        return []
-
-    # Modelo 1: PUBLICAÇÃO: X de Y
-    if re.search(r"(?mi)^PUBLICAÇÃO:\s*\d+", texto):
-        matches = list(re.finditer(r"(?mi)^PUBLICAÇÃO:\s*\d+(?:\s+de\s+\d+)?", texto))
-        blocos = []
-        for i, m in enumerate(matches):
-            start = m.start()
-            end = matches[i + 1].start() if i + 1 < len(matches) else len(texto)
-            bloco = texto[start:end].strip()
-            if bloco:
-                blocos.append(bloco)
-        if blocos:
-            return blocos
-
-    # Modelo 2: Sequencial: X
-    if re.search(r"(?mi)^Sequencial:\s*\d+", texto):
-        matches = list(re.finditer(r"(?mi)^Sequencial:\s*\d+", texto))
-        blocos = []
-        for i, m in enumerate(matches):
-            start = m.start()
-            end = matches[i + 1].start() if i + 1 < len(matches) else len(texto)
-            bloco = texto[start:end].strip()
-            if bloco:
-                blocos.append(bloco)
-        if blocos:
-            return blocos
-
-    return [texto]
-
-
 def _extract_vara_from_conteudo(txt: str) -> Optional[str]:
     txt = _clean_pdf_text(txt)
 
@@ -469,6 +554,7 @@ def _extract_vara_from_conteudo(txt: str) -> Optional[str]:
 
     for pat in patterns:
         m = re.search(pat, txt, flags=re.IGNORECASE | re.DOTALL)
+
         if m:
             vara = re.sub(r"\s+", " ", m.group(1)).strip(" -:\n\r\t")
             if vara and "vara não informada" not in vara.lower():
@@ -490,6 +576,7 @@ def _extract_cliente_from_pdf_block(txt: str) -> Optional[str]:
 
     for pat in patterns:
         m = re.search(pat, txt, flags=re.IGNORECASE | re.DOTALL)
+
         if m:
             nome = re.sub(r"\s+", " ", m.group(1)).strip(" -:\n\r\t")
             if nome:
@@ -513,8 +600,8 @@ def _extract_numero_processo_from_pdf_block(txt: str) -> Optional[str]:
         if m:
             return m.group(1).strip()
 
-    # fallback: número só com dígitos CNJ sem máscara
     m = re.search(r"\b([0-9]{20})\b", txt)
+
     if m:
         digits = m.group(1)
         return f"{digits[0:7]}-{digits[7:9]}.{digits[9:13]}.{digits[13]}.{digits[14:16]}.{digits[16:20]}"
@@ -534,12 +621,14 @@ def _extract_vara_from_pdf_block(txt: str) -> Optional[str]:
 
     for pat in patterns:
         m = re.search(pat, txt, flags=re.IGNORECASE | re.DOTALL)
+
         if m:
             vara = re.sub(r"\s+", " ", m.group(1)).strip(" -:\n\r\t")
             if vara and "vara não informada" not in vara.lower():
                 return vara
 
     vara_conteudo = _extract_vara_from_conteudo(txt)
+
     if vara_conteudo:
         return vara_conteudo
 
@@ -558,6 +647,7 @@ def _extract_diario_from_pdf_block(txt: str) -> Optional[str]:
 
     for pat in patterns:
         m = re.search(pat, txt, flags=re.IGNORECASE | re.DOTALL)
+
         if m:
             diario = re.sub(r"\s+", " ", m.group(1)).strip(" -:\n\r\t")
             if diario:
@@ -568,6 +658,7 @@ def _extract_diario_from_pdf_block(txt: str) -> Optional[str]:
 
 def _parse_pdf_block_to_row(txt: str) -> Optional[dict]:
     txt = _clean_pdf_text(txt)
+
     if not txt:
         return None
 
@@ -587,6 +678,7 @@ def _parse_pdf_block_to_row(txt: str) -> Optional[dict]:
         data_pub = _parse_date_br(m.group(1))
 
     numero = _extract_numero_processo_from_pdf_block(txt)
+
     if not numero:
         return None
 
@@ -604,38 +696,85 @@ def _parse_pdf_block_to_row(txt: str) -> Optional[dict]:
     }
 
 
-def parse_pdf_bytes(file_bytes: bytes, filename: str) -> Tuple[List[dict], Optional[date], Optional[date]]:
-    texto = _extract_text_from_pdf_bytes(file_bytes)
-    blocos = _split_pdf_publication_blocks(texto)
+def _iter_pdf_blocks_from_path(path: str) -> Iterable[str]:
+    if PdfReader is None:
+        raise RuntimeError("Biblioteca 'pypdf' não instalada. Rode: pip install pypdf")
 
-    rows = []
-    periodo_ini = None
-    periodo_fim = None
+    reader = PdfReader(path)
 
-    for bloco in blocos:
-        item = _parse_pdf_block_to_row(bloco)
-        if not item:
+    buffer = ""
+    found_markers = False
+
+    for page in reader.pages:
+        try:
+            txt = page.extract_text() or ""
+        except Exception:
+            txt = ""
+
+        txt = _clean_pdf_text(txt)
+
+        if not txt:
             continue
 
-        disp = item.get("data_disponibilizacao")
-        pub = item.get("data_publicacao")
+        combined = (buffer + "\n" + txt).strip() if buffer else txt
+        matches = list(PDF_BLOCK_MARKER_RX.finditer(combined))
 
-        if disp and (periodo_ini is None or disp < periodo_ini):
-            periodo_ini = disp
-        if pub and (periodo_fim is None or pub > periodo_fim):
-            periodo_fim = pub
-        elif disp and (periodo_fim is None or disp > periodo_fim):
-            periodo_fim = disp
+        if len(matches) >= 2:
+            found_markers = True
 
-        rows.append(item)
+            for i in range(len(matches) - 1):
+                start = matches[i].start()
+                end = matches[i + 1].start()
+                bloco = combined[start:end].strip()
+                if bloco:
+                    yield bloco
 
-    if not rows:
+            buffer = combined[matches[-1].start():].strip()
+
+        elif len(matches) == 1:
+            found_markers = True
+
+            if buffer and matches[0].start() > 0:
+                prefix = combined[:matches[0].start()].strip()
+                if prefix and _extract_numero_processo_from_pdf_block(prefix):
+                    yield prefix
+
+            buffer = combined[matches[0].start():].strip()
+
+        else:
+            buffer = combined
+
+            if len(buffer) > 3_000_000:
+                possible = _parse_pdf_block_to_row(buffer)
+                if possible:
+                    yield buffer
+                    buffer = ""
+                else:
+                    buffer = buffer[-1_000_000:]
+
+    if buffer.strip():
+        yield buffer.strip()
+
+    del reader
+
+
+def _iter_pdf_rows_from_path(path: str) -> Iterable[dict]:
+    found = False
+
+    for bloco in _iter_pdf_blocks_from_path(path):
+        item = _parse_pdf_block_to_row(bloco)
+
+        if item:
+            found = True
+            yield item
+
+        del bloco
+
+    if not found:
         raise ValueError("Não consegui localizar publicações válidas dentro do PDF.")
 
-    return rows, periodo_ini, periodo_fim
 
-
-def _read_any_to_matrix(file_bytes: bytes, filename: str) -> Tuple[List[List[object]], Optional[date], Optional[date]]:
+def _read_any_to_matrix_from_bytes(file_bytes: bytes, filename: str) -> Tuple[List[List[object]], Optional[date], Optional[date]]:
     import io
     import pandas as pd
 
@@ -655,10 +794,13 @@ def _read_any_to_matrix(file_bytes: bytes, filename: str) -> Tuple[List[List[obj
 
         periodo_ini = None
         periodo_fim = None
+
         for t in tables:
             ini, fim = _find_periodo_in_matrix(t)
+
             if ini and (periodo_ini is None or ini < periodo_ini):
                 periodo_ini = ini
+
             if fim and (periodo_fim is None or fim > periodo_fim):
                 periodo_fim = fim
 
@@ -669,10 +811,7 @@ def _read_any_to_matrix(file_bytes: bytes, filename: str) -> Tuple[List[List[obj
 
 
 def parse_planilha_bytes(file_bytes: bytes, filename: str) -> Tuple[List[dict], Optional[date], Optional[date]]:
-    if _is_pdf(file_bytes, filename):
-        return parse_pdf_bytes(file_bytes, filename)
-
-    matrix, periodo_ini, periodo_fim = _read_any_to_matrix(file_bytes, filename)
+    matrix, periodo_ini, periodo_fim = _read_any_to_matrix_from_bytes(file_bytes, filename)
     header_r, col_map = _find_header_in_matrix(matrix)
 
     disp_c = col_map.get("disp")
@@ -690,9 +829,12 @@ def parse_planilha_bytes(file_bytes: bytes, filename: str) -> Tuple[List[dict], 
 
         if not numero_str:
             empty_streak += 1
+
             if empty_streak >= 2:
                 break
+
             continue
+
         empty_streak = 0
 
         disp = _parse_date_br(row[disp_c]) if disp_c is not None and disp_c < len(row) else None
@@ -717,9 +859,189 @@ def parse_planilha_bytes(file_bytes: bytes, filename: str) -> Tuple[List[dict], 
     return rows, periodo_ini, periodo_fim
 
 
-# =========================
-# Views
-# =========================
+def _update_periodo_from_row(
+    row: dict,
+    periodo_ini: Optional[date],
+    periodo_fim: Optional[date],
+) -> Tuple[Optional[date], Optional[date]]:
+    disp = row.get("data_disponibilizacao")
+    pub = row.get("data_publicacao")
+
+    if disp and (periodo_ini is None or disp < periodo_ini):
+        periodo_ini = disp
+
+    if pub and (periodo_fim is None or pub > periodo_fim):
+        periodo_fim = pub
+    elif disp and (periodo_fim is None or disp > periodo_fim):
+        periodo_fim = disp
+
+    return periodo_ini, periodo_fim
+
+
+def _save_upload_to_temp(upload: UploadFile) -> Tuple[str, int]:
+    suffix = f".{_ext(upload.filename)}" if _ext(upload.filename) else ""
+
+    fd, path = tempfile.mkstemp(prefix="kj_migration_", suffix=suffix, dir="/tmp")
+    total = 0
+
+    try:
+        with os.fdopen(fd, "wb") as out:
+            while True:
+                chunk = upload.file.read(1024 * 1024)
+
+                if not chunk:
+                    break
+
+                total += len(chunk)
+
+                if total > MAX_UPLOAD_BYTES:
+                    raise ValueError(f"Arquivo excede o limite técnico de {MAX_UPLOAD_MB}MB.")
+
+                out.write(chunk)
+
+        return path, total
+
+    except Exception:
+        try:
+            os.close(fd)
+        except Exception:
+            pass
+
+        try:
+            os.remove(path)
+        except Exception:
+            pass
+
+        raise
+
+
+def _load_non_pdf_file_bytes(path: str) -> bytes:
+    size = os.path.getsize(path)
+
+    if size > MAX_UPLOAD_BYTES:
+        raise ValueError(f"Arquivo excede o limite técnico de {MAX_UPLOAD_MB}MB.")
+
+    with open(path, "rb") as fp:
+        return fp.read()
+
+
+def _insert_rows_chunk(
+    db: Session,
+    rows_to_insert: List[MigrationRow],
+) -> Tuple[int, int]:
+    if not rows_to_insert:
+        return 0, 0
+
+    inserted = 0
+    blocked = 0
+
+    try:
+        db.bulk_save_objects(rows_to_insert)
+        db.commit()
+        inserted += len(rows_to_insert)
+        db.expunge_all()
+        return inserted, blocked
+
+    except IntegrityError:
+        db.rollback()
+
+        for row in rows_to_insert:
+            try:
+                db.add(row)
+                db.commit()
+                inserted += 1
+            except IntegrityError:
+                db.rollback()
+                blocked += 1
+            finally:
+                db.expunge_all()
+
+    except Exception:
+        db.rollback()
+        raise
+
+    return inserted, blocked
+
+
+def _process_parsed_rows_into_migration_rows(
+    db: Session,
+    office_id: int,
+    batch_id: int,
+    parsed_rows: Iterable[dict],
+    nums_hoje: set,
+    seen_in_this_upload: set,
+    permitir_dup_hoje: bool,
+) -> Tuple[int, int, int, int, Optional[date], Optional[date]]:
+    total_extraidos = 0
+    total_inseridos = 0
+    total_ignorados = 0
+    blocked_by_db = 0
+    periodo_ini = None
+    periodo_fim = None
+
+    buffer_insert = []
+
+    for r in parsed_rows:
+        total_extraidos += 1
+
+        periodo_ini, periodo_fim = _update_periodo_from_row(r, periodo_ini, periodo_fim)
+
+        num = (r.get("numero_processo") or "").strip()
+
+        if not num:
+            total_ignorados += 1
+            continue
+
+        if num in seen_in_this_upload:
+            total_ignorados += 1
+            continue
+
+        seen_in_this_upload.add(num)
+
+        if (num in nums_hoje) and (not permitir_dup_hoje):
+            total_ignorados += 1
+            continue
+
+        row = MigrationRow(
+            office_id=office_id,
+            batch_id=batch_id,
+            data_disponibilizacao=r.get("data_disponibilizacao"),
+            data_publicacao=r.get("data_publicacao"),
+            numero_processo=num,
+            diario=r.get("diario"),
+        )
+
+        _safe_set(row, "cliente", (r.get("cliente") or "").strip() or None)
+        _safe_set(row, "vara_tramitacao", (r.get("vara_tramitacao") or "").strip() or None)
+
+        buffer_insert.append(row)
+
+        if len(buffer_insert) >= INSERT_CHUNK_SIZE:
+            inserted, blocked = _insert_rows_chunk(db, buffer_insert)
+            total_inseridos += inserted
+            blocked_by_db += blocked
+            total_ignorados += blocked
+            buffer_insert.clear()
+            gc.collect()
+
+    if buffer_insert:
+        inserted, blocked = _insert_rows_chunk(db, buffer_insert)
+        total_inseridos += inserted
+        blocked_by_db += blocked
+        total_ignorados += blocked
+        buffer_insert.clear()
+        gc.collect()
+
+    return (
+        total_extraidos,
+        total_inseridos,
+        total_ignorados,
+        blocked_by_db,
+        periodo_ini,
+        periodo_fim,
+    )
+
+
 @router.get("/migracoes", response_class=HTMLResponse)
 def migracoes_view(request: Request, db: Session = Depends(get_db)):
     office_id = _get_office_id(request)
@@ -742,11 +1064,13 @@ def migracoes_view(request: Request, db: Session = Depends(get_db)):
     )
 
     from collections import Counter
+
     nums = [p.numero_processo for p in pendentes if (p.numero_processo or "").strip()]
     c = Counter(nums)
     dup_nums = [n for n, qtd in c.items() if qtd > 1]
 
     msg = request.query_params.get("msg")
+
     return templates.TemplateResponse(
         "migrations/index.html",
         {
@@ -760,9 +1084,6 @@ def migracoes_view(request: Request, db: Session = Depends(get_db)):
     )
 
 
-# =========================
-# Upload
-# =========================
 @router.post("/migracoes/upload")
 async def migracoes_upload(
     request: Request,
@@ -777,124 +1098,184 @@ async def migracoes_upload(
         office_id=office_id,
         criado_em=now_br(),
     )
+
+    _safe_set(batch, "status", "PROCESSANDO")
+    _safe_set(batch, "arquivo_nome", ", ".join([(f.filename or "") for f in files])[:255])
+    _safe_set(batch, "total_extraidos", 0)
+    _safe_set(batch, "total_inseridos", 0)
+    _safe_set(batch, "total_ignorados", 0)
+
     db.add(batch)
     db.commit()
     db.refresh(batch)
 
-    periodo_ini = None
-    periodo_fim = None
+    periodo_ini_final = None
+    periodo_fim_final = None
+
+    total_extraidos_final = 0
+    total_inseridos_final = 0
+    total_ignorados_final = 0
+    blocked_by_db_total = 0
 
     seen_in_this_upload = set()
 
-    hoje = date.today()
+    hoje = now_br().date()
+
     nums_hoje = set(
-        x[0] for x in
-        db.query(MigrationRow.numero_processo)
-        .join(MigrationBatch, MigrationBatch.id == MigrationRow.batch_id)
-        .filter(
-            MigrationBatch.office_id == office_id,
-            func.date(MigrationBatch.criado_em) == hoje,
+        x[0]
+        for x in (
+            db.query(MigrationRow.numero_processo)
+            .join(MigrationBatch, MigrationBatch.id == MigrationRow.batch_id)
+            .filter(
+                MigrationBatch.office_id == office_id,
+                func.date(MigrationBatch.criado_em) == hoje,
+            )
+            .all()
         )
-        .all()
         if x and x[0]
     )
 
-    duplicated_today_ignored = 0
-    duplicated_today_inserted = 0
-    blocked_by_db = 0
+    temp_paths = []
 
-    for f in files:
-        content = await f.read()
-        if not content:
-            continue
+    try:
+        for f in files:
+            filename = f.filename or "arquivo"
+            ext = _ext(filename)
 
-        ext = _ext(f.filename)
-        if ext not in {"xls", "xlsx", "xlsm", "csv", "txt", "html", "htm", "pdf"}:
-            msg = f"Arquivo '{f.filename}' não suportado. Envie .XLS/.XLSX/.XLSM/.PDF (ou exportações texto/HTML)."
-            return RedirectResponse(url=f"/migracoes?msg={msg}", status_code=303)
+            if ext not in {"xls", "xlsx", "xlsm", "csv", "txt", "html", "htm", "pdf"}:
+                raise ValueError(
+                    f"Arquivo '{filename}' não suportado. Envie .XLS/.XLSX/.XLSM/.PDF "
+                    f"(ou exportações texto/HTML)."
+                )
 
-        try:
-            parsed_rows, p_ini, p_fim = parse_planilha_bytes(content, f.filename)
-        except Exception as e:
-            msg = f"Falha ao ler '{f.filename}'. Motivo: {str(e)}"
-            return RedirectResponse(url=f"/migracoes?msg={msg}", status_code=303)
+            temp_path, total_bytes = _save_upload_to_temp(f)
+            temp_paths.append(temp_path)
 
-        if p_ini and (periodo_ini is None or p_ini < periodo_ini):
-            periodo_ini = p_ini
-        if p_fim and (periodo_fim is None or p_fim > periodo_fim):
-            periodo_fim = p_fim
-
-        for r in parsed_rows:
-            num = (r.get("numero_processo") or "").strip()
-            if not num:
+            if not total_bytes:
                 continue
 
-            if num in seen_in_this_upload:
-                continue
-            seen_in_this_upload.add(num)
+            if _is_pdf_by_path(temp_path, filename):
+                parsed_iter = _iter_pdf_rows_from_path(temp_path)
+            else:
+                content = _load_non_pdf_file_bytes(temp_path)
+                parsed_rows, p_ini, p_fim = parse_planilha_bytes(content, filename)
 
-            if (num in nums_hoje) and (not permitir_dup_hoje):
-                duplicated_today_ignored += 1
-                continue
+                if p_ini and (periodo_ini_final is None or p_ini < periodo_ini_final):
+                    periodo_ini_final = p_ini
 
-            if (num in nums_hoje) and permitir_dup_hoje:
-                duplicated_today_inserted += 1
+                if p_fim and (periodo_fim_final is None or p_fim > periodo_fim_final):
+                    periodo_fim_final = p_fim
 
-            row = MigrationRow(
+                parsed_iter = iter(parsed_rows)
+
+            (
+                total_extraidos,
+                total_inseridos,
+                total_ignorados,
+                blocked_by_db,
+                p_ini2,
+                p_fim2,
+            ) = _process_parsed_rows_into_migration_rows(
+                db=db,
                 office_id=office_id,
                 batch_id=batch.id,
-                data_disponibilizacao=r.get("data_disponibilizacao"),
-                data_publicacao=r.get("data_publicacao"),
-                numero_processo=num,
-                diario=r.get("diario"),
+                parsed_rows=parsed_iter,
+                nums_hoje=nums_hoje,
+                seen_in_this_upload=seen_in_this_upload,
+                permitir_dup_hoje=permitir_dup_hoje,
             )
 
-            _safe_set(row, "cliente", (r.get("cliente") or "").strip() or None)
-            _safe_set(row, "vara_tramitacao", (r.get("vara_tramitacao") or "").strip() or None)
+            total_extraidos_final += total_extraidos
+            total_inseridos_final += total_inseridos
+            total_ignorados_final += total_ignorados
+            blocked_by_db_total += blocked_by_db
 
-            db.add(row)
+            if p_ini2 and (periodo_ini_final is None or p_ini2 < periodo_ini_final):
+                periodo_ini_final = p_ini2
+
+            if p_fim2 and (periodo_fim_final is None or p_fim2 > periodo_fim_final):
+                periodo_fim_final = p_fim2
 
             try:
-                db.flush()
-            except IntegrityError:
-                db.rollback()
-                blocked_by_db += 1
-                continue
+                del parsed_iter
+            except Exception:
+                pass
 
-    batch.periodo_inicio = periodo_ini
-    batch.periodo_fim = periodo_fim
-    db.commit()
+            try:
+                del content
+            except Exception:
+                pass
 
-    if duplicated_today_ignored > 0 and not permitir_dup_hoje:
-        msg = (
-            f"Atenção: {duplicated_today_ignored} processo(s) deste upload já foram migrados hoje e foram ignorados, "
-            f"pois você marcou 'Não' em duplicar."
+            try:
+                del parsed_rows
+            except Exception:
+                pass
+
+            gc.collect()
+
+        batch = db.query(MigrationBatch).filter(MigrationBatch.id == batch.id).first()
+        batch.periodo_inicio = periodo_ini_final
+        batch.periodo_fim = periodo_fim_final
+
+        _set_batch_status(
+            db=db,
+            batch=batch,
+            status="CONCLUIDO",
+            total_extraidos=total_extraidos_final,
+            total_inseridos=total_inseridos_final,
+            total_ignorados=total_ignorados_final,
+            processado=True,
         )
-        return RedirectResponse(url=f"/migracoes?msg={msg}", status_code=303)
 
-    if permitir_dup_hoje:
-        if duplicated_today_inserted > 0:
-            msg = (
-                f"Atenção: você escolheu 'Sim' e {duplicated_today_inserted} processo(s) já migrados hoje foram inseridos novamente "
-                f"(destacados em vermelho)."
-            )
-            if blocked_by_db > 0:
-                msg += f" Obs.: {blocked_by_db} registro(s) foram bloqueados pelo banco por duplicidade dentro do mesmo lote."
-            return RedirectResponse(url=f"/migracoes?msg={msg}", status_code=303)
-        else:
-            msg = "Você escolheu 'Sim', mas não havia processos já migrados hoje neste upload. Nenhuma duplicidade foi gerada."
-            return RedirectResponse(url=f"/migracoes?msg={msg}", status_code=303)
+    except Exception as e:
+        db.rollback()
 
-    if blocked_by_db > 0:
-        msg = f"Atenção: {blocked_by_db} registro(s) foram bloqueados pelo banco por duplicidade dentro do mesmo lote."
-        return RedirectResponse(url=f"/migracoes?msg={msg}", status_code=303)
+        try:
+            batch = db.query(MigrationBatch).filter(MigrationBatch.id == batch.id).first()
+            if batch:
+                _set_batch_status(
+                    db=db,
+                    batch=batch,
+                    status="ERRO",
+                    erro=str(e),
+                    total_extraidos=total_extraidos_final,
+                    total_inseridos=total_inseridos_final,
+                    total_ignorados=total_ignorados_final,
+                    processado=True,
+                )
+        except Exception:
+            db.rollback()
 
-    return RedirectResponse(url="/migracoes", status_code=303)
+        return _redirect_msg(f"Falha na migração. Motivo: {str(e)}")
+
+    finally:
+        for path in temp_paths:
+            try:
+                os.remove(path)
+            except Exception:
+                pass
+
+        gc.collect()
+
+    if total_inseridos_final <= 0 and total_extraidos_final > 0:
+        return _redirect_msg(
+            f"Migração concluída, mas nenhum novo item foi inserido. "
+            f"Extraídos: {total_extraidos_final}. Ignorados: {total_ignorados_final}."
+        )
+
+    if blocked_by_db_total > 0:
+        return _redirect_msg(
+            f"Migração concluída. Inseridos: {total_inseridos_final}. "
+            f"Ignorados: {total_ignorados_final}. "
+            f"Bloqueados por duplicidade no banco: {blocked_by_db_total}."
+        )
+
+    return _redirect_msg(
+        f"Migração concluída. Extraídos: {total_extraidos_final}. "
+        f"Inseridos: {total_inseridos_final}. Ignorados: {total_ignorados_final}."
+    )
 
 
-# ==========================================================
-# ✅ SALVAR/MIGRAR (UPSERT robusto) - CORRIGIDO p/ DJEN + OBS
-# ==========================================================
 def _migrar_row_para_process_item(
     db: Session,
     office_id: int,
@@ -903,14 +1284,14 @@ def _migrar_row_para_process_item(
     vara: str,
     obs: str,
     rompe_em: int,
-    dest: str
+    dest: str,
 ):
     aba_code = _normalize_status(dest)
 
     parte_autora = _default_parte_autora(cliente)
     vara_value = _default_vara(vara)
 
-    djen = row.data_publicacao or row.data_disponibilizacao or date.today()
+    djen = row.data_publicacao or row.data_disponibilizacao or now_br().date()
 
     try:
         prazo_int = int(rompe_em or 0)
@@ -926,10 +1307,8 @@ def _migrar_row_para_process_item(
         _safe_set(existing, "aba", aba_code)
         _safe_set(existing, "parte_autora", parte_autora)
         _safe_set(existing, "vara", vara_value)
-
         _safe_set(existing, "vara_tramitacao", vara_value)
         _safe_set(existing, "cliente", (cliente or "").strip() or getattr(existing, "cliente", None))
-
         _safe_set(existing, "data_intimacao", djen)
         _safe_set(existing, "prazo_dias", prazo_int if prazo_int > 0 else getattr(existing, "prazo_dias", None))
         _safe_set(existing, "vencimento", venc)
@@ -937,7 +1316,7 @@ def _migrar_row_para_process_item(
         if (obs or "").strip():
             old = (getattr(existing, "obs", None) or getattr(existing, "observacao", None) or "").strip()
             nova = (obs or "").strip()
-            tag = f"[MIGRAÇÃO {date.today().strftime('%d/%m/%Y')}]"
+            tag = f"[MIGRAÇÃO {now_br().date().strftime('%d/%m/%Y')}]"
             merged = (old + ("\n" if old else "") + f"{tag} {nova}").strip()
             _set_obs_compat(existing, merged)
 
@@ -958,10 +1337,8 @@ def _migrar_row_para_process_item(
         _safe_set(item, "aba", aba_code)
         _safe_set(item, "parte_autora", parte_autora)
         _safe_set(item, "vara", vara_value)
-
         _safe_set(item, "vara_tramitacao", vara_value)
         _safe_set(item, "cliente", (cliente or "").strip() or None)
-
         _safe_set(item, "data_intimacao", djen)
         _safe_set(item, "prazo_dias", prazo_int if prazo_int > 0 else None)
         _safe_set(item, "vencimento", venc)
@@ -975,11 +1352,14 @@ def _migrar_row_para_process_item(
         _safe_set(item, "atualizado_em", now_br())
 
         db.add(item)
+
         try:
             db.flush()
         except IntegrityError as e:
             db.rollback()
+
             existing2 = _find_existing_process_item(db, office_id, row.numero_processo)
+
             if existing2:
                 _safe_set(existing2, "office_id", office_id)
                 _safe_set(existing2, "aba", aba_code)
@@ -992,7 +1372,7 @@ def _migrar_row_para_process_item(
                 if (obs or "").strip():
                     old = (getattr(existing2, "obs", None) or getattr(existing2, "observacao", None) or "").strip()
                     nova = (obs or "").strip()
-                    tag = f"[MIGRAÇÃO {date.today().strftime('%d/%m/%Y')}]"
+                    tag = f"[MIGRAÇÃO {now_br().date().strftime('%d/%m/%Y')}]"
                     merged = (old + ("\n" if old else "") + f"{tag} {nova}").strip()
                     _set_obs_compat(existing2, merged)
 
@@ -1016,9 +1396,6 @@ def _migrar_row_para_process_item(
     db.add(row)
 
 
-# =========================
-# Salvar individual
-# =========================
 @router.post("/migracoes/salvar/{row_id}")
 def migracoes_salvar_individual(
     request: Request,
@@ -1040,28 +1417,35 @@ def migracoes_salvar_individual(
         )
         .first()
     )
+
     if not row:
-        return RedirectResponse(url="/migracoes?msg=Item não encontrado.", status_code=303)
+        return _redirect_msg("Item não encontrado.")
 
     if row.enviado_em is not None:
-        return RedirectResponse(url="/migracoes?msg=Este item já foi migrado.", status_code=303)
+        return _redirect_msg("Este item já foi migrado.")
 
     try:
-        _migrar_row_para_process_item(db, office_id, row, cliente, vara_tramitacao, observacao, rompe_em, enviar_para)
+        _migrar_row_para_process_item(
+            db,
+            office_id,
+            row,
+            cliente,
+            vara_tramitacao,
+            observacao,
+            rompe_em,
+            enviar_para,
+        )
         db.commit()
     except HTTPException as e:
         db.rollback()
-        return RedirectResponse(url=f"/migracoes?msg={e.detail}", status_code=303)
+        return _redirect_msg(e.detail)
     except Exception as e:
         db.rollback()
-        return RedirectResponse(url=f"/migracoes?msg=Erro ao migrar: {str(e)}", status_code=303)
+        return _redirect_msg(f"Erro ao migrar: {str(e)}")
 
-    return RedirectResponse(url="/migracoes?msg=Item migrado com sucesso.", status_code=303)
+    return _redirect_msg("Item migrado com sucesso.")
 
 
-# =========================
-# Salvar lote (selecionados)
-# =========================
 @router.post("/migracoes/salvar-lote")
 async def migracoes_salvar_lote(
     request: Request,
@@ -1071,7 +1455,7 @@ async def migracoes_salvar_lote(
     office_id = _get_office_id(request)
 
     if not selected_ids:
-        return RedirectResponse(url="/migracoes?msg=Nenhum item selecionado.", status_code=303)
+        return _redirect_msg("Nenhum item selecionado.")
 
     rows = (
         db.query(MigrationRow)
@@ -1103,25 +1487,23 @@ async def migracoes_salvar_lote(
 
         try:
             _migrar_row_para_process_item(db, office_id, row, cliente, vara, obs, rompe_int, dest)
+            db.commit()
             ok += 1
         except Exception:
             db.rollback()
             fail += 1
 
-    try:
-        db.commit()
-    except Exception:
-        db.rollback()
+    gc.collect()
 
-    msg = f"Migração concluída. Sucesso: {ok}. Falhas: {fail}."
-    return RedirectResponse(url=f"/migracoes?msg={msg}", status_code=303)
+    return _redirect_msg(f"Migração concluída. Sucesso: {ok}. Falhas: {fail}.")
 
 
-# =========================
-# Excluir pendente individual
-# =========================
 @router.post("/migracoes/pendente/{row_id}/excluir")
-def migracoes_excluir_pendente(request: Request, row_id: int, db: Session = Depends(get_db)):
+def migracoes_excluir_pendente(
+    request: Request,
+    row_id: int,
+    db: Session = Depends(get_db),
+):
     office_id = _get_office_id(request)
 
     row = (
@@ -1132,27 +1514,31 @@ def migracoes_excluir_pendente(request: Request, row_id: int, db: Session = Depe
         )
         .first()
     )
+
     if not row:
-        return RedirectResponse(url="/migracoes?msg=Item não encontrado.", status_code=303)
+        return _redirect_msg("Item não encontrado.")
 
     if row.enviado_em is not None:
-        return RedirectResponse(url="/migracoes?msg=Não é possível excluir: item já foi migrado.", status_code=303)
+        return _redirect_msg("Não é possível excluir: item já foi migrado.")
 
     db.delete(row)
     db.commit()
-    return RedirectResponse(url="/migracoes?msg=Item excluído.", status_code=303)
+
+    return _redirect_msg("Item excluído.")
 
 
-# =========================
-# Excluir lote
-# =========================
 @router.post("/migracoes/pendente/excluir-lote")
-def migracoes_excluir_lote(request: Request, ids: str = Form(""), db: Session = Depends(get_db)):
+def migracoes_excluir_lote(
+    request: Request,
+    ids: str = Form(""),
+    db: Session = Depends(get_db),
+):
     office_id = _get_office_id(request)
 
     ids = (ids or "").strip()
+
     if not ids:
-        return RedirectResponse(url="/migracoes?msg=Nenhum item selecionado para excluir.", status_code=303)
+        return _redirect_msg("Nenhum item selecionado para excluir.")
 
     try:
         id_list = [int(x) for x in ids.split(",") if x.strip().isdigit()]
@@ -1160,7 +1546,7 @@ def migracoes_excluir_lote(request: Request, ids: str = Form(""), db: Session = 
         id_list = []
 
     if not id_list:
-        return RedirectResponse(url="/migracoes?msg=IDs inválidos.", status_code=303)
+        return _redirect_msg("IDs inválidos.")
 
     rows = (
         db.query(MigrationRow)
@@ -1176,4 +1562,6 @@ def migracoes_excluir_lote(request: Request, ids: str = Form(""), db: Session = 
         db.delete(r)
 
     db.commit()
-    return RedirectResponse(url="/migracoes?msg=Itens excluídos.", status_code=303)
+    gc.collect()
+
+    return _redirect_msg("Itens excluídos.")
