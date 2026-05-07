@@ -1,3 +1,15 @@
+"""
+app/models/migration.py
+========================
+Modelo atualizado com as 7 colunas novas que foram adicionadas no banco via ALTER TABLE.
+
+Mudanças aplicadas:
+1. Adicionadas as 7 colunas novas em MigrationBatch (status, arquivo_nome, etc.)
+2. Default de 'status' corrigido para 'PENDENTE' (em vez de 'CONCLUIDO')
+3. Constantes de status para evitar strings mágicas espalhadas pelo código
+4. Índice composto em (office_id, criado_em) para acelerar a consulta de "lotes de hoje"
+"""
+
 from sqlalchemy import (
     Column,
     Integer,
@@ -7,10 +19,24 @@ from sqlalchemy import (
     Text,
     ForeignKey,
     UniqueConstraint,
+    Index,
+    CheckConstraint,
 )
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 from app.core.datetime_utils import now_br
+
+
+# ==========================================================
+# ✅ Constantes de status (evitam strings mágicas no código)
+# ==========================================================
+class BatchStatus:
+    PENDENTE = "PENDENTE"
+    PROCESSANDO = "PROCESSANDO"
+    CONCLUIDO = "CONCLUIDO"
+    ERRO = "ERRO"
+
+    ALL = (PENDENTE, PROCESSANDO, CONCLUIDO, ERRO)
 
 
 class MigrationBatch(Base):
@@ -18,7 +44,7 @@ class MigrationBatch(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    # ✅ NOVO: vínculo com escritório
+    # Vínculo com escritório
     office_id = Column(
         Integer,
         ForeignKey("offices.id", ondelete="CASCADE"),
@@ -32,10 +58,46 @@ class MigrationBatch(Base):
 
     criado_em = Column(DateTime, default=now_br, nullable=False)
 
+    # ==========================================================
+    # ✅ NOVAS COLUNAS — agora mapeadas no ORM e USADAS pelo código
+    # ==========================================================
+    # Status do lote: PENDENTE → PROCESSANDO → CONCLUIDO ou ERRO
+    status = Column(
+        String(30),
+        nullable=False,
+        default=BatchStatus.PENDENTE,
+        server_default=BatchStatus.PENDENTE,  # default do Postgres também
+        index=True,
+    )
+
+    # Nome do arquivo enviado (para auditoria/suporte)
+    arquivo_nome = Column(String(255), nullable=True)
+
+    # Mensagem de erro completa, se status == 'ERRO'
+    erro_processamento = Column(Text, nullable=True)
+
+    # Timestamp de quando terminou (sucesso ou falha)
+    processado_em = Column(DateTime, nullable=True)
+
+    # Estatísticas do lote
+    total_extraidos = Column(Integer, nullable=False, default=0, server_default="0")
+    total_inseridos = Column(Integer, nullable=False, default=0, server_default="0")
+    total_ignorados = Column(Integer, nullable=False, default=0, server_default="0")
+
     rows = relationship(
         "MigrationRow",
         back_populates="batch",
         cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        # Garante que o status só pode ser um dos valores válidos
+        CheckConstraint(
+            f"status IN {BatchStatus.ALL}",
+            name="ck_migration_batches_status_valido",
+        ),
+        # Índice composto para acelerar consulta "lotes do escritório de hoje"
+        Index("ix_migration_batches_office_criado", "office_id", "criado_em"),
     )
 
 
@@ -44,7 +106,7 @@ class MigrationRow(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    # ✅ NOVO: vínculo com escritório
+    # Vínculo com escritório
     office_id = Column(
         Integer,
         ForeignKey("offices.id", ondelete="CASCADE"),
@@ -63,7 +125,7 @@ class MigrationRow(Base):
     data_disponibilizacao = Column(Date, nullable=True, index=True)
     data_publicacao = Column(Date, nullable=True, index=True)
 
-    # ✅ NÃO pode ser UNIQUE globalmente
+    # NÃO é UNIQUE globalmente
     numero_processo = Column(String, nullable=False, index=True)
 
     diario = Column(Text, nullable=True)
@@ -79,13 +141,17 @@ class MigrationRow(Base):
     enviado_em = Column(DateTime, nullable=True)
     enviado_para_status = Column(String, nullable=True)
 
-    # ✅ CORREÇÃO CRÍTICA:
-    # agora é único por escritório + lote + processo
     __table_args__ = (
         UniqueConstraint(
             "office_id",
             "batch_id",
             "numero_processo",
             name="uq_migration_office_batch_numero_processo",
+        ),
+        # Índice composto para acelerar busca de pendentes do escritório
+        Index(
+            "ix_migration_rows_office_enviado",
+            "office_id",
+            "enviado_em",
         ),
     )
