@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -7,6 +8,7 @@ from fastapi.responses import RedirectResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import joinedload
 
 from app.core.config import (
@@ -15,7 +17,7 @@ from app.core.config import (
     SESSION_MAX_AGE,
     SECURE_COOKIES,
 )
-from app.core.database import create_tables, SessionLocal
+from app.core.database import create_tables, SessionLocal, engine
 from app.core.permission_seed import seed_permissions
 from app.core.session_manager import get_session_user_id, get_session_office_id
 from app.models.user import User
@@ -37,7 +39,7 @@ from app.routers import (
 )
 from app.routers.web_doc import router as web_doc_router
 from app.routers.web_doc_templates import router as web_doc_templates_router
-from app.routers import web_auth, web_users
+from app.routers import web_auth, web_users, web_account
 from app.routers import web_offices
 from app.routers import web_whatsapp_templates
 
@@ -138,6 +140,40 @@ def _load_user_from_session(request: Request):
 
 
 # =========================================================
+# MIGRAÇÕES SIMPLES DE COLUNAS
+# =========================================================
+def _ensure_offices_finance_password_hash_column() -> None:
+    """
+    Garante a existência da coluna offices.finance_password_hash.
+
+    Essa coluna permite que cada escritório tenha sua própria senha
+    do financeiro, armazenada como hash.
+    """
+    try:
+        inspector = inspect(engine)
+        columns = [c["name"] for c in inspector.get_columns("offices")]
+
+        if "finance_password_hash" in columns:
+            print("[DB] coluna offices.finance_password_hash já existe")
+            return
+
+        dialect = engine.dialect.name
+
+        if dialect == "postgresql":
+            ddl = "ALTER TABLE offices ADD COLUMN finance_password_hash VARCHAR(255)"
+        else:
+            ddl = "ALTER TABLE offices ADD COLUMN finance_password_hash VARCHAR(255)"
+
+        with engine.begin() as conn:
+            conn.execute(text(ddl))
+
+        print("[DB] coluna offices.finance_password_hash criada com sucesso")
+
+    except Exception as e:
+        print(f"[DB] erro ao garantir coluna offices.finance_password_hash: {e}")
+
+
+# =========================================================
 # MIDDLEWARE CUSTOMIZADO DE AUTENTICAÇÃO
 # =========================================================
 class AuthenticationMiddleware(BaseHTTPMiddleware):
@@ -189,6 +225,7 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     create_tables()
+    _ensure_offices_finance_password_hash_column()
 
     print("=" * 70)
     print("APP STARTUP")
@@ -213,6 +250,7 @@ def on_startup():
 # =========================================================
 app.include_router(web_auth.router)
 app.include_router(web_users.router)
+app.include_router(web_account.router)
 app.include_router(web_offices.router)
 app.include_router(web_whatsapp_templates.router)
 

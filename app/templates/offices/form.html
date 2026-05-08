@@ -3,106 +3,225 @@
 {% block content %}
 <div class="container py-4">
 
-  <h3 class="mb-4">➕ Novo Escritório</h3>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="mb-1">➕ Novo Escritório</h3>
+      <p class="text-muted mb-0">
+        Cadastre um novo escritório com senha própria de acesso e financeiro.
+      </p>
+    </div>
+  </div>
 
   {% if error %}
-    <div class="alert alert-danger">
+    <div class="alert alert-danger shadow-sm">
       {{ error }}
     </div>
   {% endif %}
 
-  <div class="card shadow-sm">
-    <div class="card-body">
+  <div class="card shadow-sm border-0">
+    <div class="card-body p-4">
 
       <form method="post">
 
-        <!-- ========================= -->
+        <!-- ===================================================== -->
         <!-- DADOS DO ESCRITÓRIO -->
-        <!-- ========================= -->
-        <h5 class="mb-3">🏢 Dados do Escritório</h5>
+        <!-- ===================================================== -->
+        <div class="mb-4">
+          <h5 class="mb-3">
+            🏢 Dados do Escritório
+          </h5>
 
-        <div class="mb-3">
-          <label class="form-label">Nome do Escritório</label>
-          <input
-            type="text"
-            name="office_nome"
-            class="form-control"
-            required
-            value="{{ form_data.office_nome if form_data else '' }}"
-          >
+          <div class="mb-3">
+            <label class="form-label fw-semibold">
+              Nome do Escritório
+            </label>
+
+            <input
+              type="text"
+              name="office_nome"
+              class="form-control"
+              required
+              autocomplete="off"
+              value="{{ form_data.office_nome if form_data else '' }}"
+            >
+          </div>
         </div>
 
         <hr class="my-4">
 
-        <!-- ========================= -->
-        <!-- ADMIN -->
-        <!-- ========================= -->
-        <h5 class="mb-3">👤 Administrador</h5>
+        <!-- ===================================================== -->
+        <!-- ADMINISTRADOR -->
+        <!-- ===================================================== -->
+        <div class="mb-4">
+          <h5 class="mb-3">
+            👤 Administrador do Escritório
+          </h5>
 
-        <div class="mb-3">
-          <label class="form-label">Nome</label>
-          <input
-            type="text"
-            name="admin_nome"
-            class="form-control"
-            required
-            value="{{ form_data.admin_nome if form_data else '' }}"
-          >
+          <div class="row">
+
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-semibold">
+                Nome
+              </label>
+
+              <input
+                type="text"
+                name="admin_nome"
+                class="form-control"
+                required
+                autocomplete="off"
+                value="{{ form_data.admin_nome if form_data else '' }}"
+              >
+            </div>
+
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-semibold">
+                E-mail
+              </label>
+
+              <input
+                type="email"
+                name="admin_email"
+                class="form-control"
+                required
+                autocomplete="off"
+                value="{{ form_data.admin_email if form_data else '' }}"
+              >
+            </div>
+
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-semibold">
+                Username
+              </label>
+
+              <input
+                type="text"
+                name="admin_username"
+                class="form-control"
+                required
+                autocomplete="off"
+                value="{{ form_data.admin_username if form_data else '' }}"
+              >
+            </div>
+
+          </div>
         </div>
 
-        <div class="mb-3">
-          <label class="form-label">E-mail</label>
-          <input
-            type="email"
-            name="admin_email"
-            class="form-control"
-            required
-            value="{{ form_data.admin_email if form_data else '' }}"
-          >
-        </div>
+        <!-- ===================================================== -->
+        <!-- SENHA DE ACESSO -->
+        <!-- ===================================================== -->
+        <div class="mb-4">
 
-        <div class="mb-3">
-          <label class="form-label">Username</label>
-          <input
-            type="text"
-            name="admin_username"
-            class="form-control"
-            required
-            value="{{ form_data.admin_username if form_data else '' }}"
-          >
-        </div>
+          <div class="alert alert-primary border-0 shadow-sm">
+            <strong>🔐 Senha de acesso do sistema</strong><br>
+            Essa senha será utilizada para login do administrador do escritório.
+          </div>
 
-        <div class="mb-3">
-          <label class="form-label">Senha</label>
-          <input
-            type="password"
-            name="password"
-            class="form-control"
-            required
-          >
-        </div>
+          <div class="row">
 
-        <div class="mb-3">
-          <label class="form-label">Confirmar Senha</label>
-          <input
-            type="password"
-            name="confirm_password"
-            class="form-control"
-            required
-          >
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-semibold">
+                Senha de acesso
+              </label>
+
+              <input
+                type="password"
+                name="password"
+                class="form-control"
+                required
+                minlength="6"
+                autocomplete="new-password"
+              >
+
+              <div class="form-text">
+                Mínimo de 6 caracteres.
+              </div>
+            </div>
+
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-semibold">
+                Confirmar senha de acesso
+              </label>
+
+              <input
+                type="password"
+                name="confirm_password"
+                class="form-control"
+                required
+                minlength="6"
+                autocomplete="new-password"
+              >
+            </div>
+
+          </div>
         </div>
 
         <hr class="my-4">
 
+        <!-- ===================================================== -->
+        <!-- SENHA DO FINANCEIRO -->
+        <!-- ===================================================== -->
+        <div class="mb-4">
+
+          <div class="alert alert-warning border-0 shadow-sm">
+            <strong>💰 Senha do Financeiro</strong><br>
+            Essa senha será utilizada exclusivamente para acesso e alteração das funcionalidades financeiras do escritório.
+          </div>
+
+          <div class="row">
+
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-semibold">
+                Senha do financeiro
+              </label>
+
+              <input
+                type="password"
+                name="finance_password"
+                class="form-control"
+                required
+                minlength="6"
+                autocomplete="new-password"
+              >
+
+              <div class="form-text">
+                Cada escritório possui sua própria senha financeira.
+              </div>
+            </div>
+
+            <div class="col-md-6 mb-3">
+              <label class="form-label fw-semibold">
+                Confirmar senha do financeiro
+              </label>
+
+              <input
+                type="password"
+                name="confirm_finance_password"
+                class="form-control"
+                required
+                minlength="6"
+                autocomplete="new-password"
+              >
+            </div>
+
+          </div>
+        </div>
+
+        <hr class="my-4">
+
+        <!-- ===================================================== -->
         <!-- BOTÕES -->
-        <div class="d-flex justify-content-between">
-          <a href="/offices" class="btn btn-secondary">
+        <!-- ===================================================== -->
+        <div class="d-flex justify-content-between align-items-center">
+
+          <a href="/offices" class="btn btn-outline-secondary">
             ← Voltar
           </a>
 
-          <button type="submit" class="btn btn-success">
+          <button type="submit" class="btn btn-success px-4">
             💾 Criar Escritório
           </button>
+
         </div>
 
       </form>

@@ -28,6 +28,10 @@ class Office(Base):
         onupdate=now_br,
     )
 
+    # Senha específica do financeiro por escritório.
+    # ATENÇÃO: aqui deve ser salvo apenas o HASH da senha, nunca a senha pura.
+    finance_password_hash = Column(String(255), nullable=True)
+
     last_login_at = Column(DateTime, nullable=True)
     last_activity_at = Column(DateTime, nullable=True)
 

@@ -26,12 +26,15 @@ class User(Base):
         index=True,
     )
 
+    # Hash da senha de login do usuário
     password_hash = Column(String(255), nullable=False)
 
     is_active = Column(Boolean, nullable=False, default=True, index=True)
 
     is_superuser = Column(Boolean, nullable=False, default=False)
 
+    # Obriga alteração de senha no primeiro acesso,
+    # caso desejado pelo sistema.
     must_change_password = Column(Boolean, nullable=False, default=False)
 
     deactivated_at = Column(DateTime(timezone=True), nullable=True)

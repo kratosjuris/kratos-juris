@@ -850,12 +850,34 @@
       {% endif %}
 
       {% if current_user %}
-        <a class="nav-link {% if nav_active.doc_templates %}active{% endif %}" href="/doc-templates">Modelos de documentos</a>
-      {% endif %}
+  <a class="nav-link {% if nav_active.doc_templates %}active{% endif %}" href="/doc-templates">
+    Modelos de documentos
+  </a>
+{% endif %}
 
-      {% if current_user %}
-        <a class="nav-link {% if nav_active.whatsapp %}active{% endif %}" href="/configuracoes/whatsapp">WhatsApp</a>
-      {% endif %}
+{% if current_user %}
+  <a class="nav-link {% if nav_active.whatsapp %}active{% endif %}" href="/configuracoes/whatsapp">
+    WhatsApp
+  </a>
+{% endif %}
+
+{% if current_user %}
+  <a
+    class="nav-link {% if _path.startswith('/minha-conta') %}active{% endif %}"
+    href="/minha-conta/alterar-senha"
+  >
+    Alterar senha
+  </a>
+{% endif %}
+
+{% if current_user %}
+  <a
+    class="nav-link {% if _path.startswith('/financeiro/alterar-senha') %}active{% endif %}"
+    href="/financeiro/alterar-senha"
+  >
+    Senha Financeiro
+  </a>
+{% endif %}
     </div>
 
     <div class="ms-auto d-flex align-items-center gap-2">
@@ -960,7 +982,12 @@
       sessionStorage.setItem(FIN_KEY,"1");
   }
 
-  if (isFinance && !isFinanceLogin && !isFinanceSair){
+  if (
+    isFinance &&
+    !isFinanceLogin &&
+    !isFinanceSair &&
+    path !== "/financeiro/alterar-senha"
+){
       window.addEventListener("load", function(){
           fetch("/financeiro/ping",{
               method:"GET",

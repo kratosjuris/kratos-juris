@@ -14,6 +14,8 @@ from sqlalchemy import func
 
 from app.core.datetime_utils import now_br
 from app.core.database import get_db
+from app.core.security import hash_password, verify_password, validate_new_password
+from app.models.office import Office
 from app.models.finance_models import (
     FinanceMonth,
     ExpenseTemplate,
@@ -24,15 +26,11 @@ from app.models.finance_models import (
 
 router = APIRouter()
 
-# ✅ Caminho ABSOLUTO dos templates
 APP_DIR = Path(__file__).resolve().parents[1]
 TEMPLATES_DIR = APP_DIR / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
-# ----------------------------
-# Helpers gerais
-# ----------------------------
 def _get_office_id(request: Request) -> int:
     office_id = request.session.get("office_id")
     if not office_id:
@@ -40,9 +38,6 @@ def _get_office_id(request: Request) -> int:
     return int(office_id)
 
 
-# ----------------------------
-# Formatadores BR (data e moeda)
-# ----------------------------
 def _fmt_br(dt: date | None) -> str:
     if not dt:
         return "—"
@@ -92,11 +87,15 @@ templates.env.filters["date_br"] = _fmt_br
 templates.env.filters["number_br"] = _number_br
 
 
-# ----------------------------
-# Auth (senha)
-# ----------------------------
-def _finance_password() -> str:
-    return os.getenv("FINANCE_PASSWORD", "").strip()
+def _get_office(db: Session, office_id: int) -> Office | None:
+    return db.query(Office).filter(Office.id == office_id).first()
+
+
+def _get_finance_password_hash(db: Session, office_id: int) -> str:
+    office = _get_office(db, office_id)
+    if not office:
+        return ""
+    return (office.finance_password_hash or "").strip()
 
 
 def _is_authed(request: Request) -> bool:
@@ -155,9 +154,6 @@ def _parse_date_any(value: str | None, fallback: date | None = None) -> date | N
     return fallback
 
 
-# =========================================================
-# CONTAS FINANCEIRAS DINÂMICAS
-# =========================================================
 LEGACY_DEFAULT_ACCOUNTS = [
     ("CONTA_CSL", "Conta CSL"),
     ("CONTA_TARCISIO", "Conta Tarcisio"),
@@ -178,9 +174,6 @@ def _slugify_account_code(nome: str) -> str:
 
 
 def _ensure_default_accounts(db: Session, office_id: int):
-    """
-    Cria as contas antigas no banco apenas se não existir nenhuma para o escritório.
-    """
     total = (
         db.query(func.count(FinancialAccount.id))
         .filter(FinancialAccount.office_id == office_id)
@@ -307,13 +300,6 @@ def _resolve_report_account(
     )
 
 
-# =========================================================
-# ✅ COMPETÊNCIA (DESPESAS)
-# Regra oficial:
-# pago em janeiro/2026  -> competência dezembro/2025
-# pago em fevereiro/2026 -> competência janeiro/2026
-# pago em março/2026 -> competência fevereiro/2026
-# =========================================================
 def _ym_prev(ym: str) -> str:
     try:
         y = int(ym[:4])
@@ -334,10 +320,6 @@ def _competencia_ym_from_payment_date(paid_dt: date | None) -> str | None:
 
 
 def _competencia_ym_for_payable(p: Payable) -> str | None:
-    """
-    Só considera competência real via pago_em.
-    Sem pago_em, a despesa não entra no breakdown/anual por competência.
-    """
     if getattr(p, "pago", False) and getattr(p, "pago_em", None):
         comp = _competencia_ym_from_payment_date(p.pago_em)
         if comp:
@@ -404,9 +386,6 @@ def _build_despesas_breakdown(payables_db: list[Payable], ano: int):
     return despesas_por_mes, breakdown_rows
 
 
-# ----------------------------
-# Login / Logout
-# ----------------------------
 @router.get("/financeiro/login", response_class=HTMLResponse)
 def financeiro_login_form(request: Request, next: str = "/financeiro"):
     return templates.TemplateResponse(
@@ -418,26 +397,41 @@ def financeiro_login_form(request: Request, next: str = "/financeiro"):
 @router.post("/financeiro/login")
 def financeiro_login(
     request: Request,
+    db: Session = Depends(get_db),
     senha: str = Form(""),
     next: str = Form("/financeiro"),
 ):
-    pw = _finance_password()
-    if not pw:
+    office_id = request.session.get("office_id")
+
+    if not office_id:
         return templates.TemplateResponse(
             "finance/login.html",
             {
                 "request": request,
                 "title": "Acesso Financeiro",
-                "erro": "FINANCE_PASSWORD não está definido no ambiente. Defina no PowerShell e reinicie o servidor.",
+                "erro": "Usuário sem escritório vinculado.",
                 "next": next,
             },
-            status_code=400,
+            status_code=403,
         )
 
-    if senha.strip() != pw:
+    password_hash = _get_finance_password_hash(db, int(office_id))
+
+    if not password_hash:
+        return RedirectResponse(
+            url="/financeiro/alterar-senha",
+            status_code=303,
+        )
+
+    if not verify_password(senha, password_hash):
         return templates.TemplateResponse(
             "finance/login.html",
-            {"request": request, "title": "Acesso Financeiro", "erro": "Senha incorreta.", "next": next},
+            {
+                "request": request,
+                "title": "Acesso Financeiro",
+                "erro": "Senha incorreta.",
+                "next": next,
+            },
             status_code=401,
         )
 
@@ -464,9 +458,120 @@ def financeiro_ping(request: Request):
     return Response(status_code=204)
 
 
-# ----------------------------
-# Home do Financeiro
-# ----------------------------
+@router.get("/financeiro/alterar-senha", response_class=HTMLResponse)
+def alterar_senha_financeiro_form(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    office_id = _get_office_id(request)
+    office = _get_office(db, office_id)
+
+    if not office:
+        return templates.TemplateResponse(
+            "finance/change_password.html",
+            {
+                "request": request,
+                "title": "Alterar senha do financeiro",
+                "erro": "Escritório não encontrado.",
+                "sucesso": None,
+                "has_finance_password": False,
+            },
+            status_code=404,
+        )
+
+    has_finance_password = bool((office.finance_password_hash or "").strip())
+
+    return templates.TemplateResponse(
+        "finance/change_password.html",
+        {
+            "request": request,
+            "title": "Alterar senha do financeiro",
+            "erro": None,
+            "sucesso": None,
+            "has_finance_password": has_finance_password,
+        },
+    )
+
+
+@router.post("/financeiro/alterar-senha", response_class=HTMLResponse)
+def alterar_senha_financeiro(
+    request: Request,
+    db: Session = Depends(get_db),
+    senha_atual: str = Form(""),
+    nova_senha: str = Form(""),
+    confirmar_senha: str = Form(""),
+):
+    office_id = _get_office_id(request)
+    office = _get_office(db, office_id)
+
+    if not office:
+        return templates.TemplateResponse(
+            "finance/change_password.html",
+            {
+                "request": request,
+                "title": "Alterar senha do financeiro",
+                "erro": "Escritório não encontrado.",
+                "sucesso": None,
+                "has_finance_password": False,
+            },
+            status_code=404,
+        )
+
+    current_hash = (office.finance_password_hash or "").strip()
+    has_finance_password = bool(current_hash)
+
+    if has_finance_password:
+        if not verify_password(senha_atual, current_hash):
+            return templates.TemplateResponse(
+                "finance/change_password.html",
+                {
+                    "request": request,
+                    "title": "Alterar senha do financeiro",
+                    "erro": "Senha atual do financeiro incorreta.",
+                    "sucesso": None,
+                    "has_finance_password": True,
+                },
+                status_code=400,
+            )
+
+    ok, erro = validate_new_password(nova_senha, confirmar_senha)
+
+    if not ok:
+        return templates.TemplateResponse(
+            "finance/change_password.html",
+            {
+                "request": request,
+                "title": "Alterar senha do financeiro",
+                "erro": erro,
+                "sucesso": None,
+                "has_finance_password": has_finance_password,
+            },
+            status_code=400,
+        )
+
+    office.finance_password_hash = hash_password(nova_senha)
+
+    db.add(office)
+    db.commit()
+
+    request.session["finance_auth"] = True
+
+    return templates.TemplateResponse(
+        "finance/change_password.html",
+        {
+            "request": request,
+            "title": "Alterar senha do financeiro",
+            "erro": None,
+            "sucesso": (
+                "Senha financeira cadastrada com sucesso."
+                if not has_finance_password
+                else "Senha financeira alterada com sucesso."
+            ),
+            "has_finance_password": True,
+        },
+    )
+
+
 @router.get("/financeiro", response_class=HTMLResponse)
 def financeiro_home(request: Request):
     redir = _require_auth(request)
@@ -479,9 +584,6 @@ def financeiro_home(request: Request):
     )
 
 
-# ----------------------------
-# CRUD DE CONTAS FINANCEIRAS
-# ----------------------------
 @router.get("/financeiro/contas", response_class=HTMLResponse)
 def financeiro_contas(request: Request, db: Session = Depends(get_db)):
     redir = _require_auth(request)
@@ -626,9 +728,6 @@ def financeiro_conta_excluir(request: Request, cid: int, db: Session = Depends(g
     return RedirectResponse(url="/financeiro/contas", status_code=303)
 
 
-# ----------------------------
-# Contas a Pagar
-# ----------------------------
 def _get_or_create_month(db: Session, office_id: int, ym: str) -> FinanceMonth:
     m = (
         db.query(FinanceMonth)
@@ -897,10 +996,6 @@ def pagar_desfazer_lote(
 
 @router.post("/financeiro/pagar/{pid}/toggle")
 def pagar_toggle(request: Request, pid: int, db: Session = Depends(get_db), ym: str = Form(...)):
-    """
-    Compatibilidade antiga.
-    O fluxo recomendado é usar /baixar, /desfazer e /editar-pagamento.
-    """
     redir = _require_auth(request)
     if redir:
         return redir
@@ -1210,9 +1305,7 @@ def pagar_relatorio(request: Request, ym: str | None = None, db: Session = Depen
         },
     )
 
-# ----------------------------
-# Contas a Receber
-# ----------------------------
+
 @router.get("/financeiro/receber", response_class=HTMLResponse)
 def receber_list(
     request: Request,
@@ -1593,9 +1686,6 @@ def receber_relatorio_mes(request: Request, ym: str | None = None, db: Session =
     )
 
 
-# ============================
-# ✅ RELATÓRIO ANUAL
-# ============================
 @router.get("/financeiro/receber/relatorio-anual", response_class=HTMLResponse)
 def receber_relatorio_anual(request: Request, ano: int | None = None, db: Session = Depends(get_db)):
     redir = _require_auth(request)
@@ -1625,8 +1715,6 @@ def receber_relatorio_anual(request: Request, ano: int | None = None, db: Sessio
         if 1 <= mes <= 12:
             recebido_por_mes[mes] += float(r.valor or 0.0)
 
-    # Para o ano de competência:
-    # entram pagamentos de 01/02/ANO até 31/01/(ANO+1)
     dt_ini = date(ano, 2, 1)
     dt_fim = date(ano + 1, 2, 1)
 
@@ -1690,9 +1778,6 @@ def receber_relatorio_anual(request: Request, ano: int | None = None, db: Sessio
     )
 
 
-# ============================
-# ✅ RELATÓRIO ANUAL CONTA PRINCIPAL x DESPESAS
-# ============================
 @router.get("/financeiro/receber/relatorio-anual-csl", response_class=HTMLResponse)
 @router.get("/financeiro/receber/relatorio-anual-conta-principal", response_class=HTMLResponse)
 def receber_relatorio_anual_conta_principal(

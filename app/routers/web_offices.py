@@ -229,6 +229,8 @@ def offices_new_submit(
     admin_username: str = Form(...),
     password: str = Form(...),
     confirm_password: str = Form(...),
+    finance_password: str = Form(...),
+    confirm_finance_password: str = Form(...),
     db: Session = Depends(get_db),
 ):
     try:
@@ -240,6 +242,10 @@ def offices_new_submit(
     admin_nome = (admin_nome or "").strip()
     admin_email = (admin_email or "").strip().lower()
     admin_username = (admin_username or "").strip().lower()
+    password = (password or "").strip()
+    confirm_password = (confirm_password or "").strip()
+    finance_password = (finance_password or "").strip()
+    confirm_finance_password = (confirm_finance_password or "").strip()
 
     form_data = _build_form_data(
         office_nome=office_nome,
@@ -292,12 +298,67 @@ def offices_new_submit(
             status_code=400,
         )
 
+    if not password:
+        return templates.TemplateResponse(
+            "offices/form.html",
+            {
+                "request": request,
+                "error": "Informe a senha de acesso do administrador.",
+                "form_data": form_data,
+            },
+            status_code=400,
+        )
+
+    if len(password) < 6:
+        return templates.TemplateResponse(
+            "offices/form.html",
+            {
+                "request": request,
+                "error": "A senha de acesso deve possuir no mínimo 6 caracteres.",
+                "form_data": form_data,
+            },
+            status_code=400,
+        )
+
     if password != confirm_password:
         return templates.TemplateResponse(
             "offices/form.html",
             {
                 "request": request,
-                "error": "As senhas não conferem.",
+                "error": "As senhas de acesso não conferem.",
+                "form_data": form_data,
+            },
+            status_code=400,
+        )
+
+    if not finance_password:
+        return templates.TemplateResponse(
+            "offices/form.html",
+            {
+                "request": request,
+                "error": "Informe a senha do financeiro do escritório.",
+                "form_data": form_data,
+            },
+            status_code=400,
+        )
+
+    if len(finance_password) < 6:
+        return templates.TemplateResponse(
+            "offices/form.html",
+            {
+                "request": request,
+                "error": "A senha do financeiro deve possuir no mínimo 6 caracteres.",
+                "form_data": form_data,
+            },
+            status_code=400,
+        )
+
+    if finance_password != confirm_finance_password:
+        return templates.TemplateResponse(
+            "offices/form.html",
+            {
+                "request": request,
+                "error": "As senhas do financeiro não conferem.",
                 "form_data": form_data,
             },
             status_code=400,
@@ -340,7 +401,10 @@ def offices_new_submit(
     ip = request.client.host if request.client else None
 
     try:
-        office = Office(nome=office_nome)
+        office = Office(
+            nome=office_nome,
+            finance_password_hash=hash_password(finance_password),
+        )
         db.add(office)
         db.flush()
 
@@ -427,6 +491,8 @@ def office_edit_submit(
     admin_username: str = Form(...),
     password: str | None = Form(None),
     confirm_password: str | None = Form(None),
+    finance_password: str | None = Form(None),
+    confirm_finance_password: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
     try:
@@ -464,6 +530,8 @@ def office_edit_submit(
     admin_username = (admin_username or "").strip().lower()
     password = (password or "").strip()
     confirm_password = (confirm_password or "").strip()
+    finance_password = (finance_password or "").strip()
+    confirm_finance_password = (confirm_finance_password or "").strip()
 
     if not office_nome:
         return templates.TemplateResponse(
@@ -562,10 +630,11 @@ def office_edit_submit(
                     "request": request,
                     "office": office,
                     "admin_user": admin_user,
-                    "error": "As senhas não conferem.",
+                    "error": "As senhas de acesso não conferem.",
                 },
                 status_code=400,
             )
+
         if not password:
             return templates.TemplateResponse(
                 "offices/form_edit.html",
@@ -573,7 +642,56 @@ def office_edit_submit(
                     "request": request,
                     "office": office,
                     "admin_user": admin_user,
-                    "error": "Informe a nova senha.",
+                    "error": "Informe a nova senha de acesso.",
+                },
+                status_code=400,
+            )
+
+        if len(password) < 6:
+            return templates.TemplateResponse(
+                "offices/form_edit.html",
+                {
+                    "request": request,
+                    "office": office,
+                    "admin_user": admin_user,
+                    "error": "A nova senha de acesso deve possuir no mínimo 6 caracteres.",
+                },
+                status_code=400,
+            )
+
+    if finance_password or confirm_finance_password:
+        if finance_password != confirm_finance_password:
+            return templates.TemplateResponse(
+                "offices/form_edit.html",
+                {
+                    "request": request,
+                    "office": office,
+                    "admin_user": admin_user,
+                    "error": "As senhas do financeiro não conferem.",
+                },
+                status_code=400,
+            )
+
+        if not finance_password:
+            return templates.TemplateResponse(
+                "offices/form_edit.html",
+                {
+                    "request": request,
+                    "office": office,
+                    "admin_user": admin_user,
+                    "error": "Informe a nova senha do financeiro.",
+                },
+                status_code=400,
+            )
+
+        if len(finance_password) < 6:
+            return templates.TemplateResponse(
+                "offices/form_edit.html",
+                {
+                    "request": request,
+                    "office": office,
+                    "admin_user": admin_user,
+                    "error": "A nova senha do financeiro deve possuir no mínimo 6 caracteres.",
                 },
                 status_code=400,
             )
@@ -588,6 +706,9 @@ def office_edit_submit(
 
         if password:
             admin_user.password_hash = hash_password(password)
+
+        if finance_password:
+            office.finance_password_hash = hash_password(finance_password)
 
         db.commit()
         db.refresh(office)
