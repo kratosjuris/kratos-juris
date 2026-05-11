@@ -50,7 +50,12 @@ def _split_external_reference(external_reference: str | None) -> tuple[str, str]
 def _create_office_and_admin_from_payment(payment_data: dict) -> dict:
     """
     Cria Office + User admin quando o pagamento estiver aprovado.
-    Evita duplicidade por e-mail e por nome de escritório.
+
+    Regras:
+    - Se o e-mail ainda não existir: cria Office + User.
+    - Se o e-mail já existir sem escritório: cria/reativa Office e vincula o User.
+    - Se o e-mail já existir com escritório: reativa Office/User, gera nova senha provisória.
+    - Sempre retorna senha provisória quando reativar/vincular/criar.
     """
 
     status = payment_data.get("status")
@@ -94,32 +99,6 @@ def _create_office_and_admin_from_payment(payment_data: dict) -> dict:
     try:
         existing_user = db.query(User).filter(User.email == email).first()
 
-        if existing_user:
-            office = None
-
-            if existing_user.office_id:
-                office = (
-                    db.query(Office)
-                    .filter(Office.id == existing_user.office_id)
-                    .first()
-                )
-
-            if office:
-                office.reactivate()
-                existing_user.reactivate()
-                db.commit()
-
-            return {
-                "created": False,
-                "already_exists": True,
-                "reason": "Já existe usuário com este e-mail. Acesso reativado, se aplicável.",
-                "office_id": existing_user.office_id,
-                "user_id": existing_user.id,
-                "username": existing_user.username,
-                "email": existing_user.email,
-                "payment_id": payment_id,
-            }
-
         existing_office = (
             db.query(Office)
             .filter(Office.nome.ilike(office_nome))
@@ -140,6 +119,36 @@ def _create_office_and_admin_from_payment(payment_data: dict) -> dict:
             db.add(office)
             db.flush()
 
+        temp_password = _generate_temp_password()
+
+        if existing_user:
+            existing_user.nome = admin_nome
+            existing_user.office_id = office.id
+            existing_user.is_active = True
+            existing_user.is_superuser = False
+            existing_user.must_change_password = True
+            existing_user.password_hash = hash_password(temp_password)
+            existing_user.deactivated_at = None
+            existing_user.deactivation_reason = None
+
+            db.commit()
+            db.refresh(office)
+            db.refresh(existing_user)
+
+            return {
+                "created": True,
+                "reactivated_existing_user": True,
+                "office_id": office.id,
+                "office_nome": office.nome,
+                "user_id": existing_user.id,
+                "nome": existing_user.nome,
+                "email": existing_user.email,
+                "username": existing_user.username,
+                "temporary_password": temp_password,
+                "payment_id": payment_id,
+                "reason": "Usuário existente foi vinculado/reativado e recebeu nova senha provisória.",
+            }
+
         username_base = _slug_username(email.split("@")[0])
         username = username_base
 
@@ -147,8 +156,6 @@ def _create_office_and_admin_from_payment(payment_data: dict) -> dict:
         while db.query(User).filter(User.username == username).first():
             counter += 1
             username = f"{username_base}{counter}"
-
-        temp_password = _generate_temp_password()
 
         admin = User(
             nome=admin_nome,
