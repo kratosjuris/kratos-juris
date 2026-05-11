@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+/* =========================================================
+   PATCH VISUAL — MODO DIA (NÃO ALTERA MODO NOITE)
+   Comparativo Anual Financeiro (Recebido - Despesas)
+   ========================================================= */
+
+body.kj-day{
+  background:#ffffff !important;
+  color:#111827 !important;
+}
+body.kj-day .card{
+  background:#ffffff !important;
+  border:1px solid #e5e7eb !important;
+  box-shadow:0 6px 18px rgba(0,0,0,.05);
+}
+body.kj-day .text-muted{ color:#6b7280 !important; }
+
+body.kj-day .table{ color:#111827 !important; }
+body.kj-day .table thead th{
+  background:#f9fafb !important;
+  border-bottom-color:#e5e7eb !important;
+  color:#111827 !important;
+}
+body.kj-day .table td,
+body.kj-day .table th{ border-color:#eef2f7 !important; }
+body.kj-day .table-striped > tbody > tr:nth-of-type(odd) > *{
+  background-color: rgba(17,24,39,.03) !important;
+}
+
+body.kj-day .btn-outline-secondary,
+body.kj-day .btn-outline-dark{
+  color:#111827 !important;
+  border-color:#9ca3af !important;
+}
+body.kj-day .btn-outline-secondary:hover,
+body.kj-day .btn-outline-dark:hover{
+  background:rgba(17,24,39,.06) !important;
+}
+
+/* Print clean */
+@media print{
+  @page{ size:A4 portrait; margin:12mm 10mm 12mm 10mm; }
+
+  body *{ visibility:hidden !important; }
+  #print-area, #print-area *{ visibility:visible !important; }
+  #print-area{ position:absolute; left:0; top:0; width:100% !important; }
+
+  *{ box-shadow:none !important; text-shadow:none !important; filter:none !important; }
+
+  body{ background:#fff !important; color:#000 !important; }
+  #print-area, #print-area *{
+    color:#000 !important;
+    opacity:1 !important;
+    -webkit-text-fill-color:#000 !important;
+  }
+
+  a[href]:after{ content:"" !important; }
+  thead{ display:table-header-group; }
+  tr, td, th{ break-inside:avoid !important; page-break-inside:avoid !important; }
+}
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 no-print">
+  <h3 class="m-0">Comparativo Anual — Resultado (Recebido − Despesas)</h3>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="/financeiro/receber">Voltar</a>
+    <button class="btn btn-outline-dark" type="button" onclick="window.print()">Imprimir</button>
+  </div>
+</div>
+
+<div id="print-area">
+
+  <div class="card p-3 mb-3">
+    <div class="row g-3">
+      <div class="col-md-3">
+        <div class="text-muted">Ano</div>
+        <div class="fw-bold">{{ ano }}</div>
+      </div>
+      <div class="col-md-3">
+        <div class="text-muted">Recebido no ano</div>
+        <div class="fw-bold">{{ (total_recebido or 0) | money_br }}</div>
+      </div>
+      <div class="col-md-3">
+        <div class="text-muted">Despesas no ano</div>
+        <div class="fw-bold">{{ (total_despesas or 0) | money_br }}</div>
+      </div>
+      <div class="col-md-3">
+        <div class="text-muted">Resultado no ano (Recebido − Despesas)</div>
+        <div class="fw-bold">{{ (total_resultado or 0) | money_br }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-3 mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div class="fw-semibold">Gráfico financeiro anual</div>
+      <div class="text-muted small">Recebido, Despesas e Resultado mês a mês</div>
+    </div>
+
+    <canvas id="chartAnual" height="85"></canvas>
+  </div>
+
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-sm table-striped align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Mês</th>
+            <th class="text-end">Recebido</th>
+            <th class="text-end">Despesas</th>
+            <th class="text-end">Resultado (Recebido − Despesas)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in meses %}
+            <tr>
+              <td class="fw-semibold">{{ m.ym }}</td>
+              <td class="text-end fw-semibold">{{ (m.recebido or 0) | money_br }}</td>
+              <td class="text-end fw-semibold">{{ (m.despesas or 0) | money_br }}</td>
+              <td class="text-end fw-semibold">{{ (m.resultado or 0) | money_br }}</td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="4" class="text-center text-muted py-4">Sem dados no ano.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function(){
+  const labels = {{ (chart_labels or []) | tojson }};
+  const recebido = {{ (chart_recebido or []) | tojson }};
+  const despesas = {{ (chart_despesas or []) | tojson }};
+  const resultado = {{ (chart_resultado or []) | tojson }};
+
+  const ctx = document.getElementById('chartAnual');
+  if(!ctx) return;
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Recebido', data: recebido, tension: 0.25 },
+        { label: 'Despesas', data: despesas, tension: 0.25 },
+        { label: 'Resultado (Recebido - Despesas)', data: resultado, tension: 0.25 }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { legend: { display: true } },
+      scales: {
+        y: { ticks: { callback: (v)=> 'R$ ' + Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) } }
+      }
+    }
+  });
+})();
+</script>
+
+{% endblock %}

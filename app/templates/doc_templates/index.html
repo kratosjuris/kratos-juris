@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="mb-1">Modelos de documentos</h3>
+      <div class="text-muted">Cada escritório mantém seus próprios modelos .docx.</div>
+    </div>
+  </div>
+
+  <div class="alert alert-info">
+    Limite por arquivo: <strong>{{ max_mb }} MB</strong>.
+    Somente arquivos <strong>.docx</strong>.
+  </div>
+
+  <div class="row g-4">
+    {% for doc_key, spec in specs.items() %}
+      {% set active = active_by_key.get(doc_key) %}
+      {% set history = history_by_key.get(doc_key, []) %}
+
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+              <div>
+                <h5 class="mb-1">{{ spec.title }}</h5>
+                <div class="text-muted small">Chave: {{ doc_key }}</div>
+              </div>
+
+              <div class="d-flex gap-2 flex-wrap">
+                <a href="/doc-templates/novo/{{ doc_key }}" class="btn btn-primary btn-sm">
+                  Enviar novo modelo
+                </a>
+              </div>
+            </div>
+
+            <hr>
+
+            {% if active %}
+              <div class="mb-3">
+                <span class="badge bg-success">Modelo ativo</span>
+              </div>
+
+              <div class="row g-3">
+                <div class="col-md-3">
+                  <div class="small text-muted">Arquivo</div>
+                  <div><strong>{{ active.original_filename }}</strong></div>
+                </div>
+
+                <div class="col-md-2">
+                  <div class="small text-muted">Versão</div>
+                  <div><strong>{{ active.version }}</strong></div>
+                </div>
+
+                <div class="col-md-2">
+                  <div class="small text-muted">Tamanho</div>
+                  <div><strong>{{ "%.2f"|format((active.file_size or 0) / 1024 / 1024) }} MB</strong></div>
+                </div>
+
+                <div class="col-md-3">
+                  <div class="small text-muted">Enviado em</div>
+                  <div><strong>{{ active.created_at.strftime("%d/%m/%Y %H:%M") if active.created_at else "-" }}</strong></div>
+                </div>
+
+                <div class="col-md-2">
+                  <div class="small text-muted">Ações</div>
+                  <div class="d-flex gap-2 flex-wrap">
+                    <a href="/doc-templates/{{ active.id }}/download" class="btn btn-outline-primary btn-sm">
+                      Baixar
+                    </a>
+
+                    <form method="post" action="/doc-templates/{{ active.id }}/excluir"
+                          onsubmit="return confirm('Deseja excluir este modelo?');">
+                      <button class="btn btn-outline-danger btn-sm">Excluir</button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            {% else %}
+              <div class="alert alert-warning mb-0">
+                Nenhum modelo ativo cadastrado para este documento.
+              </div>
+            {% endif %}
+
+            {% if history %}
+              <hr>
+              <div class="small text-muted mb-2">Versões cadastradas</div>
+              <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                  <thead>
+                    <tr>
+                      <th>Versão</th>
+                      <th>Arquivo</th>
+                      <th>Status</th>
+                      <th>Enviado em</th>
+                      <th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for row in history %}
+                      <tr>
+                        <td>{{ row.version }}</td>
+                        <td>{{ row.original_filename }}</td>
+                        <td>
+                          {% if row.is_active %}
+                            <span class="badge bg-success">Ativo</span>
+                          {% else %}
+                            <span class="badge bg-secondary">Inativo</span>
+                          {% endif %}
+                        </td>
+                        <td>{{ row.created_at.strftime("%d/%m/%Y %H:%M") if row.created_at else "-" }}</td>
+                        <td class="d-flex gap-2 flex-wrap">
+                          <a href="/doc-templates/{{ row.id }}/download" class="btn btn-outline-primary btn-sm">
+                            Baixar
+                          </a>
+
+                          {% if not row.is_active %}
+                            <form method="post" action="/doc-templates/{{ row.id }}/ativar">
+                              <button class="btn btn-outline-success btn-sm">Ativar</button>
+                            </form>
+                          {% endif %}
+
+                          <form method="post" action="/doc-templates/{{ row.id }}/excluir"
+                                onsubmit="return confirm('Deseja excluir esta versão?');">
+                            <button class="btn btn-outline-danger btn-sm">Excluir</button>
+                          </form>
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% endif %}
+
+            <hr>
+            <div>
+              <div class="small text-muted mb-2">Texto orientativo</div>
+
+              <div class="small text-danger" style="white-space: normal; line-height: 1.6;">
+
+                {% if doc_key == "procuracao" or doc_key == "procuracao-a-rogo" %}
+                  OUTORGANTE: {{ "{{nome}}" }}, {{ "{{estado_civil}}" }}, {{ "{{profissao}}" }}, portador(a) da cédula de identidade RG nº {{ "{{rg}}" }}, inscrito(a) no CPF sob o nº {{ "{{cpf}}" }}, residente e domiciliado(a) à {{ "{{endereco}}" }}, telefone {{ "{{telefone}}" }}, endereço eletrônico {{ "{{email}}" }}.
+
+                {% elif doc_key == "residencia" %}
+                  Eu, {{ "{{nome}}" }}, {{ "{{estado_civil}}" }}, {{ "{{profissao}}" }}, portador(a) da cédula de identidade RG nº {{ "{{rg}}" }}, inscrito(a) no CPF sob o nº {{ "{{cpf}}" }}, na falta de documento para comprovação de residência em nome próprio, DECLARO para os devidos fins, sob as penas da Lei, ser residente e domiciliado(a) à {{ "{{endereco}}" }}, telefone {{ "{{telefone}}" }}, endereço eletrônico {{ "{{email}}" }}, Declaro ainda, estar ciente de que, se comprovadamente falsa a declaração, estar sujeito às sanções civis, administrativas e criminais previstas na legislação aplicável.
+
+                {% elif doc_key == "hipossuficiencia" %}
+                  {{ "{{nome}}" }}, {{ "{{estado_civil}}" }}, {{ "{{profissao}}" }}, portador(a) da cédula de identidade RG nº {{ "{{rg}}" }}, inscrito(a) no CPF sob o nº {{ "{{cpf}}" }}, residente e domiciliado(a) à {{ "{{endereco}}" }}, telefone {{ "{{telefone}}" }}, endereço eletrônico {{ "{{email}}" }}.
+
+                {% else %}
+                  {% for item in spec.allowed_placeholders %}
+                    <code>{{ item }}</code>
+                  {% endfor %}
+                {% endif %}
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% endblock %}

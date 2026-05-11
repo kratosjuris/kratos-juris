@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+/* =========================================================
+   PATCH VISUAL — MODO DIA (NÃO ALTERA MODO NOITE)
+   ========================================================= */
+
+body.kj-day{
+  background: #ffffff !important;
+  color: #111827 !important;
+}
+
+/* Cards */
+body.kj-day .card{
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,.05);
+}
+
+body.kj-day .card h1,
+body.kj-day .card h2,
+body.kj-day .card h3,
+body.kj-day .card h4,
+body.kj-day .card h5,
+body.kj-day .card h6,
+body.kj-day .form-label{
+  color: #111827 !important;
+}
+
+/* Inputs */
+body.kj-day .form-control,
+body.kj-day .form-select{
+  background: #ffffff !important;
+  color: #111827 !important;
+  border: 1px solid #d1d5db !important;
+}
+
+body.kj-day .form-control:focus,
+body.kj-day .form-select:focus{
+  border-color: #9ca3af !important;
+  box-shadow: 0 0 0 .15rem rgba(17,24,39,.08) !important;
+}
+
+/* Texto muted */
+body.kj-day .text-muted{
+  color: #6b7280 !important;
+}
+
+/* Tabela */
+body.kj-day .table{
+  color: #111827 !important;
+}
+
+body.kj-day .table thead th{
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+body.kj-day .table td,
+body.kj-day .table th{
+  border-color: #eef2f7 !important;
+}
+
+/* Stripe suave */
+body.kj-day .table-striped > tbody > tr:nth-of-type(odd) > *{
+  background-color: rgba(17,24,39,.03) !important;
+}
+
+/* Linha paga */
+body.kj-day .table-success > *{
+  background-color: rgba(34,197,94,.12) !important;
+  color: #111827 !important;
+}
+
+/* Botões outline */
+body.kj-day .btn-outline-secondary{
+  color: #111827 !important;
+  border-color: #9ca3af !important;
+}
+
+body.kj-day .btn-outline-secondary:hover{
+  background: rgba(17,24,39,.06) !important;
+}
+
+body.kj-day .btn-outline-primary{
+  color: #111827 !important;
+  border-color: #9ca3af !important;
+}
+
+body.kj-day .btn-outline-primary:hover{
+  background: rgba(17,24,39,.06) !important;
+}
+
+/* Summary Editar */
+body.kj-day details > summary{
+  color: #111827 !important;
+  font-weight: 600;
+}
+
+body.kj-day details > summary:hover{
+  text-decoration: underline;
+}
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="m-0">{{ title }}</h3>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="/dashboard">Voltar</a>
+    <a class="btn btn-outline-primary" href="/financeiro/receber?senha={{ senha }}">Ir para Contas a Receber</a>
+  </div>
+</div>
+
+<!-- RESTANTE DO SEU CÓDIGO PERMANECE IGUAL -->

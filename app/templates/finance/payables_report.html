@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+/* =========================================================
+   AJUSTE VISUAL — MODO DIA (NÃO ALTERA MODO NOITE)
+   ========================================================= */
+
+body.kj-day{
+  background:#ffffff !important;
+  color:#111827 !important;
+}
+
+/* Cards */
+body.kj-day .card{
+  background:#ffffff !important;
+  border:1px solid #e5e7eb !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,.05);
+}
+
+/* Texto dentro dos cards */
+body.kj-day .card,
+body.kj-day .card strong{
+  color:#111827 !important;
+}
+
+/* Tabela */
+body.kj-day .table{
+  color:#111827 !important;
+}
+
+body.kj-day .table thead th{
+  border-bottom-color:#e5e7eb !important;
+  color:#111827 !important;
+}
+
+body.kj-day .table td,
+body.kj-day .table th{
+  border-color:#eef2f7 !important;
+}
+
+/* Stripe suave */
+body.kj-day .table-striped > tbody > tr:nth-of-type(odd) > *{
+  background-color: rgba(17,24,39,.03) !important;
+}
+
+/* Linha paga (verde elegante) */
+body.kj-day .table-success > *{
+  background-color: rgba(34,197,94,.12) !important;
+  color:#111827 !important;
+}
+
+/* Status em negrito */
+body.kj-day td:first-child{
+  font-weight:600;
+}
+
+/* Botão Voltar */
+body.kj-day .btn-outline-secondary{
+  color:#111827 !important;
+  border-color:#9ca3af !important;
+}
+
+body.kj-day .btn-outline-secondary:hover{
+  background: rgba(17,24,39,.06) !important;
+}
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="m-0">{{ title }}</h3>
+  <a class="btn btn-outline-secondary" href="/financeiro/pagar?senha={{ senha }}&mes={{ mes_ref }}&conta={{ conta }}">Voltar</a>
+</div>
+
+<div class="card p-3 mb-3">
+  <div><strong>Mês:</strong> {{ mes_ref }} • <strong>Conta:</strong> {{ conta }}</div>
+  <div class="mt-2">
+    <strong>Saldo em conta (antes):</strong> {{ '%.2f'|format(saldo_inicial) }} <br>
+    <strong>Total de despesas:</strong> {{ '%.2f'|format(total) }} <br>
+    <strong>Total pago:</strong> {{ '%.2f'|format(total_pagos) }} <br>
+    <strong>Pendentes:</strong> {{ '%.2f'|format(total_pendentes) }} <br>
+    <strong>Saldo em conta (depois):</strong> {{ '%.2f'|format(saldo_atual) }}
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-striped mb-0 align-middle">
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Descrição</th>
+          <th>Categoria</th>
+          <th>Vencimento</th>
+          <th class="text-end">Valor</th>
+          <th>Obs</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+          <tr class="{% if r.pago %}table-success{% endif %}">
+            <td>{% if r.pago %}PAGO{% else %}PENDENTE{% endif %}</td>
+            <td>{{ r.descricao }}</td>
+            <td>{{ r.categoria or "" }}</td>
+            <td>{{ r.vencimento.strftime("%d/%m/%Y") if r.vencimento else "" }}</td>
+            <td class="text-end">{{ '%.2f'|format(r.valor or 0) }}</td>
+            <td>{{ r.obs or "" }}</td>
+          </tr>
+        {% endfor %}
+        {% if rows|length == 0 %}
+          <tr><td colspan="6" class="text-center py-4">Sem lançamentos.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

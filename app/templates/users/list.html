@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Usuários</title>
+  <link rel="stylesheet" href="/static/css/users.css">
+</head>
+<body>
+  <div class="page-wrap">
+
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>Usuários do sistema</h1>
+      </div>
+
+      <div class="topbar-actions">
+        <a class="btn-secondary" href="/dashboard">← Dashboard</a>
+        <a class="btn-primary" href="/usuarios/novo">Novo usuário</a>
+      </div>
+    </div>
+
+    <div class="panel">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Username</th>
+            <th>E-mail</th>
+            <th>Status</th>
+            <th>Superadmin</th>
+            <th>Último login</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td>{{ u.nome }}</td>
+            <td>{{ u.username }}</td>
+            <td>{{ u.email }}</td>
+            <td>
+              {% if u.is_active %}
+                <span class="status-badge status-active">Ativo</span>
+              {% else %}
+                <span class="status-badge status-inactive">Suspenso</span>
+              {% endif %}
+            </td>
+            <td>{{ "Sim" if u.is_superuser else "Não" }}</td>
+            <td>{{ u.last_login_at_fmt }}</td>
+
+            <td class="actions">
+              <a href="/usuarios/{{ u.id }}/editar">Editar</a>
+              <a href="/usuarios/{{ u.id }}/permissoes">Permissões</a>
+              <a href="/usuarios/{{ u.id }}/reset-senha">Senha</a>
+
+              {% if current_user.id != u.id %}
+                {% if u.is_active %}
+                <form method="post" action="/usuarios/{{ u.id }}/suspender" style="display:inline;" onsubmit="return confirm('Deseja realmente suspender este usuário?');">
+                  <button type="submit" class="btn-link danger">Suspender</button>
+                </form>
+                {% else %}
+                <form method="post" action="/usuarios/{{ u.id }}/reativar" style="display:inline;" onsubmit="return confirm('Deseja reativar este usuário?');">
+                  <button type="submit" class="btn-link success">Reativar</button>
+                </form>
+                {% endif %}
+
+                <form method="post" action="/usuarios/{{ u.id }}/excluir" style="display:inline;" onsubmit="return confirm('ATENÇÃO: Deseja realmente excluir este usuário? Esta ação não pode ser desfeita.');">
+                  <button type="submit" class="btn-link danger">Excluir</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+
+      </table>
+    </div>
+  </div>
+</body>
+</html>

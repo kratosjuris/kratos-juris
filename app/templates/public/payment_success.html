@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Pagamento aprovado | Kratos Juris</title>
+
+  <style>
+    body{
+      margin:0;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      background:radial-gradient(circle at top, #2b2b2b 0%, #111 45%, #000 100%);
+      font-family:Arial, Helvetica, sans-serif;
+      color:white;
+    }
+
+    .card{
+      width:100%;
+      max-width:680px;
+      padding:34px;
+      border-radius:18px;
+      background:#111;
+      border:1px solid rgba(212,175,55,0.28);
+      box-shadow:0 15px 40px rgba(0,0,0,0.55);
+    }
+
+    h1{
+      margin:0 0 12px;
+      color:#f7e27b;
+      font-size:32px;
+    }
+
+    p{
+      line-height:1.5;
+      color:#e5e5e5;
+    }
+
+    .box{
+      margin-top:22px;
+      padding:18px;
+      border-radius:14px;
+      background:#1a1a1a;
+      border:1px solid rgba(255,255,255,0.10);
+    }
+
+    .row{
+      margin:10px 0;
+      font-size:15px;
+    }
+
+    .row strong{
+      color:#f7e27b;
+    }
+
+    .password{
+      display:inline-block;
+      padding:8px 12px;
+      border-radius:8px;
+      background:#000;
+      border:1px solid rgba(212,175,55,0.45);
+      color:#f7e27b;
+      font-weight:700;
+      letter-spacing:0.5px;
+    }
+
+    .btn{
+      display:block;
+      margin-top:24px;
+      width:100%;
+      padding:15px 18px;
+      border-radius:10px;
+      text-align:center;
+      text-decoration:none;
+      color:#111;
+      font-weight:700;
+      background:linear-gradient(135deg, #f7e27b 0%, #d4af37 40%, #c49a2c 70%, #f7e27b 100%);
+    }
+
+    .warn{
+      margin-top:18px;
+      padding:14px;
+      border-radius:12px;
+      background:rgba(212,175,55,0.10);
+      border:1px solid rgba(212,175,55,0.28);
+      color:#f1f1f1;
+      font-size:14px;
+    }
+
+    .error{
+      margin-top:18px;
+      padding:14px;
+      border-radius:12px;
+      background:rgba(180,40,40,0.18);
+      border:1px solid rgba(255,80,80,0.30);
+      color:#ffd4d4;
+      font-size:14px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <h1>Pagamento aprovado</h1>
+
+    <p>
+      Recebemos a confirmação do pagamento da assinatura do Kratos Juris.
+    </p>
+
+    {% if activation_result and activation_result.created %}
+      <div class="box">
+        <div class="row">
+          <strong>Escritório:</strong> {{ activation_result.office_nome }}
+        </div>
+
+        <div class="row">
+          <strong>Nome:</strong> {{ activation_result.nome }}
+        </div>
+
+        <div class="row">
+          <strong>E-mail:</strong> {{ activation_result.email }}
+        </div>
+
+        <div class="row">
+          <strong>Usuário:</strong> {{ activation_result.username }}
+        </div>
+
+        <div class="row">
+          <strong>Senha provisória:</strong>
+          <span class="password">{{ activation_result.temporary_password }}</span>
+        </div>
+      </div>
+
+      <div class="warn">
+        Guarde estes dados agora. No primeiro acesso, o sistema poderá solicitar a alteração da senha.
+      </div>
+
+    {% elif activation_result and activation_result.already_exists %}
+      <div class="box">
+        <div class="row">
+          <strong>Usuário:</strong> {{ activation_result.username }}
+        </div>
+
+        <div class="row">
+          <strong>E-mail:</strong> {{ activation_result.email }}
+        </div>
+      </div>
+
+      <div class="warn">
+        Já existia uma conta com este e-mail. O acesso foi mantido ou reativado, se aplicável.
+      </div>
+
+    {% else %}
+      <div class="error">
+        O pagamento foi identificado, mas o sistema não conseguiu criar automaticamente o escritório.
+        Verifique o log do servidor.
+      </div>
+    {% endif %}
+
+    <a href="/login" class="btn">
+      Acessar o Kratos Juris
+    </a>
+  </div>
+</body>
+</html>

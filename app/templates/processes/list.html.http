@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="m-0">{{ title }}</h3>
+  <a class="btn btn-primary" href="/processos/novo?status={{ status }}">Novo Processo</a>
+</div>
+
+{% if request.query_params.get("msg") == "duplicado" %}
+  <div class="alert alert-warning">
+    ⚠️ Este número de processo já está cadastrado nesta aba.
+  </div>
+{% endif %}
+
+<form method="post" action="/processos/excluir-lote" onsubmit="return confirm('Excluir os processos selecionados?');">
+  <input type="hidden" name="status" value="{{ status }}">
+  <input type="hidden" name="ids" id="ids_lote">
+
+  <div class="d-flex gap-2 mb-2">
+    <button type="submit" class="btn btn-outline-danger">Excluir selecionados</button>
+  </div>
+
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-striped mb-0 align-middle">
+        <thead>
+          <tr>
+            <th style="width:40px;">
+              <input type="checkbox" id="check_all">
+            </th>
+            <th>Nº do Processo</th>
+            <th>Parte Autora</th>
+            <th>Vara</th>
+            <th>DJEN</th>
+            <th>Prazo (dias)</th>
+            <th>Vencimento</th>
+            <th>Dias</th>
+            <th style="width: 320px;">Ações</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for item in itens %}
+            {% set p = item.p %}
+            {% set cor = item.cor %}
+            <tr class="{% if cor == 'warning' %}table-warning{% elif cor == 'danger' %}table-danger{% elif cor == 'success' %}table-success{% endif %}">
+              <td>
+                <input class="chk_item" type="checkbox" value="{{ p.id }}">
+              </td>
+
+              <td>{{ p.numero_processo }}</td>
+              <td>{{ p.parte_autora }}</td>
+              <td>{{ p.vara }}</td>
+              <td>{{ p.data_intimacao.strftime("%d/%m/%Y") }}</td>
+              <td>{{ p.prazo_dias }}</td>
+              <td>{{ p.vencimento.strftime("%d/%m/%Y") }}</td>
+              <td>
+                {% if item.dias_restantes < 0 %}
+                  Vencido ({{ item.dias_restantes }})
+                {% else %}
+                  {{ item.dias_restantes }}
+                {% endif %}
+              </td>
+
+              <td class="d-flex flex-wrap gap-2">
+                <a class="btn btn-sm btn-outline-primary" href="/processos/{{ p.id }}/editar">Editar</a>
+
+                {% if status == "PROCEDENTE" %}
+                  <form method="post" action="/processos/{{ p.id }}/cumprido">
+                    <input type="hidden" name="status_atual" value="PROCEDENTE">
+                    <button class="btn btn-sm btn-outline-success" name="acao" value="TRANSITADO" type="submit">
+                      Transitado em Julgado
+                    </button>
+                  </form>
+
+                  <form method="post" action="/processos/{{ p.id }}/cumprido">
+                    <input type="hidden" name="status_atual" value="PROCEDENTE">
+                    <button class="btn btn-sm btn-outline-warning" name="acao" value="RECURSO" type="submit">
+                      Interposição de Recurso
+                    </button>
+                  </form>
+                {% endif %}
+
+                {% if status == "PRAZOS" %}
+                  <form method="post" action="/processos/{{ p.id }}/set-cumprimento">
+                    <select class="form-select form-select-sm" name="cumprimento" onchange="this.form.submit()">
+                      <option value="PENDENTE" {% if p.cumprimento != 'CUMPRIDO' %}selected{% endif %}>Pendente</option>
+                      <option value="CUMPRIDO" {% if p.cumprimento == 'CUMPRIDO' %}selected{% endif %}>Cumprido</option>
+                    </select>
+                  </form>
+                {% endif %}
+
+                <form method="post" action="/processos/{{ p.id }}/excluir"
+                      onsubmit="return confirm('Deseja excluir este processo?');">
+                  <input type="hidden" name="status" value="{{ status }}">
+                  <button class="btn btn-sm btn-outline-danger" type="submit">Excluir</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+
+          {% if itens|length == 0 %}
+            <tr>
+              <td colspan="9" class="text-center py-4">Nenhum processo cadastrado.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</form>
+
+<script>
+  // Selecionar todos
+  const checkAll = document.getElementById("check_all");
+  const items = () => Array.from(document.querySelectorAll(".chk_item"));
+  const idsField = document.getElementById("ids_lote");
+
+  function updateIds() {
+    const ids = items().filter(c => c.checked).map(c => c.value);
+    idsField.value = ids.join(",");
+  }
+
+  checkAll?.addEventListener("change", () => {
+    items().forEach(c => c.checked = checkAll.checked);
+    updateIds();
+  });
+
+  items().forEach(c => c.addEventListener("change", updateIds));
+</script>
+
+{% endblock %}

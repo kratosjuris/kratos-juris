@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+
+  <h3 class="mb-4">✏️ Editar Escritório</h3>
+
+  {% if error %}
+    <div class="alert alert-danger">
+      {{ error }}
+    </div>
+  {% endif %}
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+
+      <form method="post">
+
+        <!-- ===================================================== -->
+        <!-- DADOS DO ESCRITÓRIO -->
+        <!-- ===================================================== -->
+        <h5 class="mb-3">🏢 Dados do Escritório</h5>
+
+        <div class="mb-3">
+          <label class="form-label">Nome do Escritório</label>
+
+          <input
+            type="text"
+            name="office_nome"
+            class="form-control"
+            required
+            value="{{ office.nome if office else '' }}"
+          >
+        </div>
+
+        <hr class="my-4">
+
+        <!-- ===================================================== -->
+        <!-- ADMINISTRADOR -->
+        <!-- ===================================================== -->
+        <h5 class="mb-3">👤 Administrador do Escritório</h5>
+
+        <div class="mb-3">
+          <label class="form-label">Nome do Administrador</label>
+
+          <input
+            type="text"
+            name="admin_nome"
+            class="form-control"
+            required
+            value="{{ admin_user.nome if admin_user else '' }}"
+          >
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">E-mail do Administrador</label>
+
+          <input
+            type="email"
+            name="admin_email"
+            class="form-control"
+            required
+            value="{{ admin_user.email if admin_user else '' }}"
+          >
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Username do Administrador</label>
+
+          <input
+            type="text"
+            name="admin_username"
+            class="form-control"
+            required
+            value="{{ admin_user.username if admin_user else '' }}"
+          >
+        </div>
+
+        <hr class="my-4">
+
+        <!-- ===================================================== -->
+        <!-- SENHA ADMIN -->
+        <!-- ===================================================== -->
+        <h5 class="mb-3">🔐 Alterar Senha do Administrador</h5>
+
+        <p class="text-muted small mb-3">
+          Preencha apenas se quiser trocar a senha do administrador.
+        </p>
+
+        <div class="mb-3">
+          <label class="form-label">Nova Senha</label>
+
+          <input
+            type="password"
+            name="password"
+            class="form-control"
+            minlength="6"
+          >
+
+          <div class="form-text">
+            A senha deve possuir no mínimo 6 caracteres.
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label">Confirmar Nova Senha</label>
+
+          <input
+            type="password"
+            name="confirm_password"
+            class="form-control"
+            minlength="6"
+          >
+        </div>
+
+        <hr class="my-4">
+
+        <!-- ===================================================== -->
+        <!-- SENHA FINANCEIRO -->
+        <!-- ===================================================== -->
+        <h5 class="mb-3">💰 Alterar Senha do Financeiro</h5>
+
+        <div class="alert alert-warning border-0 shadow-sm">
+          <strong>Superadministrador:</strong><br>
+          Utilize esta área para redefinir a senha financeira do escritório caso o cliente perca o acesso.
+        </div>
+
+        <p class="text-muted small mb-3">
+          Preencha apenas se quiser alterar a senha do financeiro deste escritório.
+        </p>
+
+        <div class="mb-3">
+          <label class="form-label">Nova Senha do Financeiro</label>
+
+          <input
+            type="password"
+            name="finance_password"
+            class="form-control"
+            minlength="6"
+          >
+
+          <div class="form-text">
+            A senha financeira deve possuir no mínimo 6 caracteres.
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label">Confirmar Nova Senha do Financeiro</label>
+
+          <input
+            type="password"
+            name="confirm_finance_password"
+            class="form-control"
+            minlength="6"
+          >
+        </div>
+
+        <hr class="my-4">
+
+        <!-- ===================================================== -->
+        <!-- BOTÕES -->
+        <!-- ===================================================== -->
+        <div class="d-flex justify-content-between">
+
+          <a href="/offices" class="btn btn-secondary">
+            ← Voltar
+          </a>
+
+          <button type="submit" class="btn btn-primary">
+            💾 Salvar Alterações
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

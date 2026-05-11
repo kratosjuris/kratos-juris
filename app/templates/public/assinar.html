@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contratar Kratos Juris</title>
+
+  <style>
+    *{ margin:0; padding:0; box-sizing:border-box; }
+
+    body{
+      min-height:100vh;
+      padding:24px;
+      background:radial-gradient(circle at top, #2b2b2b 0%, #111 45%, #000 100%);
+      font-family:Arial, Helvetica, sans-serif;
+      color:white;
+    }
+
+    .page{
+      width:100%;
+      max-width:1220px;
+      margin:0 auto;
+      display:grid;
+      grid-template-columns:1.25fr 0.85fr;
+      gap:28px;
+      align-items:start;
+    }
+
+    .panel{
+      padding:34px;
+      border-radius:18px;
+      background:#111;
+      border:1px solid rgba(212,175,55,0.25);
+      box-shadow:0 15px 40px rgba(0,0,0,0.55);
+    }
+
+    h1{
+      font-size:34px;
+      margin-bottom:10px;
+      color:#f7e27b;
+    }
+
+    h2{
+      font-size:21px;
+      margin:24px 0 14px;
+      color:#f7e27b;
+    }
+
+    .subtitle{
+      color:#e5e5e5;
+      margin-bottom:18px;
+      line-height:1.55;
+    }
+
+    .features{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
+      margin-top:16px;
+    }
+
+    .feature{
+      padding:14px;
+      border-radius:12px;
+      background:#1a1a1a;
+      border:1px solid rgba(255,255,255,0.08);
+      line-height:1.45;
+      font-size:14px;
+      color:#e8e8e8;
+    }
+
+    .feature strong{
+      display:block;
+      margin-bottom:4px;
+      color:#f7e27b;
+    }
+
+    .highlight{
+      margin-top:22px;
+      padding:18px;
+      border-radius:14px;
+      background:rgba(212,175,55,0.10);
+      border:1px solid rgba(212,175,55,0.35);
+      line-height:1.55;
+      color:#f5f5f5;
+    }
+
+    label{
+      display:block;
+      margin-bottom:8px;
+      font-size:14px;
+      font-weight:600;
+      color:#f1f1f1;
+    }
+
+    input{
+      width:100%;
+      height:50px;
+      margin-bottom:18px;
+      padding:0 14px;
+      border-radius:10px;
+      border:1px solid #333;
+      background:#1b1b1b;
+      color:white;
+      font-size:15px;
+    }
+
+    input:focus{
+      outline:none;
+      border-color:#d4af37;
+      box-shadow:0 0 0 3px rgba(212,175,55,0.15);
+    }
+
+    .terms-box{
+      margin:4px 0 18px;
+      padding:14px;
+      border-radius:12px;
+      background:#181818;
+      border:1px solid rgba(255,255,255,0.10);
+      font-size:13px;
+      line-height:1.5;
+      color:#d8d8d8;
+    }
+
+    .terms-check{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      margin-top:12px;
+    }
+
+    .terms-check input{
+      width:18px;
+      height:18px;
+      margin:2px 0 0;
+      flex:0 0 auto;
+    }
+
+    .terms-check label{
+      margin:0;
+      font-size:13px;
+      font-weight:500;
+      line-height:1.45;
+      color:#f1f1f1;
+    }
+
+    button{
+      width:100%;
+      height:52px;
+      margin-top:10px;
+      border:none;
+      border-radius:10px;
+      font-size:16px;
+      font-weight:700;
+      cursor:pointer;
+      color:#111;
+      background:linear-gradient(135deg, #f7e27b 0%, #d4af37 40%, #c49a2c 70%, #f7e27b 100%);
+      transition:all .25s ease;
+    }
+
+    button:hover{
+      transform:translateY(-1px);
+      box-shadow:0 10px 20px rgba(212,175,55,0.35);
+    }
+
+    .price{
+      margin-top:24px;
+      text-align:center;
+      font-size:15px;
+      color:#cfcfcf;
+    }
+
+    .price strong{
+      color:#f7e27b;
+      font-size:24px;
+    }
+
+    .notice{
+      margin-top:16px;
+      font-size:13px;
+      line-height:1.5;
+      color:#d6d6d6;
+      text-align:center;
+    }
+
+    @media(max-width:900px){
+      .page{ grid-template-columns:1fr; }
+      .features{ grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+
+    <section class="panel">
+      <h1>Kratos Juris</h1>
+
+      <p class="subtitle">
+        O Kratos Juris é um sistema focado na rotina de advogados e escritórios,
+        reunindo gestão jurídica, documental, financeira e operacional em um único aplicativo.
+      </p>
+
+      <h2>Funcionalidades do sistema</h2>
+
+      <div class="features">
+        <div class="feature">
+          <strong>Controle de prazos</strong>
+          Organize prazos, acompanhe vencimentos e visualize alertas de prazos rompendo diretamente no dashboard.
+        </div>
+
+        <div class="feature">
+          <strong>Geração automática de documentos</strong>
+          Gere procurações, declarações de hipossuficiência e declarações de residência de forma automática e personalizada.
+        </div>
+
+        <div class="feature">
+          <strong>Cadastro por link</strong>
+          Envie links para que os próprios clientes preencham seus dados, facilitando a geração de procurações e documentos.
+        </div>
+
+        <div class="feature">
+          <strong>Controle de audiências</strong>
+          Cadastre audiências, acompanhe datas, contatos, lembretes e informações relevantes para a rotina do escritório.
+        </div>
+
+        <div class="feature">
+          <strong>WhatsApp integrado</strong>
+          Envie mensagens para clientes, como felicitações de aniversário, intimações de audiência e lembretes importantes.
+        </div>
+
+        <div class="feature">
+          <strong>Lembretes inteligentes</strong>
+          Receba alertas de aniversários de clientes, boletos vencendo, diligências da semana e compromissos importantes.
+        </div>
+
+        <div class="feature">
+          <strong>Migração automatizada de prazos</strong>
+          Importe prazos a partir de documentos PDF gerados pelos sites Recorte Digital e Publicações Online, com leitura automatizada dos dados.
+        </div>
+
+        <div class="feature">
+          <strong>Cálculo em dias úteis</strong>
+          Informe a quantidade de dias e o sistema calcula o rompimento do prazo em dias úteis, já desconsiderando feriados nacionais.
+        </div>
+
+        <div class="feature">
+          <strong>Relatórios jurídicos</strong>
+          Gere relatórios de prazos cumpridos, ações procedentes, ações em fase de execução, perícias e diligências a realizar.
+        </div>
+
+        <div class="feature">
+          <strong>Gestão financeira completa</strong>
+          Controle contas a pagar, contas a receber, boletos vencendo, relatórios mensais, anuais e por contas cadastradas.
+        </div>
+      </div>
+
+      <div class="highlight">
+        Tudo isso em um único sistema: todo o seu escritório na palma da sua mão e na tela do seu computador.
+      </div>
+    </section>
+
+    <section class="panel">
+      <h1>Contratar agora</h1>
+
+      <p class="subtitle">
+        Preencha os dados abaixo para prosseguir com a contratação do Kratos Juris.
+      </p>
+
+      <form method="post" action="/assinar">
+
+        <label>Nome do responsável</label>
+        <input type="text" name="responsavel" placeholder="Digite seu nome" required>
+
+        <label>Nome do escritório</label>
+        <input type="text" name="escritorio" placeholder="Digite o nome do escritório" required>
+
+        <label>E-mail</label>
+        <input type="email" name="email" placeholder="Digite seu e-mail" required>
+
+        <label>Telefone</label>
+        <input type="text" name="telefone" placeholder="(00) 00000-0000" required>
+
+        <div class="terms-box">
+          <strong>Termos e condições da assinatura</strong><br><br>
+
+          O Kratos Juris é fornecido na modalidade de assinatura mensal, no valor de
+          <strong>R$ 59,90 por mês</strong>.
+
+          <br><br>
+
+          Quando o pagamento for realizado por cartão de crédito, a cobrança poderá ser descontada mês a mês
+          enquanto a assinatura permanecer ativa.
+
+          <br><br>
+
+          Caso o cliente utilize outra modalidade de pagamento que não seja cartão de crédito,
+          a liberação do acesso ao sistema somente ocorrerá após a confirmação efetiva do pagamento.
+
+          <br><br>
+
+          O uso do sistema pressupõe a aceitação dos termos e condições de uso, bem como a ciência de que
+          o acesso poderá depender da confirmação do pagamento mensal.
+
+          <div class="terms-check">
+  <input type="checkbox" id="accept_terms" name="accept_terms" required>
+  <label for="accept_terms">
+    Declaro que li e aceito os
+    <a href="/termos" target="_blank" rel="noopener noreferrer" style="color:#f7e27b; font-weight:700;">
+      Termos e Condições de Uso e Contratação
+    </a>,
+    estou ciente da assinatura mensal e autorizo o prosseguimento para a etapa de pagamento.
+  </label>
+</div>
+        </div>
+
+        <button type="submit">
+          Prosseguir para pagamento
+        </button>
+      </form>
+
+      <div class="price">
+        Assinatura mensal de <strong>R$ 59,90</strong>
+      </div>
+
+      <p class="notice">
+        Após a confirmação do pagamento, o acesso será liberado conforme a modalidade escolhida.
+      </p>
+    </section>
+
+  </div>
+</body>
+</html>

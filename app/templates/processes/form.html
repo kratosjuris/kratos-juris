@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  /* =========================================================
+     ✅ Processos/Form — ARQUITETURA CORRETA
+     - Night: mantém exatamente seu visual atual
+     - Day: substitui por branco/azul + letras pretas
+     ========================================================= */
+
+  /* ====== DARK (NOITE) — mantém exatamente seu visual ====== */
+  body:not(.kj-day) .processos-form-page .kj-page-title{
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    color: rgba(242,244,247,.96);
+    text-shadow: 0 10px 22px rgba(0,0,0,.45);
+  }
+  body:not(.kj-day) .processos-form-page .kj-help{
+    color: rgba(242,244,247,.68);
+    font-size: .9rem;
+  }
+  body:not(.kj-day) .processos-form-page .kj-card{
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 18px;
+    background:
+      radial-gradient(900px 700px at 10% 0%, rgba(255,255,255,.08), transparent 45%),
+      linear-gradient(180deg, rgba(18,24,38,.88), rgba(10,14,24,.90));
+    box-shadow:
+      0 18px 44px rgba(0,0,0,.55),
+      0 1px 0 rgba(255,255,255,.08) inset,
+      0 0 0 1px rgba(231,198,106,.06) inset;
+  }
+  body:not(.kj-day) .processos-form-page .kj-card .form-label{
+    color: rgba(242,244,247,.86);
+    font-weight: 750;
+  }
+  body:not(.kj-day) .processos-form-page .kj-card .form-text{
+    color: rgba(242,244,247,.60);
+  }
+  body:not(.kj-day) .processos-form-page .kj-actions .btn{
+    border-radius: 12px;
+  }
+
+  /* ====== DAY (DIA) — branco/azul + legibilidade total ====== */
+  body.kj-day .processos-form-page{
+    color: #0b1b33 !important;
+  }
+
+  body.kj-day .processos-form-page .kj-page-title{
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    color: #0b1b33 !important;
+    text-shadow: none !important;
+  }
+
+  body.kj-day .processos-form-page .kj-card{
+    background: #ffffff !important;
+    border: 1px solid rgba(37,99,235,.16) !important;
+    border-radius: 18px !important;
+    box-shadow: 0 16px 38px rgba(2,6,23,.06) !important;
+  }
+
+  body.kj-day .processos-form-page .kj-card .form-label{
+    color: #0b1b33 !important;
+    font-weight: 800 !important;
+  }
+
+  body.kj-day .processos-form-page .kj-card .form-text,
+  body.kj-day .processos-form-page .text-muted{
+    color: rgba(11,27,51,.65) !important;
+  }
+
+  body.kj-day .processos-form-page .form-control,
+  body.kj-day .processos-form-page .form-select,
+  body.kj-day .processos-form-page textarea,
+  body.kj-day .processos-form-page input{
+    background: #fff !important;
+    color: #0b1b33 !important;
+    border: 1px solid rgba(37,99,235,.18) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 10px 22px rgba(2,6,23,.04) !important;
+  }
+
+  body.kj-day .processos-form-page .form-control:focus,
+  body.kj-day .processos-form-page .form-select:focus,
+  body.kj-day .processos-form-page textarea:focus,
+  body.kj-day .processos-form-page input:focus{
+    border-color: rgba(37,99,235,.55) !important;
+    box-shadow: 0 0 0 .2rem rgba(37,99,235,.16) !important;
+  }
+
+  body.kj-day .processos-form-page .kj-actions .btn{
+    border-radius: 12px !important;
+  }
+
+  /* Mantém seu padrão de botões do modo dia */
+  body.kj-day .processos-form-page .btn.btn-primary{
+    border: 1px solid rgba(37,99,235,.28) !important;
+    background: linear-gradient(180deg, rgba(37,99,235,.98), rgba(29,78,216,.98)) !important;
+    color: rgba(255,255,255,.98) !important;
+    font-weight: 900 !important;
+    box-shadow: 0 14px 28px rgba(2,6,23,.10), 0 1px 0 rgba(255,255,255,.18) inset !important;
+  }
+
+  body.kj-day .processos-form-page .btn.btn-outline-secondary{
+    background: #fff !important;
+    color: #0b1b33 !important;
+    border: 1px solid rgba(37,99,235,.22) !important;
+    font-weight: 900 !important;
+  }
+</style>
+
+<div class="processos-form-page">
+
+  <h3 class="mb-3 kj-page-title">{{ title }}</h3>
+
+  {% if erro %}
+    <div class="alert alert-danger">{{ erro }}</div>
+  {% endif %}
+
+  <form method="post"
+        action="{% if p %}/processos/{{ p.id }}/editar{% else %}/processos/novo{% endif %}"
+        class="kj-card p-3">
+
+    <input type="hidden" name="status" value="{% if p %}{{ p.aba }}{% else %}{{ status }}{% endif %}">
+
+    <div class="mb-3">
+      <label class="form-label">Número do Processo</label>
+      <input class="form-control" name="numero_processo" required
+             value="{% if p %}{{ p.numero_processo }}{% endif %}">
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Nome da Parte Autora</label>
+      <input class="form-control" name="parte_autora" required
+             value="{% if p %}{{ p.parte_autora }}{% endif %}">
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Vara de tramitação</label>
+      <input class="form-control" name="vara" required
+             value="{% if p %}{{ p.vara }}{% endif %}">
+    </div>
+
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">Data da intimação (DJEN)</label>
+        <input type="date" class="form-control" name="data_intimacao"
+               value="{% if p and p.data_intimacao %}{{ p.data_intimacao.strftime('%Y-%m-%d') }}{% endif %}">
+        <div class="form-text">Se não houver DJEN, deixe em branco.</div>
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">Dias para rompimento do prazo (dias úteis)</label>
+        <input type="number" class="form-control" name="prazo_dias" min="1"
+               value="{% if p and p.prazo_dias %}{{ p.prazo_dias }}{% endif %}">
+        <div class="form-text">Usado para calcular vencimento e dias restantes.</div>
+      </div>
+    </div>
+
+    <div class="mt-3">
+      <label class="form-label">Observação (o que precisa ser feito)</label>
+      <textarea class="form-control" name="obs" rows="4"
+                placeholder="Ex.: Peticionar juntada de documentos / aguardando sentença / providenciar cópia do DJEN...">{% if p and p.obs %}{{ p.obs }}{% endif %}</textarea>
+      <div class="form-text">Esse texto aparece na tabela de processos em todas as abas.</div>
+    </div>
+
+    <div class="d-flex gap-2 mt-3 kj-actions">
+      <button class="btn btn-primary" type="submit">Salvar</button>
+      <a class="btn btn-outline-secondary"
+         href="/processos?status={% if p %}{{ p.aba }}{% else %}{{ status }}{% endif %}">Voltar</a>
+    </div>
+
+  </form>
+
+</div>
+
+{% endblock %}

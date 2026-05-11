@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  /* ===== Financeiro/Dashboard — Kratos (somente aqui) ===== */
+
+  .kj-page-title{
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    color: rgba(242,244,247,.96);
+    text-shadow: 0 10px 22px rgba(0,0,0,.45);
+  }
+
+  .kj-card{
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 18px;
+    background:
+      radial-gradient(900px 700px at 10% 0%, rgba(255,255,255,.08), transparent 45%),
+      linear-gradient(180deg, rgba(18,24,38,.88), rgba(10,14,24,.90));
+    box-shadow:
+      0 18px 44px rgba(0,0,0,.55),
+      0 1px 0 rgba(255,255,255,.08) inset,
+      0 0 0 1px rgba(231,198,106,.06) inset;
+    color: rgba(242,244,247,.92);
+  }
+
+  .kj-subtle{
+    color: rgba(242,244,247,.68) !important;
+  }
+
+  .kj-toolbar .btn{ border-radius: 12px; }
+
+  /* Botão “ouro” padrão (igual ao do Contas a Pagar no seu tema) */
+  .btn-kj-gold{
+    border: 1px solid rgba(231,198,106,.35) !important;
+    background: linear-gradient(180deg, rgba(247,231,168,.32), rgba(202,162,74,.22)) !important;
+    color: rgba(242,244,247,.95) !important;
+    box-shadow:
+      0 18px 34px rgba(0,0,0,.45),
+      0 1px 0 rgba(255,255,255,.10) inset,
+      0 0 18px rgba(231,198,106,.12);
+  }
+  .btn-kj-gold:hover{
+    border-color: rgba(231,198,106,.55) !important;
+    filter: saturate(1.05);
+    transform: translateY(-1px);
+  }
+
+  /* Botão neutro dark */
+  .btn-kj-soft{
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+    color: rgba(242,244,247,.90);
+    box-shadow:
+      0 12px 24px rgba(0,0,0,.40),
+      0 1px 0 rgba(255,255,255,.08) inset;
+  }
+  .btn-kj-soft:hover{
+    border-color: rgba(231,198,106,.22);
+    color: rgba(242,244,247,.96);
+    box-shadow:
+      0 16px 34px rgba(0,0,0,.50),
+      0 1px 0 rgba(255,255,255,.10) inset;
+  }
+
+  /* Chips de valor */
+  .kj-kpi{
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 18px;
+    background: rgba(255,255,255,.03);
+    box-shadow: 0 10px 22px rgba(0,0,0,.28);
+  }
+  .kj-kpi .kj-label{ color: rgba(242,244,247,.68); font-size: .9rem; }
+  .kj-kpi .kj-value{
+    font-size: 1.35rem;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    color: rgba(242,244,247,.96);
+    text-shadow: 0 10px 22px rgba(0,0,0,.45);
+  }
+
+  /* Títulos dos blocos */
+  .kj-block-title{
+    font-weight: 850;
+    color: rgba(242,244,247,.96);
+  }
+
+  /* Ajuste do form no dark */
+  .kj-card .form-label{ color: rgba(242,244,247,.80); }
+  .kj-card .form-control,
+  .kj-card .form-select{
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.12);
+    color: rgba(242,244,247,.92);
+    border-radius: 12px;
+  }
+  .kj-card .form-control:focus,
+  .kj-card .form-select:focus{
+    border-color: rgba(231,198,106,.35);
+    box-shadow: 0 0 0 .2rem rgba(231,198,106,.12);
+  }
+
+  /* Alertas em dark */
+  .alert{
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,.10);
+    box-shadow: 0 14px 36px rgba(0,0,0,.35);
+  }
+  .alert-warning{
+    background: rgba(231,198,106,.10);
+    color: rgba(242,244,247,.92);
+    border-color: rgba(231,198,106,.22);
+  }
+  .alert-warning .text-muted{ color: rgba(242,244,247,.70) !important; }
+</style>
+
+{# ================= ALERTA PERÍCIAS ================= #}
+{% if pericias_proximas and pericias_proximas|length > 0 %}
+<div class="alert alert-warning">
+  <div class="fw-semibold mb-1">🔔 Perícias/Diligências (próximos 7 dias)</div>
+  <ul class="mb-0">
+    {% for p in pericias_proximas %}
+      <li>
+        <strong>{{ p.data_evento.strftime("%d/%m/%Y") }}</strong> —
+        {{ p.nome_parte }} <span class="text-muted">({{ p.numero_processo }})</span>
+        {% if p.local %}<span class="text-muted"> — {{ p.local }}</span>{% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+  <div class="mt-2">
+    <a class="btn btn-sm btn-kj-soft" href="/pericias">Abrir Perícias/Diligências</a>
+  </div>
+</div>
+{% endif %}
+
+{# ================= HEADER ================= #}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="m-0 kj-page-title">Dashboard Financeiro</h3>
+  <div class="d-flex gap-2 kj-toolbar">
+    <a class="btn btn-kj-soft" href="/financeiro">Voltar</a>
+    <a class="btn btn-kj-soft" href="/financeiro/pagar?ym={{ ym }}">Pagar</a>
+    <a class="btn btn-kj-soft" href="/financeiro/receber?ym={{ ym }}">Receber</a>
+  </div>
+</div>
+
+{# ================= FILTRO ================= #}
+<form method="get" action="/financeiro/dashboard" class="kj-card p-3 mb-3">
+  <div class="row g-3 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label">Mês</label>
+      <input type="month" class="form-control" name="ym" value="{{ ym }}">
+    </div>
+
+    <div class="col-md-3">
+      <button class="btn btn-kj-gold" type="submit">Consultar</button>
+    </div>
+
+    <div class="col-md-6 d-flex gap-2 justify-content-end">
+      {# ✅ padronizado: sem verde; mantém intenção #}
+      <a class="btn btn-kj-soft" href="/financeiro/export/excel?ym={{ ym }}">Exportar Excel</a>
+      <a class="btn btn-kj-soft" href="/financeiro/export/pdf?ym={{ ym }}" target="_blank">Exportar PDF</a>
+    </div>
+  </div>
+</form>
+
+{# ================= KPIs ================= #}
+<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <div class="kj-card p-3 kj-kpi">
+      <div class="kj-label">Saldo inicial</div>
+      <div class="kj-value">R$ {{ saldo_inicial|money_br if money_br is defined else ("%.2f"|format(saldo_inicial)) }}</div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="kj-card p-3 kj-kpi">
+      <div class="kj-label">Saldo realizado (pagos + recebidos)</div>
+      <div class="kj-value">R$ {{ saldo_realizado|money_br if money_br is defined else ("%.2f"|format(saldo_realizado)) }}</div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="kj-card p-3 kj-kpi">
+      <div class="kj-label">Saldo projetado (tudo do mês)</div>
+      <div class="kj-value">R$ {{ saldo_projetado|money_br if money_br is defined else ("%.2f"|format(saldo_projetado)) }}</div>
+    </div>
+  </div>
+</div>
+
+{# ================= RESUMOS ================= #}
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="kj-card p-3">
+      <div class="kj-block-title mb-2">Contas a pagar ({{ ym }})</div>
+
+      <div class="d-flex justify-content-between">
+        <div class="kj-subtle">Total despesas</div>
+        <div class="fw-bold">R$ {{ total_despesas|money_br if money_br is defined else ("%.2f"|format(total_despesas)) }}</div>
+      </div>
+
+      <div class="d-flex justify-content-between">
+        <div class="kj-subtle">Total pago</div>
+        <div class="fw-bold" style="color: rgba(34,197,94,.95);">
+          R$ {{ total_pago|money_br if money_br is defined else ("%.2f"|format(total_pago)) }}
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-between">
+        <div class="kj-subtle">Pendente</div>
+        <div class="fw-bold" style="color: rgba(231,198,106,.95);">
+          R$ {{ total_pendente_pagar|money_br if money_br is defined else ("%.2f"|format(total_pendente_pagar)) }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="kj-card p-3">
+      <div class="kj-block-title mb-2">Contas a receber ({{ ym }})</div>
+
+      <div class="d-flex justify-content-between">
+        <div class="kj-subtle">Total a receber</div>
+        <div class="fw-bold">R$ {{ total_receber|money_br if money_br is defined else ("%.2f"|format(total_receber)) }}</div>
+      </div>
+
+      <div class="d-flex justify-content-between">
+        <div class="kj-subtle">Total recebido</div>
+        <div class="fw-bold" style="color: rgba(34,197,94,.95);">
+          R$ {{ total_recebido|money_br if money_br is defined else ("%.2f"|format(total_recebido)) }}
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-between">
+        <div class="kj-subtle">Pendente</div>
+        <div class="fw-bold" style="color: rgba(231,198,106,.95);">
+          R$ {{ total_pendente_receber|money_br if money_br is defined else ("%.2f"|format(total_pendente_receber)) }}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

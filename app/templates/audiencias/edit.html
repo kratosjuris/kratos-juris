@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  /* ========= EDIT AUDIÊNCIA — escopado (não mexe no modo noite) ========= */
+  body.kj-day .aud-edit { color:#0b1b33 !important; }
+  body.kj-day .aud-edit h3 { color:#0b1b33 !important; font-weight:900; letter-spacing:-.02em; }
+
+  body.kj-day .aud-edit .card{
+    background:#fff !important;
+    border:1px solid rgba(37,99,235,.14) !important;
+    border-radius:18px !important;
+    box-shadow:0 16px 38px rgba(2,6,23,.06) !important;
+  }
+
+  body.kj-day .aud-edit .form-label{ color:#0b1b33 !important; font-weight:700; }
+</style>
+
+<div class="aud-edit">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="m-0">
+      {% if h and h.id %}
+        Editar Audiência
+      {% else %}
+        Nova Audiência (Cadastro manual)
+      {% endif %}
+    </h3>
+    <a class="btn btn-outline-secondary" href="/audiencias">Voltar</a>
+  </div>
+
+  <form class="card p-3"
+        method="post"
+        action="{% if h and h.id %}/audiencias/{{ h.id }}/edit{% else %}/audiencias/create{% endif %}">
+
+    <div class="row g-3">
+
+      <div class="col-md-4">
+        <label class="form-label">Processo</label>
+        <input class="form-control" name="process_number"
+               value="{% if h %}{{ h.process_number or '' }}{% endif %}"
+               required>
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label">Data e hora</label>
+        <input class="form-control" type="datetime-local" name="starts_at"
+               value="{% if h and h.starts_at %}{{ h.starts_at.strftime('%Y-%m-%dT%H:%M') }}{% endif %}"
+               required>
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label">Modalidade</label>
+        <input class="form-control" name="modalidade"
+               value="{% if h %}{{ h.modalidade or '' }}{% endif %}">
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">Promovente</label>
+        <input class="form-control" name="promovente"
+               value="{% if h %}{{ h.promovente or '' }}{% endif %}">
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">Promovido</label>
+        <input class="form-control" name="promovido"
+               value="{% if h %}{{ h.promovido or '' }}{% endif %}">
+      </div>
+<div class="col-md-4">
+  <label class="form-label">Telefone (WhatsApp)</label>
+  <input class="form-control" name="manual_phone"
+         placeholder="(DDD) 9xxxx-xxxx"
+         value="{% if h %}{{ h.manual_phone or '' }}{% endif %}">
+  <div class="form-text">
+    Se o sistema não encontrar o telefone do cliente, usará este.
+  </div>
+</div>
+      <div class="col-md-4">
+        <label class="form-label">Código de extensão</label>
+        <input class="form-control" name="extension_code"
+               value="{% if h %}{{ h.extension_code or '' }}{% endif %}">
+      </div>
+
+      <div class="col-md-8">
+        <label class="form-label">Observações</label>
+        <input class="form-control" name="notes"
+               value="{% if h %}{{ h.notes or '' }}{% endif %}">
+      </div>
+
+      <div class="col-12 d-grid">
+        <button class="btn btn-primary" type="submit">
+          {% if h and h.id %}Salvar{% else %}Cadastrar{% endif %}
+        </button>
+      </div>
+
+    </div>
+  </form>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Permissões</title>
+  <link rel="stylesheet" href="/static/css/users.css">
+  <link rel="stylesheet" href="/static/css/users_permissions.css">
+
+  <style>
+    .perm-module-actions{
+      display:flex;
+      gap:.5rem;
+      flex-wrap:wrap;
+      margin-top:.75rem;
+    }
+
+    .perm-mini-btn{
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:inherit;
+      padding:.45rem .8rem;
+      border-radius:10px;
+      font-size:.88rem;
+      font-weight:700;
+      cursor:pointer;
+      transition:.2s ease;
+    }
+
+    .perm-mini-btn:hover{
+      transform:translateY(-1px);
+      opacity:.95;
+    }
+
+    .perm-mini-btn:disabled{
+      opacity:.5;
+      cursor:not-allowed;
+      transform:none;
+    }
+
+    .perm-global-actions{
+      display:flex;
+      gap:.5rem;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+  </style>
+</head>
+<body>
+  <div class="perm-page">
+    <div class="perm-shell">
+
+      <div class="perm-hero">
+        <div class="perm-hero-left">
+          <div class="perm-kicker">Administração</div>
+          <h1>Permissões de {{ user_obj.nome }}</h1>
+          <p>
+            Gerencie os acessos deste usuário aos módulos do Kratos Juris.
+          </p>
+
+          <div class="perm-user-meta">
+            <span class="meta-chip">
+              <strong>Usuário:</strong> {{ user_obj.username }}
+            </span>
+
+            {% if user_obj.is_active %}
+              <span class="meta-chip success">Ativo</span>
+            {% else %}
+              <span class="meta-chip danger">Inativo</span>
+            {% endif %}
+
+            {% if user_obj.is_superuser %}
+              <span class="meta-chip gold">Superadministrador</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      {% if user_obj.is_superuser %}
+        <div class="perm-alert info">
+          Este usuário é <strong>superadministrador</strong> e possui acesso total automático.
+          As permissões abaixo são exibidas apenas para consulta.
+        </div>
+      {% endif %}
+
+      <form method="post" action="/usuarios/{{ user_obj.id }}/permissoes">
+        {% if permissions_by_module %}
+          <div class="perm-toolbar">
+            <div>
+              <h2>Módulos e acessos</h2>
+              <p>Marque apenas o que este usuário realmente poderá acessar.</p>
+            </div>
+
+            <div class="perm-toolbar-actions">
+              <a class="btn-secondary" href="/usuarios">Voltar</a>
+              {% if not user_obj.is_superuser %}
+                <button type="submit" class="btn-primary">Salvar permissões</button>
+              {% endif %}
+            </div>
+          </div>
+
+          {% if not user_obj.is_superuser %}
+            <div class="perm-toolbar" style="margin-top: 12px;">
+              <div>
+                <h2>Ações rápidas</h2>
+                <p>Você pode marcar ou desmarcar todas as permissões de uma vez.</p>
+              </div>
+
+              <div class="perm-global-actions">
+                <button
+                  type="button"
+                  class="perm-mini-btn"
+                  onclick="toggleAllPermissions(true)"
+                >
+                  Marcar todas
+                </button>
+
+                <button
+                  type="button"
+                  class="perm-mini-btn"
+                  onclick="toggleAllPermissions(false)"
+                >
+                  Desmarcar todas
+                </button>
+              </div>
+            </div>
+          {% endif %}
+
+          <div class="perm-modules">
+            {% for module, perms in permissions_by_module.items() %}
+              <section class="perm-card" data-module-card>
+                <div class="perm-card-head">
+                  <div>
+                    <div class="perm-module-label">Módulo</div>
+                    <h3>{{ module|replace("_", " ")|title }}</h3>
+
+                    {% if not user_obj.is_superuser %}
+                      <div class="perm-module-actions">
+                        <button
+                          type="button"
+                          class="perm-mini-btn"
+                          onclick="toggleModulePermissions(this, true)"
+                        >
+                          Marcar tudo
+                        </button>
+
+                        <button
+                          type="button"
+                          class="perm-mini-btn"
+                          onclick="toggleModulePermissions(this, false)"
+                        >
+                          Desmarcar tudo
+                        </button>
+                      </div>
+                    {% endif %}
+                  </div>
+
+                  <span class="perm-badge">{{ perms|length }} permissões</span>
+                </div>
+
+                <div class="perm-list">
+                  {% for perm in perms %}
+                    <label class="perm-row">
+                      <div class="perm-row-check">
+                        <input
+                          type="checkbox"
+                          name="permission_ids"
+                          value="{{ perm.id }}"
+                          {% if perm.id in user_permission_ids %}checked{% endif %}
+                          {% if user_obj.is_superuser %}disabled{% endif %}
+                        >
+                      </div>
+
+                      <div class="perm-row-content">
+                        <div class="perm-row-title">{{ perm.name }}</div>
+                        <div class="perm-row-code">{{ perm.code }}</div>
+                      </div>
+                    </label>
+                  {% endfor %}
+                </div>
+              </section>
+            {% endfor %}
+          </div>
+
+          <div class="perm-bottom-actions">
+            <a class="btn-secondary" href="/usuarios">Voltar</a>
+            {% if not user_obj.is_superuser %}
+              <button type="submit" class="btn-primary">Salvar permissões</button>
+            {% endif %}
+          </div>
+        {% else %}
+          <div class="perm-empty">
+            <div class="perm-empty-icon">🔐</div>
+            <h3>Nenhuma permissão cadastrada</h3>
+            <p>
+              O sistema ainda não possui permissões salvas na tabela
+              <strong>permissions</strong>.
+            </p>
+            <a class="btn-secondary" href="/usuarios">Voltar</a>
+          </div>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function toggleModulePermissions(button, checked) {
+      const card = button.closest("[data-module-card]");
+      if (!card) return;
+
+      const checkboxes = card.querySelectorAll('input[type="checkbox"][name="permission_ids"]');
+      checkboxes.forEach((checkbox) => {
+        if (!checkbox.disabled) {
+          checkbox.checked = checked;
+        }
+      });
+    }
+
+    function toggleAllPermissions(checked) {
+      const checkboxes = document.querySelectorAll('input[type="checkbox"][name="permission_ids"]');
+      checkboxes.forEach((checkbox) => {
+        if (!checkbox.disabled) {
+          checkbox.checked = checked;
+        }
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  /* =========================================================
+     ✅ CLIENTES/FORM — ARQUITETURA CORRETA
+     - Night: não altera nada (deixa seu tema atual agir)
+     - Day: força branco/legível + padroniza inputs/botões
+     ========================================================= */
+
+  /* Wrapper para escopar sem afetar outras páginas */
+  .clientes-form-page{ }
+
+  /* ====== DAY (MODO DIA) — somente aqui ====== */
+  body.kj-day .clientes-form-page{
+    color: #0b1b33 !important;
+  }
+
+  body.kj-day .clientes-form-page h3{
+    color: #0b1b33 !important;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    text-shadow: none !important;
+  }
+
+  /* Card da página no modo dia */
+  body.kj-day .clientes-form-page .card{
+    background: #ffffff !important;
+    color: #0b1b33 !important;
+    border: 1px solid rgba(37,99,235,.14) !important;
+    border-radius: 18px !important;
+    box-shadow: 0 16px 38px rgba(2,6,23,.06) !important;
+  }
+
+  /* Labels e textos */
+  body.kj-day .clientes-form-page .form-label{
+    color: #0b1b33 !important;
+    font-weight: 800 !important;
+  }
+  body.kj-day .clientes-form-page .text-muted,
+  body.kj-day .clientes-form-page .form-text,
+  body.kj-day .clientes-form-page small{
+    color: rgba(11,27,51,.65) !important;
+  }
+
+  /* Inputs */
+  body.kj-day .clientes-form-page .form-control,
+  body.kj-day .clientes-form-page .form-select,
+  body.kj-day .clientes-form-page textarea,
+  body.kj-day .clientes-form-page input{
+    background: #fff !important;
+    color: #0b1b33 !important;
+    border: 1px solid rgba(37,99,235,.18) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 10px 22px rgba(2,6,23,.04) !important;
+  }
+
+  body.kj-day .clientes-form-page .form-control:focus,
+  body.kj-day .clientes-form-page .form-select:focus,
+  body.kj-day .clientes-form-page textarea:focus,
+  body.kj-day .clientes-form-page input:focus{
+    border-color: rgba(37,99,235,.55) !important;
+    box-shadow: 0 0 0 .2rem rgba(37,99,235,.16) !important;
+  }
+
+  /* Botões (modo dia) — mantém coerência com seu tema dia */
+  body.kj-day .clientes-form-page .btn{
+    border-radius: 12px !important;
+    font-weight: 900 !important;
+  }
+
+  /* “Salvar” (btn-success) no modo dia fica mais premium e coerente */
+  body.kj-day .clientes-form-page .btn.btn-success{
+    border: 1px solid rgba(37,99,235,.28) !important;
+    background: linear-gradient(180deg, rgba(37,99,235,.98), rgba(29,78,216,.98)) !important;
+    color: rgba(255,255,255,.98) !important;
+    box-shadow: 0 14px 28px rgba(2,6,23,.10), 0 1px 0 rgba(255,255,255,.18) inset !important;
+  }
+
+  body.kj-day .clientes-form-page .btn.btn-outline-secondary{
+    background: #fff !important;
+    color: #0b1b33 !important;
+    border: 1px solid rgba(37,99,235,.22) !important;
+  }
+
+  /* Botões de documentos — mais legíveis e alinhados */
+  body.kj-day .clientes-form-page .docs-wrap .btn{
+    border: 1px solid rgba(37,99,235,.22) !important;
+    background: #fff !important;
+    color: #0b1b33 !important;
+  }
+  body.kj-day .clientes-form-page .docs-wrap .btn:hover{
+    background: rgba(37,99,235,.06) !important;
+  }
+</style>
+
+<div class="clientes-form-page">
+
+  <h3 class="mb-3">{{ "Editar Cliente" if cliente else "Novo Cliente" }}</h3>
+
+  <!-- ✅ NOVO: alerta -->
+  {% if msg %}
+    <div class="alert alert-warning py-2">
+      {{ msg }}
+    </div>
+  {% endif %}
+
+  <form method="post"
+        action="{{ '/clientes/%d/editar' % cliente.id if cliente else '/clientes/novo' }}"
+        class="card p-3">
+
+    <div class="mb-3">
+      <label class="form-label">Nome *</label>
+      <input class="form-control" name="nome" required
+             value="{{ cliente.nome if cliente else '' }}">
+    </div>
+
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label">CPF/CNPJ</label>
+        <input class="form-control" name="cpf_cnpj"
+               value="{{ cliente.cpf_cnpj if cliente else '' }}">
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label">RG</label>
+        <input class="form-control" name="rg"
+               value="{{ cliente.rg if cliente else '' }}">
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label">SSP-UF</label>
+        <input class="form-control" name="ssp_uf" placeholder="Ex.: SSP/BA"
+               value="{{ cliente.ssp_uf if cliente else '' }}">
+      </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+      <div class="col-md-6">
+        <label class="form-label">Estado Civil</label>
+        <input class="form-control" name="estado_civil" placeholder="Ex.: Solteiro(a)"
+               value="{{ cliente.estado_civil if cliente else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Profissão</label>
+        <input class="form-control" name="profissao"
+               value="{{ cliente.profissao if cliente else '' }}">
+      </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+      <div class="col-md-4">
+        <label class="form-label">Telefone</label>
+        <input class="form-control" name="telefone"
+               value="{{ cliente.telefone if cliente else '' }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Email</label>
+        <input class="form-control" name="email"
+               value="{{ cliente.email if cliente else '' }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Data de nascimento</label>
+        <input type="date" name="nascimento" class="form-control"
+               value="{% if cliente and cliente.nascimento %}{{ cliente.nascimento.strftime('%Y-%m-%d') }}{% endif %}">
+      </div>
+    </div>
+
+    <div class="mt-3">
+      <label class="form-label">Endereço</label>
+      <input class="form-control" name="endereco"
+             value="{{ cliente.endereco if cliente else '' }}">
+    </div>
+
+    <div class="mt-3">
+      <label class="form-label">Observações</label>
+      <input class="form-control" name="obs"
+             value="{{ cliente.obs if cliente else '' }}">
+    </div>
+
+    <div class="d-flex gap-2 mt-4 align-items-center flex-wrap">
+      <button class="btn btn-success">Salvar</button>
+      <a class="btn btn-outline-secondary" href="/clientes">Voltar</a>
+
+      {% if cliente %}
+        <div class="ms-auto d-flex gap-2 flex-wrap docs-wrap">
+          <a class="btn btn-outline-primary" target="_blank" href="/docs/procuracao/{{ cliente.id }}">📄 Procuração</a>
+          <a class="btn btn-outline-primary" target="_blank" href="/docs/procuracao-a-rogo/{{ cliente.id }}">📄 Procuração a rogo</a>
+          <a class="btn btn-outline-primary" target="_blank" href="/docs/hipossuficiencia/{{ cliente.id }}">📄 Hipossuficiência</a>
+          <a class="btn btn-outline-primary" target="_blank" href="/docs/residencia/{{ cliente.id }}">📄 Residência</a>
+        </div>
+      {% endif %}
+    </div>
+
+  </form>
+
+</div>
+
+{% endblock %}
