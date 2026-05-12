@@ -1,7 +1,10 @@
 from datetime import date
+
 from sqlalchemy import Column, Integer, String, Date, DateTime, Text, ForeignKey
+
 from app.core.database import Base
 from app.core.datetime_utils import now_br
+
 
 # abas: PROCEDENTE | EXECUCAO | PRAZOS
 # cumprimento (para PRAZOS): PENDENTE | CUMPRIDO | ROMPIDO
@@ -30,6 +33,12 @@ class ProcessItem(Base):
 
     data_intimacao = Column(Date, nullable=True)   # DJEN
     prazo_dias = Column(Integer, nullable=True)
+
+    # ✅ NOVO:
+    # uteis   = regra padrão do processo civil
+    # corridos = usado quando o prazo correr em dias corridos
+    tipo_contagem = Column(String(20), nullable=False, default="uteis", index=True)
+
     vencimento = Column(Date, nullable=True)
 
     # observação livre

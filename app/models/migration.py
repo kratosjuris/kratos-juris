@@ -106,6 +106,17 @@ class MigrationRow(Base):
     observacao = Column(Text, nullable=True)
     rompe_em_dias = Column(Integer, nullable=True)
 
+    # ✅ NOVO:
+    # uteis   = regra padrão do processo civil
+    # corridos = usado para criminal / demais prazos corridos
+    tipo_contagem = Column(
+        String(20),
+        nullable=False,
+        default="uteis",
+        server_default="uteis",
+        index=True,
+    )
+
     enviar_para = Column(String, nullable=True)
 
     enviado_em = Column(DateTime, nullable=True)
@@ -127,5 +138,11 @@ class MigrationRow(Base):
             "ix_migration_rows_office_batch",
             "office_id",
             "batch_id",
+        ),
+
+        # ✅ NOVO
+        Index(
+            "ix_migration_rows_tipo_contagem",
+            "tipo_contagem",
         ),
     )

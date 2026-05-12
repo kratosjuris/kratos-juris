@@ -471,6 +471,7 @@
           <th style="width:90px;">Rompe em</th>
           <th style="min-width:210px;">Enviar Para</th>
           <th style="width:120px;">Ações</th>
+            <th style="width:120px;">Tipo Contagem</th>
         </tr>
       </thead>
 
@@ -535,6 +536,14 @@
                    form="formSalvarLote"
                    value="{{ p.rompe_em_dias or '' }}">
           </td>
+            <td>
+  <select class="form-select form-select-sm"
+          id="tipo_{{ p.id }}" name="tipo_{{ p.id }}"
+          form="formSalvarLote">
+    <option value="uteis" {% if (p.tipo_contagem or 'uteis') == 'uteis' %}selected{% endif %}>Dias Úteis</option>
+    <option value="corridos" {% if (p.tipo_contagem or 'uteis') == 'corridos' %}selected{% endif %}>Dias Corridos</option>
+  </select>
+</td>
 
           <td>
             <select class="form-select form-select-sm"
@@ -570,6 +579,7 @@
     <input type="hidden" name="observacao" id="f_obs">
     <input type="hidden" name="rompe_em" id="f_rompe">
     <input type="hidden" name="enviar_para" id="f_dest">
+      <input type="hidden" name="tipo_contagem" id="f_tipo">
   </form>
 
   <script>
@@ -596,12 +606,15 @@
     const obs = document.getElementById("obs_" + id)?.value || "";
     const rompe = document.getElementById("rompe_" + id)?.value || "0";
     const dest = document.getElementById("dest_" + id)?.value || "PRAZOS";
+    const tipo = document.getElementById("tipo_" + id)?.value || "uteis";
+
 
     document.getElementById("f_cliente").value = cliente;
     document.getElementById("f_vara").value = vara;
     document.getElementById("f_obs").value = obs;
     document.getElementById("f_rompe").value = rompe;
     document.getElementById("f_dest").value = dest;
+    document.getElementById("f_tipo").value = tipo;
 
     const form = document.getElementById("formSalvarIndividual");
     form.action = "/migracoes/salvar/" + id;

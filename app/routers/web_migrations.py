@@ -168,6 +168,49 @@ def add_business_days(start: date, days: int) -> date:
     return cur
 
 
+def add_calendar_days(start: date, days: int) -> date:
+    if days <= 0:
+        return start
+
+    return start + timedelta(days=days)
+
+
+def calcular_vencimento_prazo(
+    data_base: date,
+    prazo_dias: int,
+    tipo_contagem: str = "uteis",
+) -> Optional[date]:
+    if not data_base:
+        return None
+
+    try:
+        prazo_int = int(prazo_dias or 0)
+    except Exception:
+        prazo_int = 0
+
+    if prazo_int <= 0:
+        return None
+
+    tipo = (tipo_contagem or "uteis").strip().lower()
+
+    if tipo not in {"uteis", "corridos"}:
+        tipo = "uteis"
+
+    if tipo == "corridos":
+        return add_calendar_days(data_base, prazo_int)
+
+    return add_business_days(data_base, prazo_int)
+
+
+def _normalize_tipo_contagem(tipo_contagem: str) -> str:
+    tipo = (tipo_contagem or "uteis").strip().lower()
+
+    if tipo not in {"uteis", "corridos"}:
+        return "uteis"
+
+    return tipo
+
+
 def _normalize_status(dest: str) -> str:
     dest_up = (dest or "").strip().upper()
 
@@ -1012,6 +1055,10 @@ def _process_parsed_rows_into_migration_rows(
         _safe_set(row, "cliente", (r.get("cliente") or "").strip() or None)
         _safe_set(row, "vara_tramitacao", (r.get("vara_tramitacao") or "").strip() or None)
 
+        # ✅ NOVO:
+        # todo item migrado nasce com contagem padrão em dias úteis
+        _safe_set(row, "tipo_contagem", "uteis")
+
         buffer_insert.append(row)
 
         if len(buffer_insert) >= INSERT_CHUNK_SIZE:
@@ -1292,6 +1339,7 @@ def _migrar_row_para_process_item(
     obs: str,
     rompe_em: int,
     dest: str,
+    tipo_contagem: str = "uteis",
 ):
     aba_code = _normalize_status(dest)
 
@@ -1305,7 +1353,16 @@ def _migrar_row_para_process_item(
     except Exception:
         prazo_int = 0
 
-    venc = add_business_days(djen, prazo_int) if prazo_int > 0 else None
+    # ✅ NOVO:
+    # "uteis" continua sendo o padrão do sistema.
+    # "corridos" passa a ser opção para os prazos que correm em dias corridos.
+    tipo_contagem = _normalize_tipo_contagem(tipo_contagem)
+
+    venc = calcular_vencimento_prazo(
+        data_base=djen,
+        prazo_dias=prazo_int,
+        tipo_contagem=tipo_contagem,
+    )
 
     existing = _find_existing_process_item(db, office_id, row.numero_processo)
 
@@ -1318,6 +1375,11 @@ def _migrar_row_para_process_item(
         _safe_set(existing, "cliente", (cliente or "").strip() or getattr(existing, "cliente", None))
         _safe_set(existing, "data_intimacao", djen)
         _safe_set(existing, "prazo_dias", prazo_int if prazo_int > 0 else getattr(existing, "prazo_dias", None))
+
+        # ✅ NOVO:
+        # grava a forma de contagem no controle de prazos/processos
+        _safe_set(existing, "tipo_contagem", tipo_contagem)
+
         _safe_set(existing, "vencimento", venc)
 
         if (obs or "").strip():
@@ -1348,6 +1410,11 @@ def _migrar_row_para_process_item(
         _safe_set(item, "cliente", (cliente or "").strip() or None)
         _safe_set(item, "data_intimacao", djen)
         _safe_set(item, "prazo_dias", prazo_int if prazo_int > 0 else None)
+
+        # ✅ NOVO:
+        # grava a forma de contagem no controle de prazos/processos
+        _safe_set(item, "tipo_contagem", tipo_contagem)
+
         _safe_set(item, "vencimento", venc)
 
         _set_obs_compat(item, (obs or "").strip())
@@ -1374,6 +1441,11 @@ def _migrar_row_para_process_item(
                 _safe_set(existing2, "vara", vara_value)
                 _safe_set(existing2, "data_intimacao", djen)
                 _safe_set(existing2, "prazo_dias", prazo_int if prazo_int > 0 else getattr(existing2, "prazo_dias", None))
+
+                # ✅ NOVO:
+                # grava a forma de contagem no controle de prazos/processos
+                _safe_set(existing2, "tipo_contagem", tipo_contagem)
+
                 _safe_set(existing2, "vencimento", venc)
 
                 if (obs or "").strip():
@@ -1397,6 +1469,11 @@ def _migrar_row_para_process_item(
     row.vara_tramitacao = vara
     row.observacao = obs
     row.rompe_em_dias = prazo_int if str(rompe_em or "").strip() else None
+
+    # ✅ NOVO:
+    # grava também na linha da migração
+    row.tipo_contagem = tipo_contagem
+
     row.enviar_para = aba_code
     row.enviado_em = now_br()
     row.enviado_para_status = aba_code
@@ -1412,6 +1489,11 @@ def migracoes_salvar_individual(
     observacao: str = Form(""),
     rompe_em: int = Form(0),
     enviar_para: str = Form("PRAZOS"),
+
+    # ✅ NOVO:
+    # vem do formulário; se não vier nada, mantém dias úteis
+    tipo_contagem: str = Form("uteis"),
+
     db: Session = Depends(get_db),
 ):
     office_id = _get_office_id(request)
@@ -1441,6 +1523,7 @@ def migracoes_salvar_individual(
             observacao,
             rompe_em,
             enviar_para,
+            tipo_contagem,
         )
         db.commit()
     except HTTPException as e:
@@ -1487,13 +1570,27 @@ async def migracoes_salvar_lote(
         rompe = form.get(f"rompe_{rid}", "0") or "0"
         dest = str(form.get(f"dest_{rid}", "PRAZOS") or "PRAZOS")
 
+        # ✅ NOVO:
+        # cada linha do lote pode ter sua própria forma de contagem
+        tipo_contagem = str(form.get(f"tipo_contagem_{rid}", "uteis") or "uteis")
+
         try:
             rompe_int = int(str(rompe).strip() or "0")
         except Exception:
             rompe_int = 0
 
         try:
-            _migrar_row_para_process_item(db, office_id, row, cliente, vara, obs, rompe_int, dest)
+            _migrar_row_para_process_item(
+                db,
+                office_id,
+                row,
+                cliente,
+                vara,
+                obs,
+                rompe_int,
+                dest,
+                tipo_contagem,
+            )
             db.commit()
             ok += 1
         except Exception:

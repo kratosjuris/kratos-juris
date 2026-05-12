@@ -86,6 +86,46 @@ def add_business_days(start: date, days: int) -> date:
     return current
 
 
+# ✅ NOVO: contagem em dias corridos
+def add_calendar_days(start: date, days: int) -> date:
+    if days <= 0:
+        return start
+    return start + timedelta(days=days)
+
+
+# ✅ NOVO: normaliza a forma de contagem
+def _normalize_tipo_contagem(tipo_contagem: str | None) -> str:
+    tipo = (tipo_contagem or "uteis").strip().lower()
+    if tipo not in ("uteis", "corridos"):
+        tipo = "uteis"
+    return tipo
+
+
+# ✅ NOVO: calcula vencimento considerando úteis ou corridos
+def calcular_vencimento_prazo(
+    data_base: date | None,
+    prazo_dias: int | None,
+    tipo_contagem: str | None = "uteis",
+) -> date | None:
+    if not data_base:
+        return None
+
+    try:
+        dias = int(prazo_dias or 0)
+    except Exception:
+        dias = 0
+
+    if dias <= 0:
+        return None
+
+    tipo = _normalize_tipo_contagem(tipo_contagem)
+
+    if tipo == "corridos":
+        return add_calendar_days(data_base, dias)
+
+    return add_business_days(data_base, dias)
+
+
 def dias_restantes(vencimento: date | None) -> int | None:
     if not vencimento:
         return None
@@ -394,6 +434,11 @@ def processos_novo(
     vara: str = Form(...),
     data_intimacao: str = Form(""),
     prazo_dias: str = Form(""),
+
+    # ✅ NOVO:
+    # padrão permanece em dias úteis
+    tipo_contagem: str = Form("uteis"),
+
     obs: str = Form(""),
 ):
     office_id = _get_office_id(request)
@@ -433,9 +478,13 @@ def processos_novo(
     if prazo_dias.strip():
         dias_int = int(prazo_dias)
 
-    venc = None
-    if djen and dias_int:
-        venc = add_business_days(djen, dias_int)
+    tipo_contagem = _normalize_tipo_contagem(tipo_contagem)
+
+    venc = calcular_vencimento_prazo(
+        data_base=djen,
+        prazo_dias=dias_int,
+        tipo_contagem=tipo_contagem,
+    )
 
     p = ProcessItem(
         office_id=office_id,
@@ -445,6 +494,10 @@ def processos_novo(
         vara=vara.strip(),
         data_intimacao=djen,
         prazo_dias=dias_int,
+
+        # ✅ NOVO
+        tipo_contagem=tipo_contagem,
+
         vencimento=venc,
         obs=(obs.strip() or None),
         cumprimento="PENDENTE",
@@ -487,6 +540,11 @@ def processos_editar(
     vara: str = Form(...),
     data_intimacao: str = Form(""),
     prazo_dias: str = Form(""),
+
+    # ✅ NOVO:
+    # padrão permanece em dias úteis
+    tipo_contagem: str = Form("uteis"),
+
     obs: str = Form(""),
 ):
     office_id = _get_office_id(request)
@@ -540,15 +598,23 @@ def processos_editar(
     if prazo_dias.strip():
         dias_int = int(prazo_dias)
 
-    venc = None
-    if djen and dias_int:
-        venc = add_business_days(djen, dias_int)
+    tipo_contagem = _normalize_tipo_contagem(tipo_contagem)
+
+    venc = calcular_vencimento_prazo(
+        data_base=djen,
+        prazo_dias=dias_int,
+        tipo_contagem=tipo_contagem,
+    )
 
     p.numero_processo = numero
     p.parte_autora = parte_autora.strip()
     p.vara = vara.strip()
     p.data_intimacao = djen
     p.prazo_dias = dias_int
+
+    # ✅ NOVO
+    p.tipo_contagem = tipo_contagem
+
     p.vencimento = venc
     p.obs = (obs.strip() or None)
 
