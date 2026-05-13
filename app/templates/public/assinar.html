@@ -6,14 +6,20 @@
   <title>Contratar Kratos Juris</title>
 
   <style>
-    *{ margin:0; padding:0; box-sizing:border-box; }
+    *{
+      margin:0;
+      padding:0;
+      box-sizing:border-box;
+    }
 
     body{
       min-height:100vh;
       padding:24px;
-      background:radial-gradient(circle at top, #2b2b2b 0%, #111 45%, #000 100%);
+      background:
+        radial-gradient(circle at top, #2b2b2b 0%, #111 45%, #000 100%);
       font-family:Arial, Helvetica, sans-serif;
       color:white;
+      overflow-x:hidden;
     }
 
     .page{
@@ -28,16 +34,20 @@
 
     .panel{
       padding:34px;
-      border-radius:18px;
-      background:#111;
-      border:1px solid rgba(212,175,55,0.25);
-      box-shadow:0 15px 40px rgba(0,0,0,0.55);
+      border-radius:22px;
+      background:rgba(17,17,17,0.96);
+      border:1px solid rgba(212,175,55,0.20);
+      box-shadow:
+        0 20px 60px rgba(0,0,0,0.60),
+        inset 0 1px 0 rgba(255,255,255,0.03);
+      backdrop-filter:blur(6px);
     }
 
     h1{
-      font-size:34px;
+      font-size:36px;
       margin-bottom:10px;
       color:#f7e27b;
+      line-height:1.1;
     }
 
     h2{
@@ -49,7 +59,8 @@
     .subtitle{
       color:#e5e5e5;
       margin-bottom:18px;
-      line-height:1.55;
+      line-height:1.65;
+      font-size:15px;
     }
 
     .features{
@@ -60,29 +71,41 @@
     }
 
     .feature{
-      padding:14px;
-      border-radius:12px;
-      background:#1a1a1a;
-      border:1px solid rgba(255,255,255,0.08);
-      line-height:1.45;
+      padding:16px;
+      border-radius:16px;
+      background:linear-gradient(
+        180deg,
+        rgba(28,28,28,1) 0%,
+        rgba(18,18,18,1) 100%
+      );
+      border:1px solid rgba(255,255,255,0.06);
+      line-height:1.55;
       font-size:14px;
       color:#e8e8e8;
+      transition:.25s ease;
+    }
+
+    .feature:hover{
+      transform:translateY(-3px);
+      border-color:rgba(212,175,55,0.30);
     }
 
     .feature strong{
       display:block;
-      margin-bottom:4px;
+      margin-bottom:5px;
       color:#f7e27b;
+      font-size:15px;
     }
 
     .highlight{
-      margin-top:22px;
-      padding:18px;
-      border-radius:14px;
-      background:rgba(212,175,55,0.10);
-      border:1px solid rgba(212,175,55,0.35);
-      line-height:1.55;
+      margin-top:24px;
+      padding:22px;
+      border-radius:16px;
+      background:rgba(212,175,55,0.08);
+      border:1px solid rgba(212,175,55,0.25);
+      line-height:1.65;
       color:#f5f5f5;
+      font-size:15px;
     }
 
     label{
@@ -95,30 +118,31 @@
 
     input{
       width:100%;
-      height:50px;
+      height:52px;
       margin-bottom:18px;
       padding:0 14px;
-      border-radius:10px;
+      border-radius:12px;
       border:1px solid #333;
       background:#1b1b1b;
       color:white;
       font-size:15px;
+      transition:.20s ease;
     }
 
     input:focus{
       outline:none;
       border-color:#d4af37;
-      box-shadow:0 0 0 3px rgba(212,175,55,0.15);
+      box-shadow:0 0 0 4px rgba(212,175,55,0.12);
     }
 
     .terms-box{
       margin:4px 0 18px;
-      padding:14px;
-      border-radius:12px;
+      padding:16px;
+      border-radius:14px;
       background:#181818;
-      border:1px solid rgba(255,255,255,0.10);
+      border:1px solid rgba(255,255,255,0.08);
       font-size:13px;
-      line-height:1.5;
+      line-height:1.6;
       color:#d8d8d8;
     }
 
@@ -126,7 +150,7 @@
       display:flex;
       gap:10px;
       align-items:flex-start;
-      margin-top:12px;
+      margin-top:14px;
     }
 
     .terms-check input{
@@ -140,31 +164,39 @@
       margin:0;
       font-size:13px;
       font-weight:500;
-      line-height:1.45;
+      line-height:1.5;
       color:#f1f1f1;
     }
 
     button{
       width:100%;
-      height:52px;
+      height:56px;
       margin-top:10px;
       border:none;
-      border-radius:10px;
+      border-radius:14px;
       font-size:16px;
       font-weight:700;
       cursor:pointer;
       color:#111;
-      background:linear-gradient(135deg, #f7e27b 0%, #d4af37 40%, #c49a2c 70%, #f7e27b 100%);
+      background:
+        linear-gradient(
+          135deg,
+          #f7e27b 0%,
+          #d4af37 40%,
+          #c49a2c 70%,
+          #f7e27b 100%
+        );
       transition:all .25s ease;
+      box-shadow:0 12px 30px rgba(212,175,55,0.25);
     }
 
     button:hover{
-      transform:translateY(-1px);
-      box-shadow:0 10px 20px rgba(212,175,55,0.35);
+      transform:translateY(-2px);
+      box-shadow:0 16px 34px rgba(212,175,55,0.38);
     }
 
     .price{
-      margin-top:24px;
+      margin-top:26px;
       text-align:center;
       font-size:15px;
       color:#cfcfcf;
@@ -172,7 +204,7 @@
 
     .price strong{
       color:#f7e27b;
-      font-size:24px;
+      font-size:28px;
     }
 
     .notice{
@@ -183,14 +215,273 @@
       text-align:center;
     }
 
+    .conversion-box{
+      margin-top:22px;
+      padding:18px;
+      border-radius:16px;
+      background:
+        linear-gradient(
+          135deg,
+          rgba(37,211,102,0.12),
+          rgba(37,211,102,0.05)
+        );
+      border:1px solid rgba(37,211,102,0.25);
+    }
+
+    .conversion-box strong{
+      display:block;
+      margin-bottom:8px;
+      font-size:16px;
+      color:#4df08c;
+    }
+
+    .conversion-box p{
+      color:#dcdcdc;
+      line-height:1.55;
+      font-size:14px;
+    }
+
+    .whatsapp-inline{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      width:100%;
+      height:54px;
+      margin-top:16px;
+      border-radius:14px;
+      background:#25D366;
+      color:white;
+      text-decoration:none;
+      font-weight:700;
+      font-size:15px;
+      transition:.25s ease;
+      box-shadow:0 10px 25px rgba(37,211,102,.30);
+    }
+
+    .whatsapp-inline:hover{
+      transform:translateY(-2px);
+      background:#1ebe5d;
+    }
+
+    .whatsapp-inline svg{
+      width:22px;
+      height:22px;
+      fill:white;
+    }
+
+    /* ====================================== */
+    /* BOTÃO FLUTUANTE PREMIUM */
+    /* ====================================== */
+
+    .kj-whatsapp-float{
+      position:fixed;
+      right:24px;
+      bottom:24px;
+      width:72px;
+      height:72px;
+      border-radius:50%;
+      background:#25D366;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow:
+        0 12px 35px rgba(37,211,102,.35),
+        0 0 0 12px rgba(37,211,102,.08);
+      z-index:99999;
+      transition:.25s ease;
+      animation:pulseWhatsapp 2s infinite;
+      text-decoration:none;
+    }
+
+    .kj-whatsapp-float:hover{
+      transform:scale(1.08);
+      background:#1ebe5d;
+    }
+
+    .kj-whatsapp-float svg{
+      width:36px;
+      height:36px;
+      fill:white;
+    }
+
+    @keyframes pulseWhatsapp{
+      0%{
+        box-shadow:
+          0 0 0 0 rgba(37,211,102,.45);
+      }
+
+      70%{
+        box-shadow:
+          0 0 0 20px rgba(37,211,102,0);
+      }
+
+      100%{
+        box-shadow:
+          0 0 0 0 rgba(37,211,102,0);
+      }
+    }
+
+    /* ====================================== */
+    /* POPUP SAÍDA */
+    /* ====================================== */
+
+    .exit-popup-overlay{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.72);
+      backdrop-filter:blur(4px);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:999999;
+      padding:20px;
+    }
+
+    .exit-popup{
+      width:100%;
+      max-width:520px;
+      padding:38px;
+      border-radius:24px;
+      background:#ffffff;
+      text-align:center;
+      position:relative;
+      animation:popupShow .25s ease;
+      box-shadow:0 30px 80px rgba(0,0,0,.45);
+    }
+
+    @keyframes popupShow{
+      from{
+        opacity:0;
+        transform:translateY(10px) scale(.96);
+      }
+      to{
+        opacity:1;
+        transform:translateY(0) scale(1);
+      }
+    }
+
+    .popup-close{
+      position:absolute;
+      right:18px;
+      top:18px;
+      width:34px;
+      height:34px;
+      border-radius:50%;
+      border:none;
+      background:#f3f3f3;
+      cursor:pointer;
+      font-size:18px;
+      color:#777;
+    }
+
+    .popup-icon{
+      width:70px;
+      height:70px;
+      margin:0 auto 20px;
+      border-radius:50%;
+      background:rgba(212,175,55,.12);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:30px;
+    }
+
+    .exit-popup h3{
+      font-size:38px;
+      line-height:1.05;
+      color:#111;
+      margin-bottom:18px;
+    }
+
+    .exit-popup p{
+      color:#666;
+      line-height:1.7;
+      font-size:18px;
+      margin-bottom:28px;
+    }
+
+    .popup-whatsapp{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:12px;
+      width:100%;
+      height:62px;
+      border-radius:40px;
+      background:#25D366;
+      color:white;
+      text-decoration:none;
+      font-size:18px;
+      font-weight:700;
+      transition:.25s ease;
+      box-shadow:0 12px 30px rgba(37,211,102,.30);
+    }
+
+    .popup-whatsapp:hover{
+      transform:translateY(-2px);
+      background:#1ebe5d;
+    }
+
+    .popup-whatsapp svg{
+      width:26px;
+      height:26px;
+      fill:white;
+    }
+
+    .popup-link{
+      display:inline-block;
+      margin-top:20px;
+      color:#777;
+      font-size:15px;
+    }
+
     @media(max-width:900px){
-      .page{ grid-template-columns:1fr; }
-      .features{ grid-template-columns:1fr; }
+      .page{
+        grid-template-columns:1fr;
+      }
+
+      .features{
+        grid-template-columns:1fr;
+      }
+
+      h1{
+        font-size:30px;
+      }
+
+      .panel{
+        padding:24px;
+      }
+
+      .kj-whatsapp-float{
+        width:64px;
+        height:64px;
+        right:18px;
+        bottom:18px;
+      }
+
+      .kj-whatsapp-float svg{
+        width:32px;
+        height:32px;
+      }
+
+      .exit-popup{
+        padding:28px 22px;
+      }
+
+      .exit-popup h3{
+        font-size:30px;
+      }
+
+      .exit-popup p{
+        font-size:16px;
+      }
     }
   </style>
 </head>
 
 <body>
+
   <div class="page">
 
     <section class="panel">
@@ -204,6 +495,7 @@
       <h2>Funcionalidades do sistema</h2>
 
       <div class="features">
+
         <div class="feature">
           <strong>Controle de prazos</strong>
           Organize prazos, acompanhe vencimentos e visualize alertas de prazos rompendo diretamente no dashboard.
@@ -253,14 +545,17 @@
           <strong>Gestão financeira completa</strong>
           Controle contas a pagar, contas a receber, boletos vencendo, relatórios mensais, anuais e por contas cadastradas.
         </div>
+
       </div>
 
       <div class="highlight">
         Tudo isso em um único sistema: todo o seu escritório na palma da sua mão e na tela do seu computador.
       </div>
+
     </section>
 
     <section class="panel">
+
       <h1>Contratar agora</h1>
 
       <p class="subtitle">
@@ -282,6 +577,7 @@
         <input type="text" name="telefone" placeholder="(00) 00000-0000" required>
 
         <div class="terms-box">
+
           <strong>Termos e condições da assinatura</strong><br><br>
 
           O Kratos Juris é fornecido na modalidade de assinatura mensal, no valor de
@@ -303,21 +599,59 @@
           o acesso poderá depender da confirmação do pagamento mensal.
 
           <div class="terms-check">
-  <input type="checkbox" id="accept_terms" name="accept_terms" required>
-  <label for="accept_terms">
-    Declaro que li e aceito os
-    <a href="/termos" target="_blank" rel="noopener noreferrer" style="color:#f7e27b; font-weight:700;">
-      Termos e Condições de Uso e Contratação
-    </a>,
-    estou ciente da assinatura mensal e autorizo o prosseguimento para a etapa de pagamento.
-  </label>
-</div>
+
+            <input type="checkbox" id="accept_terms" name="accept_terms" required>
+
+            <label for="accept_terms">
+              Declaro que li e aceito os
+              <a
+                href="/termos"
+                target="_blank"
+                rel="noopener noreferrer"
+                style="color:#f7e27b; font-weight:700;"
+              >
+                Termos e Condições de Uso e Contratação
+              </a>,
+              estou ciente da assinatura mensal e autorizo o prosseguimento para a etapa de pagamento.
+            </label>
+
+          </div>
+
         </div>
 
         <button type="submit">
           Prosseguir para pagamento
         </button>
+
       </form>
+
+      <div class="conversion-box">
+
+        <strong>
+          ⚡ Atendimento imediato via WhatsApp
+        </strong>
+
+        <p>
+          Tire dúvidas sobre contratação, migração de dados, funcionamento do sistema,
+          planos e implantação do Kratos Juris diretamente pelo WhatsApp.
+        </p>
+
+        <a
+          href="https://wa.me/5573981641616?text=Olá,%20quero%20mais%20informações%20sobre%20o%20Kratos%20Juris"
+          target="_blank"
+          class="whatsapp-inline"
+        >
+
+          <svg viewBox="0 0 32 32">
+            <path d="M19.11 17.23c-.27-.14-1.6-.79-1.84-.88-.25-.09-.43-.14-.61.14-.18.27-.7.88-.86 1.06-.16.18-.32.2-.59.07-.27-.14-1.15-.42-2.19-1.33-.81-.72-1.36-1.61-1.52-1.88-.16-.27-.02-.42.12-.56.13-.13.27-.34.41-.5.14-.16.18-.27.27-.45.09-.18.05-.34-.02-.48-.07-.14-.61-1.47-.84-2.01-.22-.53-.45-.46-.61-.47h-.52c-.18 0-.48.07-.73.34-.25.27-.95.93-.95 2.26 0 1.33.97 2.61 1.11 2.79.14.18 1.9 2.9 4.6 4.06.64.27 1.13.43 1.52.55.64.2 1.22.17 1.68.1.51-.08 1.6-.65 1.82-1.28.23-.63.23-1.17.16-1.28-.07-.11-.25-.18-.52-.32z"/>
+            <path d="M16.01 3C8.83 3 3 8.82 3 16c0 2.54.74 4.92 2.01 6.94L3 29l6.25-1.95A12.93 12.93 0 0 0 16.01 29C23.18 29 29 23.18 29 16S23.18 3 16.01 3zm0 23.67c-2.07 0-4-.61-5.63-1.66l-.4-.25-3.71 1.16 1.21-3.61-.26-.41A10.59 10.59 0 0 1 5.33 16c0-5.89 4.79-10.68 10.68-10.68 5.89 0 10.68 4.79 10.68 10.68 0 5.89-4.79 10.67-10.68 10.67z"/>
+          </svg>
+
+          Falar agora no WhatsApp
+
+        </a>
+
+      </div>
 
       <div class="price">
         Assinatura mensal de <strong>R$ 59,90</strong>
@@ -326,8 +660,122 @@
       <p class="notice">
         Após a confirmação do pagamento, o acesso será liberado conforme a modalidade escolhida.
       </p>
+
     </section>
 
   </div>
+
+  <!-- ===================================== -->
+  <!-- BOTÃO FLUTUANTE -->
+  <!-- ===================================== -->
+
+  <a
+    href="https://wa.me/5573981641616?text=Olá,%20quero%20mais%20informações%20sobre%20o%20Kratos%20Juris"
+    class="kj-whatsapp-float"
+    target="_blank"
+  >
+
+    <svg viewBox="0 0 32 32">
+      <path d="M19.11 17.23c-.27-.14-1.6-.79-1.84-.88-.25-.09-.43-.14-.61.14-.18.27-.7.88-.86 1.06-.16.18-.32.2-.59.07-.27-.14-1.15-.42-2.19-1.33-.81-.72-1.36-1.61-1.52-1.88-.16-.27-.02-.42.12-.56.13-.13.27-.34.41-.5.14-.16.18-.27.27-.45.09-.18.05-.34-.02-.48-.07-.14-.61-1.47-.84-2.01-.22-.53-.45-.46-.61-.47h-.52c-.18 0-.48.07-.73.34-.25.27-.95.93-.95 2.26 0 1.33.97 2.61 1.11 2.79.14.18 1.9 2.9 4.6 4.06.64.27 1.13.43 1.52.55.64.2 1.22.17 1.68.1.51-.08 1.6-.65 1.82-1.28.23-.63.23-1.17.16-1.28-.07-.11-.25-.18-.52-.32z"/>
+      <path d="M16.01 3C8.83 3 3 8.82 3 16c0 2.54.74 4.92 2.01 6.94L3 29l6.25-1.95A12.93 12.93 0 0 0 16.01 29C23.18 29 29 23.18 29 16S23.18 3 16.01 3zm0 23.67c-2.07 0-4-.61-5.63-1.66l-.4-.25-3.71 1.16 1.21-3.61-.26-.41A10.59 10.59 0 0 1 5.33 16c0-5.89 4.79-10.68 10.68-10.68 5.89 0 10.68 4.79 10.68 10.68 0 5.89-4.79 10.67-10.68 10.67z"/>
+    </svg>
+
+  </a>
+
+  <!-- ===================================== -->
+  <!-- POPUP DE SAÍDA -->
+  <!-- ===================================== -->
+
+  <div class="exit-popup-overlay" id="exitPopup">
+
+    <div class="exit-popup">
+
+      <button class="popup-close" id="closePopup">
+        ×
+      </button>
+
+      <div class="popup-icon">
+        ⚖️
+      </div>
+
+      <h3>
+        Espera! Antes de sair...
+      </h3>
+
+      <p>
+        Tire suas dúvidas diretamente no WhatsApp e descubra como o
+        Kratos Juris pode automatizar a rotina do seu escritório.
+      </p>
+
+      <a
+        href="https://wa.me/5573981641616?text=Olá,%20quero%20mais%20informações%20sobre%20o%20Kratos%20Juris"
+        target="_blank"
+        class="popup-whatsapp"
+      >
+
+        <svg viewBox="0 0 32 32">
+          <path d="M19.11 17.23c-.27-.14-1.6-.79-1.84-.88-.25-.09-.43-.14-.61.14-.18.27-.7.88-.86 1.06-.16.18-.32.2-.59.07-.27-.14-1.15-.42-2.19-1.33-.81-.72-1.36-1.61-1.52-1.88-.16-.27-.02-.42.12-.56.13-.13.27-.34.41-.5.14-.16.18-.27.27-.45.09-.18.05-.34-.02-.48-.07-.14-.61-1.47-.84-2.01-.22-.53-.45-.46-.61-.47h-.52c-.18 0-.48.07-.73.34-.25.27-.95.93-.95 2.26 0 1.33.97 2.61 1.11 2.79.14.18 1.9 2.9 4.6 4.06.64.27 1.13.43 1.52.55.64.2 1.22.17 1.68.1.51-.08 1.6-.65 1.82-1.28.23-.63.23-1.17.16-1.28-.07-.11-.25-.18-.52-.32z"/>
+          <path d="M16.01 3C8.83 3 3 8.82 3 16c0 2.54.74 4.92 2.01 6.94L3 29l6.25-1.95A12.93 12.93 0 0 0 16.01 29C23.18 29 29 23.18 29 16S23.18 3 16.01 3zm0 23.67c-2.07 0-4-.61-5.63-1.66l-.4-.25-3.71 1.16 1.21-3.61-.26-.41A10.59 10.59 0 0 1 5.33 16c0-5.89 4.79-10.68 10.68-10.68 5.89 0 10.68 4.79 10.68 10.68 0 5.89-4.79 10.67-10.68 10.67z"/>
+        </svg>
+
+        Quero atendimento via WhatsApp
+
+      </a>
+
+      <a href="#" class="popup-link" id="continueExit">
+        Agora não, obrigado
+      </a>
+
+    </div>
+
+  </div>
+
+  <script>
+
+    // ======================================
+    // POPUP DE SAÍDA
+    // ======================================
+
+    let popupShown = false;
+
+    document.addEventListener("mouseleave", function(e){
+
+      if(
+        e.clientY <= 0 &&
+        !popupShown
+      ){
+        popupShown = true;
+
+        document
+          .getElementById("exitPopup")
+          .style.display = "flex";
+      }
+
+    });
+
+    document
+      .getElementById("closePopup")
+      .addEventListener("click", function(){
+
+        document
+          .getElementById("exitPopup")
+          .style.display = "none";
+
+      });
+
+    document
+      .getElementById("continueExit")
+      .addEventListener("click", function(e){
+
+        e.preventDefault();
+
+        document
+          .getElementById("exitPopup")
+          .style.display = "none";
+
+      });
+
+  </script>
+
 </body>
 </html>
