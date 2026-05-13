@@ -62,7 +62,6 @@ def _get_office_user_or_none(
     )
 
 
-# 🔥 FUNÇÃO DE CONVERSÃO
 def _fmt_dt_br(dt):
     if not dt:
         return "-"
@@ -96,7 +95,6 @@ def users_list(request: Request, db: Session = Depends(get_db)):
         .all()
     )
 
-    # 🔥 CORREÇÃO AQUI
     for u in users:
         u.last_login_at_fmt = _fmt_dt_br(u.last_login_at)
 
@@ -268,6 +266,115 @@ def users_edit_submit(
         action="edit_user",
         module="users",
         description=f"Usuário editado: {user.username}",
+        ip=request.client.host if request.client else None,
+    )
+
+    return RedirectResponse(url="/usuarios", status_code=303)
+
+
+# =========================================================
+# PERMISSÕES DO USUÁRIO
+# =========================================================
+@router.get("/{user_id}/permissoes", response_class=HTMLResponse)
+def user_permissions_page(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    try:
+        require_permission(request, "usuarios.permissions")
+    except HTTPException:
+        return _redirect_denied()
+
+    office_id = get_session_office_id(request)
+    user_obj = _get_office_user_or_none(db, office_id, user_id)
+
+    if not user_obj:
+        return RedirectResponse(url="/usuarios", status_code=303)
+
+    all_permissions = db.query(Permission).order_by(Permission.code.asc()).all()
+
+    user_permission_ids = {
+        link.permission_id
+        for link in (user_obj.permission_links or [])
+        if link.permission_id
+    }
+
+    grouped_permissions = defaultdict(list)
+
+    for perm in all_permissions:
+        group = (perm.code or "").split(".")[0] or "geral"
+        grouped_permissions[group].append(perm)
+
+    return templates.TemplateResponse(
+        "users/permissions.html",
+        {
+            "request": request,
+            "user_obj": user_obj,
+            "all_permissions": all_permissions,
+            "grouped_permissions": grouped_permissions,
+            "user_permission_ids": user_permission_ids,
+            "title": "Permissões do usuário",
+        },
+    )
+
+
+@router.post("/{user_id}/permissoes")
+def user_permissions_save(
+    user_id: int,
+    request: Request,
+    permissions: list[str] = Form(default=[]),
+    db: Session = Depends(get_db),
+):
+    try:
+        actor = require_permission(request, "usuarios.permissions")
+    except HTTPException:
+        return _redirect_denied()
+
+    office_id = get_session_office_id(request)
+    user_obj = _get_office_user_or_none(db, office_id, user_id)
+
+    if not user_obj:
+        return RedirectResponse(url="/usuarios", status_code=303)
+
+    try:
+        db.query(UserPermission).filter(
+            UserPermission.user_id == user_obj.id
+        ).delete(synchronize_session=False)
+
+        selected_codes = [
+            p.strip()
+            for p in (permissions or [])
+            if (p or "").strip()
+        ]
+
+        if selected_codes:
+            perms = (
+                db.query(Permission)
+                .filter(Permission.code.in_(selected_codes))
+                .all()
+            )
+
+            for perm in perms:
+                db.add(
+                    UserPermission(
+                        user_id=user_obj.id,
+                        permission_id=perm.id,
+                    )
+                )
+
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
+
+    _log_action(
+        db=db,
+        actor=actor,
+        action="update_user_permissions",
+        module="users",
+        description=f"Permissões atualizadas para o usuário: {user_obj.username}",
         ip=request.client.host if request.client else None,
     )
 

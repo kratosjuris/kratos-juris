@@ -28,6 +28,7 @@ from app.models.user_permission import UserPermission
 from app.models.office import Office
 from app.models.office_permission import OfficePermission
 from app.models.document_template import OfficeDocumentTemplate  # noqa: F401
+from app.models.hearing_contact import HearingContact  # noqa: F401
 
 from app.routers import (
     web_dashboard,

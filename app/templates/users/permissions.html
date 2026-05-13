@@ -84,7 +84,7 @@
       {% endif %}
 
       <form method="post" action="/usuarios/{{ user_obj.id }}/permissoes">
-        {% if permissions_by_module %}
+        {% if grouped_permissions %}
           <div class="perm-toolbar">
             <div>
               <h2>Módulos e acessos</h2>
@@ -127,7 +127,7 @@
           {% endif %}
 
           <div class="perm-modules">
-            {% for module, perms in permissions_by_module.items() %}
+            {% for module, perms in grouped_permissions.items() %}
               <section class="perm-card" data-module-card>
                 <div class="perm-card-head">
                   <div>
@@ -164,8 +164,8 @@
                       <div class="perm-row-check">
                         <input
                           type="checkbox"
-                          name="permission_ids"
-                          value="{{ perm.id }}"
+                          name="permissions"
+                          value="{{ perm.code }}"
                           {% if perm.id in user_permission_ids %}checked{% endif %}
                           {% if user_obj.is_superuser %}disabled{% endif %}
                         >
@@ -208,7 +208,7 @@
       const card = button.closest("[data-module-card]");
       if (!card) return;
 
-      const checkboxes = card.querySelectorAll('input[type="checkbox"][name="permission_ids"]');
+      const checkboxes = card.querySelectorAll('input[type="checkbox"][name="permissions"]');
       checkboxes.forEach((checkbox) => {
         if (!checkbox.disabled) {
           checkbox.checked = checked;
@@ -217,7 +217,7 @@
     }
 
     function toggleAllPermissions(checked) {
-      const checkboxes = document.querySelectorAll('input[type="checkbox"][name="permission_ids"]');
+      const checkboxes = document.querySelectorAll('input[type="checkbox"][name="permissions"]');
       checkboxes.forEach((checkbox) => {
         if (!checkbox.disabled) {
           checkbox.checked = checked;
