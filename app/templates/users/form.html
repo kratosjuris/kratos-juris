@@ -9,7 +9,6 @@
   <div class="page-wrap">
     <div class="panel form-panel">
 
-      <!-- Botões de navegação -->
       <div class="nav-actions">
         <a class="btn-secondary" href="/dashboard">← Dashboard</a>
         <a class="btn-secondary" href="/usuarios">← Lista de usuários</a>
@@ -42,26 +41,54 @@
 
         <div class="checks">
           <label>
-            <input type="checkbox" name="is_active"
-            {% if (user_obj and user_obj.is_active) or not user_obj %}checked{% endif %}>
+            <input
+              type="checkbox"
+              name="is_active"
+              {% if (user_obj and user_obj.is_active) or not user_obj %}checked{% endif %}
+            >
             Usuário ativo
           </label>
 
-          <label>
-            <input type="checkbox" name="is_superuser"
-            {% if user_obj and user_obj.is_superuser %}checked{% endif %}>
-            Superadministrador
-          </label>
+          {% if can_manage_roles %}
+            <label>
+              <input
+                type="checkbox"
+                name="is_superuser"
+                {% if user_obj and user_obj.is_superuser %}checked{% endif %}
+              >
+              Superadministrador
+            </label>
 
             <label>
-  <input type="checkbox" name="is_ceo"
-  {% if user_obj and user_obj.is_ceo %}checked{% endif %}>
-  CEO - Gerente Geral
-</label>
+              <input
+                type="checkbox"
+                name="is_ceo"
+                {% if user_obj and user_obj.is_ceo %}checked{% endif %}
+              >
+              CEO - Gerente Geral
+            </label>
+          {% else %}
+            {% if user_obj and user_obj.is_superuser %}
+              <label>
+                <input type="checkbox" checked disabled>
+                Superadministrador
+              </label>
+            {% endif %}
+
+            {% if user_obj and user_obj.is_ceo %}
+              <label>
+                <input type="checkbox" checked disabled>
+                CEO - Gerente Geral
+              </label>
+            {% endif %}
+          {% endif %}
 
           <label>
-            <input type="checkbox" name="must_change_password"
-            {% if user_obj and user_obj.must_change_password %}checked{% endif %}>
+            <input
+              type="checkbox"
+              name="must_change_password"
+              {% if user_obj and user_obj.must_change_password %}checked{% endif %}
+            >
             Exigir troca de senha
           </label>
         </div>

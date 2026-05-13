@@ -13,7 +13,7 @@ from app.core.database import get_db
 from app.core.permissions import require_permission
 from app.core.security import hash_password
 from app.core.session_manager import get_session_office_id
-from app.core.datetime_utils import now_br, TZ_BR
+from app.core.datetime_utils import TZ_BR
 from app.models.audit_log import AuditLog
 from app.models.permission import Permission
 from app.models.user import User
@@ -25,6 +25,31 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 def _redirect_denied():
     return RedirectResponse(url="/acesso-negado", status_code=303)
+
+
+def _is_superuser(user: User | None) -> bool:
+    return bool(getattr(user, "is_superuser", False))
+
+
+def _is_ceo(user: User | None) -> bool:
+    return bool(getattr(user, "is_ceo", False))
+
+
+def _can_manage_roles(actor: User | None) -> bool:
+    """
+    Apenas superadministrador pode alterar cargos sensíveis:
+    - is_superuser
+    - is_ceo
+    """
+    return _is_superuser(actor)
+
+
+def _can_manage_permissions(actor: User | None) -> bool:
+    """
+    Superadministrador e CEO podem acessar a tela de permissões,
+    desde que tenham a permissão usuarios.permissions.
+    """
+    return _is_superuser(actor) or _is_ceo(actor)
 
 
 def _log_action(
@@ -115,7 +140,7 @@ def users_list(request: Request, db: Session = Depends(get_db)):
 @router.get("/novo", response_class=HTMLResponse)
 def users_new_page(request: Request, db: Session = Depends(get_db)):
     try:
-        require_permission(request, "usuarios.create")
+        actor = require_permission(request, "usuarios.create")
     except HTTPException:
         return _redirect_denied()
 
@@ -127,6 +152,8 @@ def users_new_page(request: Request, db: Session = Depends(get_db)):
             "user_obj": None,
             "error": None,
             "title": "Novo usuário",
+            "current_user": actor,
+            "can_manage_roles": _can_manage_roles(actor),
         },
     )
 
@@ -161,9 +188,20 @@ def users_new_submit(
                 "user_obj": None,
                 "error": "As senhas não conferem.",
                 "title": "Novo usuário",
+                "current_user": actor,
+                "can_manage_roles": _can_manage_roles(actor),
             },
             status_code=400,
         )
+
+    # REGRA DE SEGURANÇA:
+    # Somente superadministrador pode criar outro superadministrador ou CEO.
+    if _can_manage_roles(actor):
+        new_is_superuser = bool(is_superuser)
+        new_is_ceo = bool(is_ceo)
+    else:
+        new_is_superuser = False
+        new_is_ceo = False
 
     user = User(
         nome=nome.strip(),
@@ -171,8 +209,8 @@ def users_new_submit(
         username=username.strip().lower(),
         password_hash=hash_password(password),
         is_active=bool(is_active),
-        is_superuser=bool(is_superuser),
-        is_ceo=bool(is_ceo),
+        is_superuser=new_is_superuser,
+        is_ceo=new_is_ceo,
         must_change_password=bool(must_change_password),
         office_id=office_id,
     )
@@ -202,7 +240,7 @@ def users_edit_page(
     db: Session = Depends(get_db),
 ):
     try:
-        require_permission(request, "usuarios.edit")
+        actor = require_permission(request, "usuarios.edit")
     except HTTPException:
         return _redirect_denied()
 
@@ -221,6 +259,8 @@ def users_edit_page(
             "user_obj": user_obj,
             "error": None,
             "title": "Editar usuário",
+            "current_user": actor,
+            "can_manage_roles": _can_manage_roles(actor),
         },
     )
 
@@ -250,13 +290,30 @@ def users_edit_submit(
     if not user:
         return RedirectResponse(url="/usuarios", status_code=303)
 
+    is_self_edit = bool(actor and actor.id == user.id)
+
     user.nome = nome.strip()
     user.email = email.strip().lower()
     user.username = username.strip().lower()
-    user.is_active = bool(is_active)
-    user.is_superuser = bool(is_superuser)
-    user.is_ceo = bool(is_ceo)
+
+    # Usuário não superadmin não pode alterar sua própria ativação.
+    if is_self_edit and not _is_superuser(actor):
+        user.is_active = bool(user.is_active)
+    else:
+        user.is_active = bool(is_active)
+
     user.must_change_password = bool(must_change_password)
+
+    # REGRA DE SEGURANÇA:
+    # Apenas superadministrador altera is_superuser e is_ceo.
+    # CEO pode editar usuários, mas não pode se transformar em superadmin,
+    # nem transformar terceiros em superadmin/CEO.
+    if _can_manage_roles(actor):
+        user.is_superuser = bool(is_superuser)
+        user.is_ceo = bool(is_ceo)
+    else:
+        user.is_superuser = bool(user.is_superuser)
+        user.is_ceo = bool(user.is_ceo)
 
     db.commit()
 
@@ -282,8 +339,11 @@ def user_permissions_page(
     db: Session = Depends(get_db),
 ):
     try:
-        require_permission(request, "usuarios.permissions")
+        actor = require_permission(request, "usuarios.permissions")
     except HTTPException:
+        return _redirect_denied()
+
+    if not _can_manage_permissions(actor):
         return _redirect_denied()
 
     office_id = get_session_office_id(request)
@@ -315,6 +375,8 @@ def user_permissions_page(
             "grouped_permissions": grouped_permissions,
             "user_permission_ids": user_permission_ids,
             "title": "Permissões do usuário",
+            "current_user": actor,
+            "can_manage_roles": _can_manage_roles(actor),
         },
     )
 
@@ -329,6 +391,9 @@ def user_permissions_save(
     try:
         actor = require_permission(request, "usuarios.permissions")
     except HTTPException:
+        return _redirect_denied()
+
+    if not _can_manage_permissions(actor):
         return _redirect_denied()
 
     office_id = get_session_office_id(request)
