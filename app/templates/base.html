@@ -887,12 +887,14 @@
           <div>
             <div>{{ current_user.nome }}</div>
             <small>
-              {% if current_user.is_superuser %}
-                Superadministrador
-              {% else %}
-                Usuário do sistema
-              {% endif %}
-            </small>
+  {% if current_user.is_superuser %}
+    Superadministrador
+  {% elif current_user.is_ceo %}
+    CEO - Gerente Geral
+  {% else %}
+    Usuário do sistema
+  {% endif %}
+</small>
           </div>
         </div>
       {% endif %}
