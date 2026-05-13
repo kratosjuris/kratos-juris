@@ -13,6 +13,8 @@ from app.core.config import TEMPLATES_DIR
 from app.core.database import SessionLocal
 from app.core.security import hash_password
 from app.models.office import Office
+from app.models.office_permission import OfficePermission
+from app.models.permission import Permission
 from app.models.user import User
 from app.services.mercadopago import sdk, get_app_base_url
 
@@ -45,6 +47,28 @@ def _split_external_reference(external_reference: str | None) -> tuple[str, str]
     office_nome, email = raw.split("|", 1)
 
     return office_nome.strip(), email.strip().lower()
+
+
+def _grant_all_permissions_to_office(db, office_id: int) -> None:
+    all_permissions = db.query(Permission).all()
+
+    for permission in all_permissions:
+        exists = (
+            db.query(OfficePermission)
+            .filter(
+                OfficePermission.office_id == office_id,
+                OfficePermission.permission_id == permission.id,
+            )
+            .first()
+        )
+
+        if not exists:
+            db.add(
+                OfficePermission(
+                    office_id=office_id,
+                    permission_id=permission.id,
+                )
+            )
 
 
 def _create_office_and_admin_from_payment(payment_data: dict) -> dict:
@@ -108,6 +132,7 @@ def _create_office_and_admin_from_payment(payment_data: dict) -> dict:
         if existing_office:
             office = existing_office
             office.reactivate()
+            db.flush()
         else:
             finance_password = _generate_temp_password()
 
@@ -118,6 +143,8 @@ def _create_office_and_admin_from_payment(payment_data: dict) -> dict:
 
             db.add(office)
             db.flush()
+
+        _grant_all_permissions_to_office(db, office.id)
 
         temp_password = _generate_temp_password()
 

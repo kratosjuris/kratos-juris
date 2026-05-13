@@ -33,6 +33,10 @@ class User(Base):
 
     is_superuser = Column(Boolean, nullable=False, default=False)
 
+    is_superuser = Column(Boolean, nullable=False, default=False)
+
+    is_ceo = Column(Boolean, nullable=False, default=False, index=True)
+
     # Obriga alteração de senha no primeiro acesso,
     # caso desejado pelo sistema.
     must_change_password = Column(Boolean, nullable=False, default=False)

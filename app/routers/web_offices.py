@@ -408,6 +408,31 @@ def offices_new_submit(
         db.add(office)
         db.flush()
 
+        # =========================================================
+        # LIBERA TODAS AS PERMISSÕES AUTOMATICAMENTE
+        # PARA O NOVO ESCRITÓRIO
+        # =========================================================
+        all_permissions = db.query(Permission).all()
+
+        for permission in all_permissions:
+
+            exists = (
+                db.query(OfficePermission)
+                .filter(
+                    OfficePermission.office_id == office.id,
+                    OfficePermission.permission_id == permission.id,
+                )
+                .first()
+            )
+
+            if not exists:
+                db.add(
+                    OfficePermission(
+                        office_id=office.id,
+                        permission_id=permission.id,
+                    )
+                )
+
         admin = User(
             nome=admin_nome,
             email=admin_email,

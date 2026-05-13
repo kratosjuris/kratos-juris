@@ -174,23 +174,16 @@ def _slugify_account_code(nome: str) -> str:
 
 
 def _ensure_default_accounts(db: Session, office_id: int):
-    total = (
-        db.query(func.count(FinancialAccount.id))
-        .filter(FinancialAccount.office_id == office_id)
-        .scalar()
-        or 0
-    )
-    if total > 0:
-        return
-
-    for code, nome in LEGACY_DEFAULT_ACCOUNTS:
-        db.add(FinancialAccount(office_id=office_id, code=code, nome=nome, ativo=True))
-    db.commit()
+    """
+    Regra atual:
+    - NÃO criar contas financeiras padrão para escritórios novos.
+    - Cada escritório deve cadastrar suas próprias contas bancárias manualmente.
+    - As contas antigas já existentes permanecem intactas.
+    """
+    return
 
 
 def _get_accounts(db: Session, office_id: int, only_active: bool = True):
-    _ensure_default_accounts(db, office_id)
-
     query = db.query(FinancialAccount).filter(FinancialAccount.office_id == office_id)
     if only_active:
         query = query.filter(FinancialAccount.ativo.is_(True))
@@ -199,8 +192,6 @@ def _get_accounts(db: Session, office_id: int, only_active: bool = True):
 
 
 def _get_account_map(db: Session, office_id: int, include_inactive: bool = True) -> dict[str, FinancialAccount]:
-    _ensure_default_accounts(db, office_id)
-
     query = db.query(FinancialAccount).filter(FinancialAccount.office_id == office_id)
     if not include_inactive:
         query = query.filter(FinancialAccount.ativo.is_(True))
@@ -226,7 +217,7 @@ def _default_account_code(db: Session, office_id: int) -> str:
     active = _get_accounts(db, office_id, only_active=True)
     if active:
         return active[0].code
-    return "CONTA_CSL"
+    return ""
 
 
 def _is_valid_account_code(db: Session, office_id: int, code: str) -> bool:
@@ -242,8 +233,6 @@ def _resolve_report_account(
     conta_id: int | None = None,
     conta_code: str | None = None,
 ) -> FinancialAccount | None:
-    _ensure_default_accounts(db, office_id)
-
     if conta_id:
         acc = (
             db.query(FinancialAccount)
@@ -268,17 +257,6 @@ def _resolve_report_account(
         )
         if acc:
             return acc
-
-    acc = (
-        db.query(FinancialAccount)
-        .filter(
-            FinancialAccount.office_id == office_id,
-            func.upper(FinancialAccount.code) == "CONTA_CSL",
-        )
-        .first()
-    )
-    if acc:
-        return acc
 
     acc = (
         db.query(FinancialAccount)

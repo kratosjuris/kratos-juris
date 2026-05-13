@@ -27,7 +27,14 @@ def _redirect_denied():
     return RedirectResponse(url="/acesso-negado", status_code=303)
 
 
-def _log_action(db: Session, actor: User | None, action: str, module: str, description: str, ip: str | None):
+def _log_action(
+    db: Session,
+    actor: User | None,
+    action: str,
+    module: str,
+    description: str,
+    ip: str | None,
+):
     db.add(
         AuditLog(
             user_id=actor.id if actor else None,
@@ -40,7 +47,11 @@ def _log_action(db: Session, actor: User | None, action: str, module: str, descr
     db.commit()
 
 
-def _get_office_user_or_none(db: Session, office_id: int | None, user_id: int) -> User | None:
+def _get_office_user_or_none(
+    db: Session,
+    office_id: int | None,
+    user_id: int,
+) -> User | None:
     if office_id is None:
         return None
 
@@ -132,6 +143,7 @@ def users_new_submit(
     confirm_password: str = Form(...),
     is_active: str | None = Form(None),
     is_superuser: str | None = Form(None),
+    is_ceo: str | None = Form(None),
     must_change_password: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
@@ -145,7 +157,13 @@ def users_new_submit(
     if password != confirm_password:
         return templates.TemplateResponse(
             "users/form.html",
-            {"request": request, "mode": "create", "error": "As senhas não conferem."},
+            {
+                "request": request,
+                "mode": "create",
+                "user_obj": None,
+                "error": "As senhas não conferem.",
+                "title": "Novo usuário",
+            },
             status_code=400,
         )
 
@@ -156,6 +174,7 @@ def users_new_submit(
         password_hash=hash_password(password),
         is_active=bool(is_active),
         is_superuser=bool(is_superuser),
+        is_ceo=bool(is_ceo),
         must_change_password=bool(must_change_password),
         office_id=office_id,
     )
@@ -163,7 +182,14 @@ def users_new_submit(
     db.add(user)
     db.commit()
 
-    _log_action(db, actor, "create_user", "users", f"Usuário criado: {user.username}", request.client.host)
+    _log_action(
+        db=db,
+        actor=actor,
+        action="create_user",
+        module="users",
+        description=f"Usuário criado: {user.username}",
+        ip=request.client.host if request.client else None,
+    )
 
     return RedirectResponse(url="/usuarios", status_code=303)
 
@@ -172,7 +198,11 @@ def users_new_submit(
 # EDITAR
 # =========================================================
 @router.get("/{user_id}/editar", response_class=HTMLResponse)
-def users_edit_page(user_id: int, request: Request, db: Session = Depends(get_db)):
+def users_edit_page(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
     try:
         require_permission(request, "usuarios.edit")
     except HTTPException:
@@ -206,6 +236,7 @@ def users_edit_submit(
     username: str = Form(...),
     is_active: str | None = Form(None),
     is_superuser: str | None = Form(None),
+    is_ceo: str | None = Form(None),
     must_change_password: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
@@ -226,10 +257,18 @@ def users_edit_submit(
     user.username = username.strip().lower()
     user.is_active = bool(is_active)
     user.is_superuser = bool(is_superuser)
+    user.is_ceo = bool(is_ceo)
     user.must_change_password = bool(must_change_password)
 
     db.commit()
 
-    _log_action(db, actor, "edit_user", "users", f"Usuário editado: {user.username}", request.client.host)
+    _log_action(
+        db=db,
+        actor=actor,
+        action="edit_user",
+        module="users",
+        description=f"Usuário editado: {user.username}",
+        ip=request.client.host if request.client else None,
+    )
 
     return RedirectResponse(url="/usuarios", status_code=303)

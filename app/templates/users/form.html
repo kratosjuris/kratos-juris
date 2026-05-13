@@ -53,6 +53,12 @@
             Superadministrador
           </label>
 
+            <label>
+  <input type="checkbox" name="is_ceo"
+  {% if user_obj and user_obj.is_ceo %}checked{% endif %}>
+  CEO - Gerente Geral
+</label>
+
           <label>
             <input type="checkbox" name="must_change_password"
             {% if user_obj and user_obj.must_change_password %}checked{% endif %}>
