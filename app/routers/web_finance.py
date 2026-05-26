@@ -1665,16 +1665,82 @@ def receber_relatorio_mes(request: Request, ym: str | None = None, db: Session =
 
 
 @router.get("/financeiro/receber/relatorio-anual", response_class=HTMLResponse)
-def receber_relatorio_anual(request: Request, ano: int | None = None, db: Session = Depends(get_db)):
+def receber_relatorio_anual(
+    request: Request,
+    ano: int | None = None,
+    db: Session = Depends(get_db),
+):
     redir = _require_auth(request)
     if redir:
         return redir
 
     office_id = _get_office_id(request)
+
     hoje = now_br().date()
+
+    # =========================================================
+    # ANO SELECIONADO
+    # =========================================================
     ano = int(ano or hoje.year)
 
-    recebido_por_mes = {m: 0.0 for m in range(1, 13)}
+    # =========================================================
+    # ANOS DISPONÍVEIS
+    # =========================================================
+    anos_recebimentos = (
+        db.query(Receivable.ym)
+        .filter(
+            Receivable.office_id == office_id
+        )
+        .distinct()
+        .all()
+    )
+
+    anos_despesas_raw = (
+        db.query(Payable.pago_em)
+        .filter(
+            Payable.office_id == office_id,
+            Payable.pago_em.isnot(None),
+        )
+        .distinct()
+        .all()
+    )
+
+    anos_set = set()
+
+    # anos vindos do Receivable
+    for item in anos_recebimentos:
+
+        ym = (item[0] or "").strip()
+
+        try:
+            y = int(ym[:4])
+            anos_set.add(y)
+        except Exception:
+            pass
+
+    # anos vindos do Payable
+    for item in anos_despesas_raw:
+
+        dt = item[0]
+
+        try:
+            if dt:
+                anos_set.add(int(dt.year))
+        except Exception:
+            pass
+
+    if not anos_set:
+        anos_set.add(hoje.year)
+
+    anos_disponiveis = sorted(list(anos_set), reverse=True)
+
+    # =========================================================
+    # RECEBIMENTOS
+    # =========================================================
+    recebido_por_mes = {
+        m: 0.0
+        for m in range(1, 13)
+    }
 
     recebidos_db = (
         db.query(Receivable)
@@ -1685,14 +1751,20 @@ def receber_relatorio_anual(request: Request, ano: int | None = None, db: Sessio
         )
         .all()
     )
+
     for r in recebidos_db:
+
         try:
             mes = int((r.ym or "0000-00")[5:7])
         except Exception:
             continue
+
         if 1 <= mes <= 12:
             recebido_por_mes[mes] += float(r.valor or 0.0)
 
+    # =========================================================
+    # DESPESAS
+    # =========================================================
     dt_ini = date(ano, 2, 1)
     dt_fim = date(ano + 1, 2, 1)
 
@@ -1705,56 +1777,101 @@ def receber_relatorio_anual(request: Request, ano: int | None = None, db: Sessio
             Payable.pago_em >= dt_ini,
             Payable.pago_em < dt_fim,
         )
-        .order_by(Payable.pago_em.asc(), Payable.descricao.asc())
+        .order_by(
+            Payable.pago_em.asc(),
+            Payable.descricao.asc(),
+        )
         .all()
     )
 
-    despesas_por_mes, despesas_breakdown = _build_despesas_breakdown(payables_db, ano)
+    despesas_por_mes, despesas_breakdown = _build_despesas_breakdown(
+        payables_db,
+        ano,
+    )
 
+    # =========================================================
+    # MONTAGEM DOS DADOS
+    # =========================================================
     meses = []
+
     chart_labels = []
     chart_recebido = []
     chart_despesas = []
     chart_resultado = []
 
     for m in range(1, 13):
+
         ym = f"{ano:04d}-{m:02d}"
+
         recebido = float(recebido_por_mes.get(m, 0.0))
+
         despesas = float(despesas_por_mes.get(m, 0.0))
+
         resultado = float(recebido - despesas)
 
-        meses.append({"ym": ym, "mes": m, "recebido": recebido, "despesas": despesas, "resultado": resultado})
+        meses.append(
+            {
+                "ym": ym,
+                "mes": m,
+                "recebido": recebido,
+                "despesas": despesas,
+                "resultado": resultado,
+            }
+        )
 
         chart_labels.append(ym)
         chart_recebido.append(recebido)
         chart_despesas.append(despesas)
         chart_resultado.append(resultado)
 
-    total_recebido = sum(x["recebido"] for x in meses)
-    total_despesas = sum(x["despesas"] for x in meses)
-    total_resultado = sum(x["resultado"] for x in meses)
+    # =========================================================
+    # TOTAIS
+    # =========================================================
+    total_recebido = sum(
+        x["recebido"]
+        for x in meses
+    )
 
+    total_despesas = sum(
+        x["despesas"]
+        for x in meses
+    )
+
+    total_resultado = sum(
+        x["resultado"]
+        for x in meses
+    )
+
+    # =========================================================
+    # TEMPLATE
+    # =========================================================
     return templates.TemplateResponse(
         "finance/relatorio_receber_anual.html",
         {
             "request": request,
             "title": "Comparativo Anual Financeiro",
+
             "ano": ano,
+            "anos_disponiveis": anos_disponiveis,
+
             "meses": meses,
+
             "despesas_breakdown": despesas_breakdown,
+
             "total_recebido": float(total_recebido),
             "total_despesas": float(total_despesas),
             "total_resultado": float(total_resultado),
+
             "total_recebido_ano": float(total_recebido),
             "total_despesas_ano": float(total_despesas),
             "total_resultado_ano": float(total_resultado),
+
             "chart_labels": chart_labels,
             "chart_recebido": chart_recebido,
             "chart_despesas": chart_despesas,
             "chart_resultado": chart_resultado,
         },
     )
-
 
 @router.get("/financeiro/receber/relatorio-anual-csl", response_class=HTMLResponse)
 @router.get("/financeiro/receber/relatorio-anual-conta-principal", response_class=HTMLResponse)

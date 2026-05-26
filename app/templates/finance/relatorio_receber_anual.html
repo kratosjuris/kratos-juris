@@ -40,6 +40,11 @@ body.kj-day .btn-outline-dark:hover{
   background:rgba(17,24,39,.06) !important;
 }
 
+/* Select ano */
+.select-ano{
+  min-width:120px;
+}
+
 /* Print clean */
 @media print{
   @page{ size:A4 portrait; margin:12mm 10mm 12mm 10mm; }
@@ -60,110 +65,280 @@ body.kj-day .btn-outline-dark:hover{
   a[href]:after{ content:"" !important; }
   thead{ display:table-header-group; }
   tr, td, th{ break-inside:avoid !important; page-break-inside:avoid !important; }
+
+  .no-print{
+    display:none !important;
+  }
 }
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-3 no-print">
-  <h3 class="m-0">Comparativo Anual — Resultado (Recebido − Despesas)</h3>
-  <div class="d-flex gap-2">
-    <a class="btn btn-outline-secondary" href="/financeiro/receber">Voltar</a>
-    <button class="btn btn-outline-dark" type="button" onclick="window.print()">Imprimir</button>
+
+  <h3 class="m-0">
+    Comparativo Anual — Resultado (Recebido − Despesas)
+  </h3>
+
+  <div class="d-flex gap-2 align-items-center">
+
+    <form method="get" class="d-flex gap-2 align-items-center m-0">
+
+      <label class="fw-semibold m-0">
+        Ano:
+      </label>
+
+      <select
+        name="ano"
+        class="form-select form-select-sm select-ano"
+        onchange="this.form.submit()"
+      >
+
+        {% for ano_item in anos_disponiveis %}
+
+          <option
+            value="{{ ano_item }}"
+            {% if ano_item == ano %}selected{% endif %}
+          >
+            {{ ano_item }}
+          </option>
+
+        {% endfor %}
+
+      </select>
+
+    </form>
+
+    <a
+      class="btn btn-outline-secondary"
+      href="/financeiro/receber"
+    >
+      Voltar
+    </a>
+
+    <button
+      class="btn btn-outline-dark"
+      type="button"
+      onclick="window.print()"
+    >
+      Imprimir
+    </button>
+
   </div>
+
 </div>
 
 <div id="print-area">
 
   <div class="card p-3 mb-3">
+
     <div class="row g-3">
+
       <div class="col-md-3">
         <div class="text-muted">Ano</div>
-        <div class="fw-bold">{{ ano }}</div>
+        <div class="fw-bold">
+          {{ ano }}
+        </div>
       </div>
+
       <div class="col-md-3">
         <div class="text-muted">Recebido no ano</div>
-        <div class="fw-bold">{{ (total_recebido or 0) | money_br }}</div>
+        <div class="fw-bold">
+          {{ (total_recebido or 0) | money_br }}
+        </div>
       </div>
+
       <div class="col-md-3">
         <div class="text-muted">Despesas no ano</div>
-        <div class="fw-bold">{{ (total_despesas or 0) | money_br }}</div>
+        <div class="fw-bold">
+          {{ (total_despesas or 0) | money_br }}
+        </div>
       </div>
+
       <div class="col-md-3">
-        <div class="text-muted">Resultado no ano (Recebido − Despesas)</div>
-        <div class="fw-bold">{{ (total_resultado or 0) | money_br }}</div>
+        <div class="text-muted">
+          Resultado no ano (Recebido − Despesas)
+        </div>
+
+        <div class="fw-bold">
+          {{ (total_resultado or 0) | money_br }}
+        </div>
       </div>
+
     </div>
+
   </div>
 
   <div class="card p-3 mb-3">
+
     <div class="d-flex justify-content-between align-items-center mb-2">
-      <div class="fw-semibold">Gráfico financeiro anual</div>
-      <div class="text-muted small">Recebido, Despesas e Resultado mês a mês</div>
+
+      <div class="fw-semibold">
+        Gráfico financeiro anual
+      </div>
+
+      <div class="text-muted small">
+        Recebido, Despesas e Resultado mês a mês
+      </div>
+
     </div>
 
     <canvas id="chartAnual" height="85"></canvas>
+
   </div>
 
   <div class="card">
+
     <div class="table-responsive">
+
       <table class="table table-sm table-striped align-middle mb-0">
+
         <thead>
+
           <tr>
             <th>Mês</th>
-            <th class="text-end">Recebido</th>
-            <th class="text-end">Despesas</th>
-            <th class="text-end">Resultado (Recebido − Despesas)</th>
+
+            <th class="text-end">
+              Recebido
+            </th>
+
+            <th class="text-end">
+              Despesas
+            </th>
+
+            <th class="text-end">
+              Resultado (Recebido − Despesas)
+            </th>
           </tr>
+
         </thead>
+
         <tbody>
+
           {% for m in meses %}
+
             <tr>
-              <td class="fw-semibold">{{ m.ym }}</td>
-              <td class="text-end fw-semibold">{{ (m.recebido or 0) | money_br }}</td>
-              <td class="text-end fw-semibold">{{ (m.despesas or 0) | money_br }}</td>
-              <td class="text-end fw-semibold">{{ (m.resultado or 0) | money_br }}</td>
+
+              <td class="fw-semibold">
+                {{ m.ym }}
+              </td>
+
+              <td class="text-end fw-semibold">
+                {{ (m.recebido or 0) | money_br }}
+              </td>
+
+              <td class="text-end fw-semibold">
+                {{ (m.despesas or 0) | money_br }}
+              </td>
+
+              <td class="text-end fw-semibold">
+                {{ (m.resultado or 0) | money_br }}
+              </td>
+
             </tr>
+
           {% else %}
+
             <tr>
-              <td colspan="4" class="text-center text-muted py-4">Sem dados no ano.</td>
+
+              <td colspan="4" class="text-center text-muted py-4">
+                Sem dados no ano.
+              </td>
+
             </tr>
+
           {% endfor %}
+
         </tbody>
+
       </table>
+
     </div>
+
   </div>
 
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
 <script>
 (function(){
+
   const labels = {{ (chart_labels or []) | tojson }};
   const recebido = {{ (chart_recebido or []) | tojson }};
   const despesas = {{ (chart_despesas or []) | tojson }};
   const resultado = {{ (chart_resultado or []) | tojson }};
 
   const ctx = document.getElementById('chartAnual');
+
   if(!ctx) return;
 
   new Chart(ctx, {
+
     type: 'line',
+
     data: {
+
       labels,
+
       datasets: [
-        { label: 'Recebido', data: recebido, tension: 0.25 },
-        { label: 'Despesas', data: despesas, tension: 0.25 },
-        { label: 'Resultado (Recebido - Despesas)', data: resultado, tension: 0.25 }
+
+        {
+          label: 'Recebido',
+          data: recebido,
+          tension: 0.25
+        },
+
+        {
+          label: 'Despesas',
+          data: despesas,
+          tension: 0.25
+        },
+
+        {
+          label: 'Resultado (Recebido - Despesas)',
+          data: resultado,
+          tension: 0.25
+        }
+
       ]
+
     },
+
     options: {
+
       responsive: true,
       maintainAspectRatio: true,
-      plugins: { legend: { display: true } },
+
+      plugins: {
+        legend: {
+          display: true
+        }
+      },
+
       scales: {
-        y: { ticks: { callback: (v)=> 'R$ ' + Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) } }
+
+        y: {
+
+          ticks: {
+
+            callback: (v) =>
+              'R$ ' + Number(v).toLocaleString(
+                'pt-BR',
+                {
+                  minimumFractionDigits:2,
+                  maximumFractionDigits:2
+                }
+              )
+
+          }
+
+        }
+
       }
+
     }
+
   });
+
 })();
 </script>
 
