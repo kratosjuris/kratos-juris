@@ -8,6 +8,7 @@ import string
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import text
 
 from app.core.config import TEMPLATES_DIR
 from app.core.database import SessionLocal
@@ -32,11 +33,7 @@ def _generate_temp_password(length: int = 10) -> str:
 def _slug_username(value: str) -> str:
     value = (value or "").strip().lower()
     value = re.sub(r"[^a-z0-9._-]+", "", value)
-
-    if not value:
-        value = "admin"
-
-    return value[:60]
+    return (value or "admin")[:60]
 
 
 def _split_external_reference(external_reference: str | None) -> tuple[str, str]:
@@ -46,7 +43,6 @@ def _split_external_reference(external_reference: str | None) -> tuple[str, str]
         return "Novo Escritório Kratos", ""
 
     office_nome, email = raw.split("|", 1)
-
     return office_nome.strip(), email.strip().lower()
 
 
@@ -106,17 +102,126 @@ def _save_subscription(
         )
 
 
+def _update_subscription_from_preapproval(preapproval_data: dict) -> dict:
+    preapproval_id = str(preapproval_data.get("id") or "").strip()
+    preapproval_status = str(preapproval_data.get("status") or "").strip()
+
+    external_reference = preapproval_data.get("external_reference")
+    office_nome, email = _split_external_reference(external_reference)
+
+    payer_email = (
+        preapproval_data.get("payer_email")
+        or preapproval_data.get("payer", {}).get("email")
+        or email
+        or ""
+    ).strip().lower()
+
+    checkout_url = (
+        preapproval_data.get("init_point")
+        or preapproval_data.get("sandbox_init_point")
+        or ""
+    )
+
+    if not preapproval_id:
+        return {
+            "updated": False,
+            "reason": "Preapproval sem ID.",
+            "preapproval_status": preapproval_status,
+        }
+
+    db = SessionLocal()
+
+    try:
+        subscription = None
+
+        subscription = (
+            db.query(Subscription)
+            .filter(text("mercadopago_preapproval_id = :preapproval_id"))
+            .params(preapproval_id=preapproval_id)
+            .first()
+        )
+
+        if not subscription and payer_email:
+            subscription = (
+                db.query(Subscription)
+                .filter(Subscription.mercadopago_email == payer_email)
+                .order_by(Subscription.id.desc())
+                .first()
+            )
+
+        if not subscription and office_nome:
+            office = (
+                db.query(Office)
+                .filter(Office.nome.ilike(office_nome))
+                .first()
+            )
+
+            if office:
+                subscription = (
+                    db.query(Subscription)
+                    .filter(Subscription.office_id == office.id)
+                    .order_by(Subscription.id.desc())
+                    .first()
+                )
+
+        if not subscription:
+            return {
+                "updated": False,
+                "reason": "Nenhuma assinatura local encontrada para vincular ao preapproval.",
+                "preapproval_id": preapproval_id,
+                "preapproval_status": preapproval_status,
+                "payer_email": payer_email,
+            }
+
+        db.execute(
+            text(
+                """
+                UPDATE subscriptions
+                SET
+                    mercadopago_preapproval_id = :preapproval_id,
+                    preapproval_status = :preapproval_status,
+                    recurring_checkout_url = COALESCE(NULLIF(:checkout_url, ''), recurring_checkout_url),
+                    recurring_confirmed_at =
+                        CASE
+                            WHEN :preapproval_status IN ('authorized', 'active') THEN NOW()
+                            ELSE recurring_confirmed_at
+                        END,
+                    updated_at = NOW()
+                WHERE id = :subscription_id
+                """
+            ),
+            {
+                "subscription_id": subscription.id,
+                "preapproval_id": preapproval_id,
+                "preapproval_status": preapproval_status,
+                "checkout_url": checkout_url,
+            },
+        )
+
+        db.commit()
+
+        return {
+            "updated": True,
+            "subscription_id": subscription.id,
+            "preapproval_id": preapproval_id,
+            "preapproval_status": preapproval_status,
+            "payer_email": payer_email,
+        }
+
+    except Exception as e:
+        db.rollback()
+        return {
+            "updated": False,
+            "reason": f"Erro ao atualizar recorrência: {e}",
+            "preapproval_id": preapproval_id,
+            "preapproval_status": preapproval_status,
+        }
+
+    finally:
+        db.close()
+
+
 def _create_office_and_admin_from_payment(payment_data: dict) -> dict:
-    """
-    Cria Office + User admin quando o pagamento estiver aprovado.
-
-    Regras:
-    - Se o e-mail ainda não existir: cria Office + User.
-    - Se o e-mail já existir sem escritório: cria/reativa Office e vincula o User.
-    - Se o e-mail já existir com escritório: reativa Office/User, gera nova senha provisória.
-    - Sempre retorna senha provisória quando reativar/vincular/criar.
-    """
-
     status = payment_data.get("status")
     payment_id = str(payment_data.get("id") or "")
     external_reference = payment_data.get("external_reference")
@@ -316,13 +421,21 @@ def mp_success(request: Request):
         or query_params.get("data.id")
     )
 
+    preapproval_id = (
+        query_params.get("preapproval_id")
+        or query_params.get("preapproval_plan_id")
+        or query_params.get("id")
+    )
+
     status = query_params.get("status")
     preference_id = query_params.get("preference_id")
     external_reference = query_params.get("external_reference")
     merchant_order_id = query_params.get("merchant_order_id")
 
     payment_data = None
+    preapproval_data = None
     activation_result = None
+    preapproval_result = None
 
     if payment_id:
         try:
@@ -348,6 +461,22 @@ def mp_success(request: Request):
                 "erro": f"Erro ao consultar pagamento no Mercado Pago: {e}"
             }
 
+    if preapproval_id:
+        try:
+            preapproval_response = sdk.preapproval().get(preapproval_id)
+
+            print("========== MERCADO PAGO PREAPPROVAL GET ==========")
+            print(preapproval_response)
+            print("==================================================")
+
+            preapproval_data = preapproval_response.get("response", {})
+            preapproval_result = _update_subscription_from_preapproval(preapproval_data)
+
+        except Exception as e:
+            preapproval_data = {
+                "erro": f"Erro ao consultar assinatura no Mercado Pago: {e}"
+            }
+
     return templates.TemplateResponse(
         "public/payment_success.html",
         {
@@ -361,6 +490,9 @@ def mp_success(request: Request):
             "merchant_order_id": merchant_order_id,
             "payment_data": payment_data,
             "activation_result": activation_result,
+            "preapproval_id": preapproval_id,
+            "preapproval_data": preapproval_data,
+            "preapproval_result": preapproval_result,
             "query_params": query_params,
         },
     )
@@ -405,49 +537,85 @@ async def mp_webhook(request: Request):
 
     query_params = dict(request.query_params)
 
-    payment_id = None
+    event_type = (
+        query_params.get("type")
+        or query_params.get("topic")
+        or payload.get("type")
+        or payload.get("topic")
+        or payload.get("action")
+        or ""
+    )
 
-    if isinstance(payload, dict):
-        data = payload.get("data") or {}
+    data = payload.get("data") or {}
 
-        if isinstance(data, dict):
-            payment_id = data.get("id")
+    resource_id = None
 
-        payment_id = (
-            payment_id
-            or payload.get("id")
-            or payload.get("payment_id")
-            or query_params.get("id")
-            or query_params.get("data.id")
-        )
+    if isinstance(data, dict):
+        resource_id = data.get("id")
+
+    resource_id = (
+        resource_id
+        or payload.get("id")
+        or payload.get("payment_id")
+        or query_params.get("id")
+        or query_params.get("data.id")
+    )
 
     payment_data = None
+    preapproval_data = None
     activation_result = None
+    preapproval_result = None
 
-    if payment_id:
-        try:
-            payment_response = sdk.payment().get(payment_id)
-            payment_data = payment_response.get("response", {})
+    event_type_lower = str(event_type or "").lower()
 
-            if payment_data.get("status") == "approved":
-                activation_result = _create_office_and_admin_from_payment(payment_data)
+    is_preapproval_event = (
+        "preapproval" in event_type_lower
+        or "subscription" in event_type_lower
+        or "plan" in event_type_lower
+    )
 
-        except Exception as e:
-            payment_data = {
-                "erro": f"Erro ao consultar pagamento no Mercado Pago: {e}"
-            }
+    if resource_id:
+        if is_preapproval_event:
+            try:
+                preapproval_response = sdk.preapproval().get(resource_id)
+                preapproval_data = preapproval_response.get("response", {})
+                preapproval_result = _update_subscription_from_preapproval(preapproval_data)
+
+            except Exception as e:
+                preapproval_data = {
+                    "erro": f"Erro ao consultar assinatura no Mercado Pago: {e}"
+                }
+
+        else:
+            try:
+                payment_response = sdk.payment().get(resource_id)
+                payment_data = payment_response.get("response", {})
+
+                if payment_data.get("status") == "approved":
+                    activation_result = _create_office_and_admin_from_payment(payment_data)
+
+            except Exception as e:
+                payment_data = {
+                    "erro": f"Erro ao consultar pagamento no Mercado Pago: {e}"
+                }
 
     print("========== WEBHOOK MERCADO PAGO ==========")
     print("QUERY PARAMS:", query_params)
     print("PAYLOAD:", payload)
-    print("PAYMENT_ID:", payment_id)
+    print("EVENT_TYPE:", event_type)
+    print("RESOURCE_ID:", resource_id)
     print("PAYMENT_DATA:", payment_data)
+    print("PREAPPROVAL_DATA:", preapproval_data)
     print("ACTIVATION_RESULT:", activation_result)
+    print("PREAPPROVAL_RESULT:", preapproval_result)
     print("==========================================")
 
     return {
         "received": True,
-        "payment_id": payment_id,
+        "event_type": event_type,
+        "resource_id": resource_id,
         "payment_data": payment_data,
+        "preapproval_data": preapproval_data,
         "activation_result": activation_result,
+        "preapproval_result": preapproval_result,
     }
