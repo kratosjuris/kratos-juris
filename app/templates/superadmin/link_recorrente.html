@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+
+      <h3 class="mb-3">Link de assinatura recorrente gerado</h3>
+
+      <p class="mb-1">
+        <strong>Escritório:</strong> {{ office.nome }}
+      </p>
+
+      <p class="mb-1">
+        <strong>Responsável:</strong>
+        {% if admin %}
+          {{ admin.nome }}
+        {% else %}
+          -
+        {% endif %}
+      </p>
+
+      <p class="mb-3">
+        <strong>E-mail:</strong> {{ subscription.mercadopago_email }}
+      </p>
+
+      <div class="alert alert-info">
+        Envie este link para o cliente confirmar a assinatura recorrente no Mercado Pago:
+      </div>
+
+      <div class="input-group mb-3">
+        <input
+          type="text"
+          class="form-control"
+          value="{{ checkout_url }}"
+          id="checkoutUrl"
+          readonly
+        >
+        <button class="btn btn-primary" type="button" onclick="copiarLink()">
+          Copiar
+        </button>
+      </div>
+
+      <a href="{{ checkout_url }}" target="_blank" class="btn btn-success">
+        Abrir link do Mercado Pago
+      </a>
+
+      <a href="/superadmin/assinantes" class="btn btn-secondary">
+        Voltar
+      </a>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+function copiarLink() {
+  const input = document.getElementById("checkoutUrl");
+  input.select();
+  input.setSelectionRange(0, 99999);
+  navigator.clipboard.writeText(input.value);
+  alert("Link copiado!");
+}
+</script>
+{% endblock %}

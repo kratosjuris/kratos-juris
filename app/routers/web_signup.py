@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -41,7 +43,7 @@ def termos_page(request: Request):
 
 
 # =========================================================
-# PROCESSAMENTO DA ASSINATURA
+# PROCESSAMENTO DA ASSINATURA RECORRENTE
 # =========================================================
 @router.post("/assinar")
 def assinar_submit(
@@ -60,42 +62,49 @@ def assinar_submit(
         or base_url.startswith("http://")
     )
 
-    preference_data = {
-        "items": [
-            {
-                "title": "Assinatura Kratos Juris",
-                "description": "Assinatura mensal do sistema Kratos Juris",
-                "quantity": 1,
-                "currency_id": "BRL",
-                "unit_price": 59.90,
-            }
-        ],
+    if is_local:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "erro": "Assinatura recorrente exige URL pública HTTPS.",
+                "detalhe": "Use o sistema publicado no Render para criar assinaturas recorrentes.",
+                "base_url_atual": base_url,
+            },
+        )
 
-        "payer": {
-            "name": responsavel,
+    external_reference = f"{escritorio}|{email}"
+
+    start_date = datetime.utcnow() + timedelta(minutes=5)
+
+    preapproval_data = {
+        "reason": "Assinatura Kratos Juris",
+        "external_reference": external_reference,
+        "payer_email": email.strip().lower(),
+
+        "back_url": f"{base_url}/mp/success",
+        "notification_url": f"{base_url}/mp/webhook",
+
+        "auto_recurring": {
+            "frequency": 1,
+            "frequency_type": "months",
+            "transaction_amount": 59.90,
+            "currency_id": "BRL",
+            "start_date": start_date.isoformat(timespec="seconds") + "Z",
+        },
+
+        "metadata": {
+            "responsavel": responsavel,
+            "escritorio": escritorio,
             "email": email,
+            "telefone": telefone,
         },
-
-        "back_urls": {
-            "success": f"{base_url}/mp/success",
-            "failure": f"{base_url}/mp/failure",
-            "pending": f"{base_url}/mp/pending",
-        },
-
-        "external_reference": f"{escritorio}|{email}",
     }
 
-    # Em produção, com HTTPS real no Render/domínio próprio,
-    # o Mercado Pago aceita retorno automático e webhook.
-    if not is_local:
-        preference_data["auto_return"] = "approved"
-        preference_data["notification_url"] = f"{base_url}/mp/webhook"
+    response = sdk.preapproval().create(preapproval_data)
 
-    response = sdk.preference().create(preference_data)
-
-    print("========== MERCADO PAGO RESPONSE ==========")
+    print("========== MERCADO PAGO PREAPPROVAL RESPONSE ==========")
     print(response)
-    print("===========================================")
+    print("=======================================================")
 
     response_data = response.get("response", {})
 
@@ -105,11 +114,10 @@ def assinar_submit(
     )
 
     if not checkout_url:
-
         return JSONResponse(
             status_code=500,
             content={
-                "erro": "Mercado Pago não retornou URL de checkout.",
+                "erro": "Mercado Pago não retornou URL de assinatura recorrente.",
                 "mercado_pago_response": response_data,
             },
         )
