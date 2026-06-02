@@ -45,7 +45,7 @@ from app.routers import (
 from app.routers.web_doc import router as web_doc_router
 from app.routers.web_doc_templates import router as web_doc_templates_router
 from app.routers.web_signup import router as signup_router
-
+from app.routers import web_superadmin_assinantes
 from app.routers import web_auth, web_users, web_account
 from app.routers import web_offices
 from app.routers import web_whatsapp_templates
@@ -368,6 +368,11 @@ app.include_router(web_doc_templates_router)
 # NOVO: MERCADO PAGO
 # =========================================================
 app.include_router(mp_router)
+
+# =========================================================
+# SUPERADMIN - ASSINANTES
+# =========================================================
+app.include_router(web_superadmin_assinantes.router)
 
 # =========================================================
 # NOVO: ASSINATURA PÚBLICA

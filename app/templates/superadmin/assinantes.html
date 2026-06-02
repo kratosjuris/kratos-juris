@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="mb-1">Assinantes Kratos</h3>
+      <p class="text-muted mb-0">Área restrita aos superadministradores.</p>
+    </div>
+
+    <a href="/dashboard" class="btn btn-secondary">
+      ← Voltar
+    </a>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+
+      {% if assinantes %}
+        <div class="table-responsive">
+          <table class="table table-striped align-middle">
+            <thead>
+              <tr>
+                <th>Escritório</th>
+                <th>Responsável</th>
+                <th>E-mail</th>
+                <th>Valor</th>
+                <th>Status</th>
+                <th>Pagamento MP</th>
+                <th>Data</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {% for item in assinantes %}
+                <tr>
+                  <td>{{ item.office.nome }}</td>
+
+                  <td>
+                    {% if item.admin %}
+                      {{ item.admin.nome }}
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+
+                  <td>
+                    {% if item.admin and item.admin.email %}
+                      {{ item.admin.email }}
+                    {% else %}
+                      {{ item.subscription.mercadopago_email or "-" }}
+                    {% endif %}
+                  </td>
+
+                  <td>
+                    R$ {{ "%.2f"|format(item.subscription.valor) }}
+                  </td>
+
+                  <td>
+                    {% if item.subscription.status == "approved" %}
+                      <span class="badge bg-success">Aprovado</span>
+                    {% elif item.subscription.status == "pending" %}
+                      <span class="badge bg-warning text-dark">Pendente</span>
+                    {% else %}
+                      <span class="badge bg-secondary">{{ item.subscription.status }}</span>
+                    {% endif %}
+                  </td>
+
+                  <td>
+                    {{ item.subscription.mercadopago_payment_id or "-" }}
+                  </td>
+
+                  <td>
+                    {% if item.subscription.created_at %}
+                      {{ item.subscription.created_at.strftime("%d/%m/%Y %H:%M") }}
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="alert alert-info mb-0">
+          Nenhum assinante registrado até o momento.
+        </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

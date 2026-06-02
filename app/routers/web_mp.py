@@ -16,6 +16,7 @@ from app.models.office import Office
 from app.models.office_permission import OfficePermission
 from app.models.permission import Permission
 from app.models.user import User
+from app.models.subscription import Subscription
 from app.services.mercadopago import sdk, get_app_base_url
 
 
@@ -69,6 +70,40 @@ def _grant_all_permissions_to_office(db, office_id: int) -> None:
                     permission_id=permission.id,
                 )
             )
+
+
+def _save_subscription(
+    db,
+    office_id: int,
+    payment_id: str,
+    payment_data: dict,
+    email: str,
+    status: str,
+) -> None:
+    payer = payment_data.get("payer") or {}
+
+    payer_email = ""
+    if isinstance(payer, dict):
+        payer_email = (payer.get("email") or "").strip().lower()
+
+    valor = float(payment_data.get("transaction_amount") or 59.90)
+
+    existing_subscription = (
+        db.query(Subscription)
+        .filter(Subscription.mercadopago_payment_id == payment_id)
+        .first()
+    )
+
+    if not existing_subscription:
+        db.add(
+            Subscription(
+                office_id=office_id,
+                mercadopago_payment_id=payment_id,
+                mercadopago_email=payer_email or email,
+                valor=valor,
+                status=status,
+            )
+        )
 
 
 def _create_office_and_admin_from_payment(payment_data: dict) -> dict:
@@ -158,6 +193,15 @@ def _create_office_and_admin_from_payment(payment_data: dict) -> dict:
             existing_user.deactivated_at = None
             existing_user.deactivation_reason = None
 
+            _save_subscription(
+                db=db,
+                office_id=office.id,
+                payment_id=payment_id,
+                payment_data=payment_data,
+                email=email,
+                status=status,
+            )
+
             db.commit()
             db.refresh(office)
             db.refresh(existing_user)
@@ -196,6 +240,16 @@ def _create_office_and_admin_from_payment(payment_data: dict) -> dict:
         )
 
         db.add(admin)
+
+        _save_subscription(
+            db=db,
+            office_id=office.id,
+            payment_id=payment_id,
+            payment_data=payment_data,
+            email=email,
+            status=status,
+        )
+
         db.commit()
         db.refresh(office)
         db.refresh(admin)

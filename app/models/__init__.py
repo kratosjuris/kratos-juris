@@ -11,6 +11,7 @@ from app.models.office_permission import OfficePermission
 from app.models.audit_log import AuditLog
 
 from app.models.hearing_contact import HearingContact
+from app.models.subscription import Subscription
 
 __all__ = [
     "User",

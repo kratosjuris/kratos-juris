@@ -846,8 +846,17 @@
       {% endif %}
 
       {% if current_user and current_user.is_superuser %}
-        <a class="nav-link {% if nav_active.offices %}active{% endif %}" href="/offices">Escritórios</a>
-      {% endif %}
+  <a class="nav-link {% if nav_active.offices %}active{% endif %}" href="/offices">
+    Escritórios
+  </a>
+
+  <a
+    class="nav-link {% if _path.startswith('/superadmin/assinantes') %}active{% endif %}"
+    href="/superadmin/assinantes"
+  >
+    Assinantes
+  </a>
+{% endif %}
 
       {% if current_user %}
   <a class="nav-link {% if nav_active.doc_templates %}active{% endif %}" href="/doc-templates">
