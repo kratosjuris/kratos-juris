@@ -139,7 +139,8 @@ def gerar_link_recorrente(
 
     valor = float(subscription.valor or 59.90)
     external_reference = f"{office.nome}|{email}"
-    start_date = datetime.utcnow() + timedelta(minutes=5)
+    start_date = datetime.utcnow() + timedelta(minutes=10)
+    start_date_mp = start_date.strftime("%Y-%m-%dT%H:%M:%S.000+00:00")
 
     preapproval_data = {
         "reason": "Assinatura Kratos Juris",
@@ -152,7 +153,7 @@ def gerar_link_recorrente(
             "frequency_type": "months",
             "transaction_amount": valor,
             "currency_id": "BRL",
-            "start_date": start_date.isoformat(timespec="seconds") + "Z",
+            "start_date": start_date_mp,
         },
         "metadata": {
             "office_id": office.id,

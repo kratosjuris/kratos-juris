@@ -74,7 +74,8 @@ def assinar_submit(
 
     external_reference = f"{escritorio}|{email}"
 
-    start_date = datetime.utcnow() + timedelta(minutes=5)
+    start_date = datetime.utcnow() + timedelta(minutes=10)
+    start_date_mp = start_date.strftime("%Y-%m-%dT%H:%M:%S.000+00:00")
 
     preapproval_data = {
         "reason": "Assinatura Kratos Juris",
@@ -89,7 +90,7 @@ def assinar_submit(
             "frequency_type": "months",
             "transaction_amount": 59.90,
             "currency_id": "BRL",
-            "start_date": start_date.isoformat(timespec="seconds") + "Z",
+            "start_date": start_date_mp,
         },
 
         "metadata": {
