@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container py-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="mb-1">Relatório de Atualização Monetária</h3>
+      <div class="text-muted">
+        Memorial demonstrativo do cálculo realizado.
+      </div>
+    </div>
+
+    <div class="d-flex gap-2">
+      <button onclick="window.print()" class="btn btn-outline-secondary">
+        Imprimir
+      </button>
+
+      <a href="/calculadora-juridica/atualizacao" class="btn btn-primary">
+        Novo cálculo
+      </a>
+    </div>
+  </div>
+
+  {# ── Dados do processo ── #}
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h5 class="mb-3">Dados do processo</h5>
+
+      <div class="row g-3">
+        <div class="col-md-3">
+          <div class="small text-muted">Processo</div>
+          <strong>{{ resultado.processo or "-" }}</strong>
+        </div>
+
+        <div class="col-md-3">
+          <div class="small text-muted">Vara</div>
+          <strong>{{ resultado.vara or "-" }}</strong>
+        </div>
+
+        <div class="col-md-3">
+          <div class="small text-muted">Exequente</div>
+          <strong>{{ resultado.exequente or "-" }}</strong>
+        </div>
+
+        <div class="col-md-3">
+          <div class="small text-muted">Executado</div>
+          <strong>{{ resultado.executado or "-" }}</strong>
+        </div>
+
+        <div class="col-md-12">
+          <div class="small text-muted">Índice aplicado</div>
+          <strong>{{ resultado.indice_correcao }}</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Valores atualizados ── #}
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h5 class="mb-3">Valores atualizados</h5>
+
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Tipo</th>
+              <th>Descrição</th>
+              <th>Original</th>
+              <th>Fator</th>
+              <th>Corrigido</th>
+              <th>Juros desde</th>
+              <th>Juros</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in resultado.itens %}
+              <tr>
+                <td>{{ item.data }}</td>
+                <td>{{ item.tipo }}</td>
+                <td>{{ item.descricao }}</td>
+                <td>{{ item.valor_original }}</td>
+                <td>{{ item.fator }}</td>
+                <td>{{ item.valor_corrigido }}</td>
+                <td>{{ item.data_inicio_juros }}</td>
+                <td>{{ item.juros }}</td>
+                <td><strong>{{ item.total }}</strong></td>
+              </tr>
+            {% endfor %}
+
+            {% if not resultado.itens %}
+              <tr>
+                <td colspan="9" class="text-muted">
+                  Nenhum lançamento válido foi informado.
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {# ── Memória de índices aplicados ── #}
+  {% if resultado.detalhamento_indices %}
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="mb-0">Memória de índices aplicados</h5>
+          <button
+            class="btn btn-sm btn-outline-secondary"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#tabelaIndices"
+            aria-expanded="false">
+            Expandir / Recolher
+          </button>
+        </div>
+
+        <div class="collapse" id="tabelaIndices">
+          <div class="table-responsive">
+            <table class="table table-sm table-striped align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Mês/Ano</th>
+                  <th>Índice de correção</th>
+                  <th class="text-end">Taxa correção</th>
+                  {% if resultado.juros_tipo != "sem" %}
+                    <th>Índice de juros</th>
+                    <th class="text-end">Taxa juros</th>
+                  {% endif %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for linha in resultado.detalhamento_indices %}
+                  <tr>
+                    <td>{{ linha.mes }}</td>
+                    <td>
+                      <span class="badge
+                        {% if linha.indice_nome == 'IPCA' %}bg-primary
+                        {% else %}bg-secondary{% endif %}">
+                        {{ linha.indice_nome }}
+                      </span>
+                    </td>
+                    <td class="text-end font-monospace">{{ linha.correcao }}</td>
+                    {% if resultado.juros_tipo != "sem" %}
+                      <td>
+                        {% if linha.juros != "—" %}
+                          <span class="badge bg-warning text-dark">
+                            {{ linha.juros_nome }}
+                          </span>
+                        {% else %}
+                          <span class="text-muted">—</span>
+                        {% endif %}
+                      </td>
+                      <td class="text-end font-monospace">{{ linha.juros }}</td>
+                    {% endif %}
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  {% endif %}
+
+  {# ── Deduções ── #}
+  {% if resultado.deducoes %}
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h5 class="mb-3">Deduções</h5>
+
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Tipo</th>
+                <th>Referência</th>
+                <th>Valor deduzido</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for d in resultado.deducoes %}
+                <tr>
+                  <td>{{ d.nome }}</td>
+                  <td>{{ d.tipo }}</td>
+                  <td>{{ d.referencia }}</td>
+                  <td>{{ d.valor_deduzido }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  {% endif %}
+
+  {# ── Resumo ── #}
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h5 class="mb-3">Resumo</h5>
+
+      <div class="row g-3">
+        <div class="col-md-3">
+          <div class="small text-muted">Valor original</div>
+          <h5>{{ resultado.valor_original }}</h5>
+        </div>
+
+        <div class="col-md-3">
+          <div class="small text-muted">Valor corrigido</div>
+          <h5>{{ resultado.valor_corrigido }}</h5>
+        </div>
+
+        <div class="col-md-3">
+          <div class="small text-muted">Juros</div>
+          <h5>{{ resultado.juros }}</h5>
+        </div>
+
+        <div class="col-md-3">
+          <div class="small text-muted">Multa</div>
+          <h5>{{ resultado.multa }}</h5>
+        </div>
+
+        <div class="col-md-3">
+          <div class="small text-muted">Honorários</div>
+          <h5>{{ resultado.honorarios }}</h5>
+        </div>
+
+        <div class="col-md-3">
+          <div class="small text-muted">Custas</div>
+          <h5>{{ resultado.custas }}</h5>
+        </div>
+
+        <div class="col-md-3">
+          <div class="small text-muted">Deduções</div>
+          <h5>{{ resultado.total_deducoes }}</h5>
+        </div>
+
+        <div class="col-md-3">
+          <div class="small text-muted">Total líquido</div>
+          <h4>{{ resultado.total_liquido }}</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Gerar documentos ── #}
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h5 class="mb-3">Gerar documentos</h5>
+
+      <div class="d-flex gap-2 flex-wrap">
+
+        <form method="post" action="/calculadora-juridica/atualizacao/documento">
+          <input type="hidden" name="doc_key" value="memorial-calculo">
+          <input type="hidden" name="resultado_json" value="{{ resultado_json }}">
+          <button class="btn btn-outline-primary">
+            Gerar Memorial de Cálculo
+          </button>
+        </form>
+
+        <form method="post" action="/calculadora-juridica/atualizacao/documento">
+          <input type="hidden" name="doc_key" value="cumprimento-voluntario">
+          <input type="hidden" name="resultado_json" value="{{ resultado_json }}">
+          <button class="btn btn-outline-primary">
+            Gerar Petição de Cumprimento Voluntário
+          </button>
+        </form>
+
+        <form method="post" action="/calculadora-juridica/atualizacao/documento">
+          <input type="hidden" name="doc_key" value="execucao-sentenca">
+          <input type="hidden" name="resultado_json" value="{{ resultado_json }}">
+          <button class="btn btn-outline-primary">
+            Gerar Petição de Execução de Sentença
+          </button>
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="alert alert-info">
+    O relatório é gerado com base nas informações fornecidas pelo usuário. Confira os dados antes de utilizar em petição ou protocolo.
+  </div>
+
+</div>
+
+{% endblock %}

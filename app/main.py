@@ -40,6 +40,7 @@ from app.routers import (
     web_pericias,
     web_migrations,
     hearings,
+    web_calculadora_juridica,
 )
 
 from app.routers.web_doc import router as web_doc_router
@@ -49,6 +50,7 @@ from app.routers import web_superadmin_assinantes
 from app.routers import web_auth, web_users, web_account
 from app.routers import web_offices
 from app.routers import web_whatsapp_templates
+
 
 # =========================================================
 # NOVO: MERCADO PAGO
@@ -359,6 +361,8 @@ app.include_router(web_pericias.router)
 app.include_router(web_migrations.router)
 
 app.include_router(hearings.router)
+
+app.include_router(web_calculadora_juridica.router)
 
 app.include_router(web_doc_router)
 

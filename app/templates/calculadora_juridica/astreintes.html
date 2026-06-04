@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container py-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="mb-1">Cálculo de Astreintes</h3>
+      <div class="text-muted">
+        Cálculo de multa diária por descumprimento.
+      </div>
+    </div>
+
+    <a href="/calculadora-juridica" class="btn btn-outline-secondary">
+      Voltar
+    </a>
+  </div>
+
+  <div class="alert alert-warning">
+    Esta tela já ficará preparada. No próximo passo vamos ligar o cálculo e o relatório detalhado das astreintes.
+  </div>
+
+  <form method="post" action="/calculadora-juridica/astreintes/gerar">
+
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Número do processo</label>
+            <input type="text" name="processo" class="form-control">
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Vara de tramitação</label>
+            <input type="text" name="vara" class="form-control">
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Tipo de contagem</label>
+            <select name="tipo_contagem" class="form-select">
+              <option value="corridos">Dias corridos</option>
+              <option value="uteis">Dias úteis</option>
+            </select>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Parte exequente</label>
+            <input type="text" name="exequente" class="form-control">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Parte executada</label>
+            <input type="text" name="executado" class="form-control">
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Data inicial</label>
+            <input type="date" name="data_inicial" class="form-control" required>
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Data final</label>
+            <input type="date" name="data_final" class="form-control" required>
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Valor da multa diária</label>
+            <input type="text" name="valor_diario" class="form-control" placeholder="0,00" required>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <button class="btn btn-primary">
+      Gerar relatório de astreintes
+    </button>
+
+  </form>
+
+</div>
+
+{% endblock %}

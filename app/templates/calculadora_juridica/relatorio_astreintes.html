@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container py-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="mb-1">Relatório de Astreintes</h3>
+      <div class="text-muted">
+        Demonstrativo da multa diária por descumprimento.
+      </div>
+    </div>
+
+    <div class="d-flex gap-2">
+      <button onclick="window.print()" class="btn btn-outline-secondary">
+        Imprimir
+      </button>
+
+      <a href="/calculadora-juridica/astreintes" class="btn btn-primary">
+        Novo cálculo
+      </a>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h5 class="mb-3">Dados do processo</h5>
+
+      <div class="row g-3">
+        <div class="col-md-3">
+          <div class="small text-muted">Processo</div>
+          <strong>{{ resultado.processo or "-" }}</strong>
+        </div>
+
+        <div class="col-md-3">
+          <div class="small text-muted">Vara</div>
+          <strong>{{ resultado.vara or "-" }}</strong>
+        </div>
+
+        <div class="col-md-3">
+          <div class="small text-muted">Exequente</div>
+          <strong>{{ resultado.exequente or "-" }}</strong>
+        </div>
+
+        <div class="col-md-3">
+          <div class="small text-muted">Executado</div>
+          <strong>{{ resultado.executado or "-" }}</strong>
+        </div>
+
+        <div class="col-md-3">
+          <div class="small text-muted">Contagem</div>
+          <strong>{{ resultado.tipo_contagem }}</strong>
+        </div>
+
+        <div class="col-md-3">
+          <div class="small text-muted">Data inicial</div>
+          <strong>{{ resultado.data_inicial }}</strong>
+        </div>
+
+        <div class="col-md-3">
+          <div class="small text-muted">Data final</div>
+          <strong>{{ resultado.data_final }}</strong>
+        </div>
+
+        <div class="col-md-3">
+          <div class="small text-muted">Valor diário</div>
+          <strong>{{ resultado.valor_diario }}</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h5 class="mb-3">Resumo</h5>
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="small text-muted">Quantidade de dias computados</div>
+          <h4>{{ resultado.quantidade_dias }}</h4>
+        </div>
+
+        <div class="col-md-6">
+          <div class="small text-muted">Total das astreintes</div>
+          <h4>{{ resultado.total }}</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <h5 class="mb-3">Demonstrativo diário</h5>
+
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Dia</th>
+              <th>Data</th>
+              <th>Valor diário</th>
+              <th>Acumulado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in resultado.itens %}
+              <tr>
+                <td>{{ item.dia }}</td>
+                <td>{{ item.data }}</td>
+                <td>{{ item.valor_diario }}</td>
+                <td><strong>{{ item.acumulado }}</strong></td>
+              </tr>
+            {% endfor %}
+
+            {% if not resultado.itens %}
+              <tr>
+                <td colspan="4" class="text-muted">
+                  Nenhum dia foi computado. Verifique as datas e o valor diário.
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="alert alert-info">
+    O relatório considera o período informado pelo usuário e o tipo de contagem selecionado.
+  </div>
+
+</div>
+
+{% endblock %}

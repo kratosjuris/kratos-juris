@@ -8,6 +8,17 @@ from pathlib import Path
 from docx import Document
 
 
+# ---------------------------------------------------------------------------
+# Specs de documentos
+#
+# IMPORTANTE:
+#   - "memorial-calculo" foi REMOVIDO desta lista intencionalmente.
+#     Ele é gerado 100% pelo sistema (sem upload de template).
+#   - "cumprimento-voluntario" e "execucao-sentenca" aceitam papel timbrado
+#     opcional. Se o escritório não tiver template cadastrado, o sistema
+#     gera a petição automaticamente com texto jurídico embutido.
+# ---------------------------------------------------------------------------
+
 DOC_TEMPLATE_SPECS = {
     "procuracao": {
         "title": "Procuração",
@@ -99,18 +110,79 @@ DOC_TEMPLATE_SPECS = {
             "estar sujeito às sanções civis, administrativas e criminais previstas na legislação aplicável."
         ),
     },
+    # memorial-calculo removido: gerado automaticamente pelo sistema
+    "cumprimento-voluntario": {
+        "title": "Papel Timbrado — Cumprimento Voluntário",
+        "upload_hint": (
+            "Faça upload do papel timbrado do escritório em .docx. "
+            "Insira os placeholders abaixo onde desejar que os dados do cálculo apareçam. "
+            "Se nenhum template for cadastrado, o sistema gerará a petição automaticamente."
+        ),
+        "allowed_placeholders": [
+            "{{processo}}",
+            "{{vara}}",
+            "{{exequente}}",
+            "{{executado}}",
+            "{{data_calculo}}",
+            "{{indice_correcao}}",
+            "{{valor_original}}",
+            "{{valor_corrigido}}",
+            "{{juros}}",
+            "{{multa}}",
+            "{{honorarios}}",
+            "{{custas}}",
+            "{{deducoes}}",
+            "{{total_bruto}}",
+            "{{total_liquido}}",
+            "{{memoria_calculo}}",
+        ],
+        "screen_text": (
+            "Processo: {{processo}}. Vara: {{vara}}. "
+            "Exequente: {{exequente}}. Executado: {{executado}}. "
+            "Data do cálculo: {{data_calculo}}. "
+            "Total líquido atualizado: {{total_liquido}}."
+        ),
+    },
+    "execucao-sentenca": {
+        "title": "Papel Timbrado — Execução de Sentença",
+        "upload_hint": (
+            "Faça upload do papel timbrado do escritório em .docx. "
+            "Insira os placeholders abaixo onde desejar que os dados do cálculo apareçam. "
+            "Se nenhum template for cadastrado, o sistema gerará a petição automaticamente."
+        ),
+        "allowed_placeholders": [
+            "{{processo}}",
+            "{{vara}}",
+            "{{exequente}}",
+            "{{executado}}",
+            "{{data_calculo}}",
+            "{{indice_correcao}}",
+            "{{valor_original}}",
+            "{{valor_corrigido}}",
+            "{{juros}}",
+            "{{multa}}",
+            "{{honorarios}}",
+            "{{custas}}",
+            "{{deducoes}}",
+            "{{total_bruto}}",
+            "{{total_liquido}}",
+            "{{memoria_calculo}}",
+        ],
+        "screen_text": (
+            "Processo: {{processo}}. Vara: {{vara}}. "
+            "Exequente: {{exequente}}. Executado: {{executado}}. "
+            "Data do cálculo: {{data_calculo}}. "
+            "Valor da execução: {{total_liquido}}."
+        ),
+    },
 }
 
 
 # =========================================================
-# DIRETÓRIO BASE ABSOLUTO DO PROJETO
-# app/services/document_templates.py -> volta 2 níveis até /app,
-# depois mais 1 até a raiz do projeto
+# DIRETÓRIO BASE
 # =========================================================
 BASE_DIR = Path(__file__).resolve().parents[2]
 
-# Se houver variável de ambiente, usa ela.
-# Senão, usa caminho absoluto estável dentro do projeto.
 DOC_TEMPLATES_STORAGE_DIR = Path(
     os.getenv(
         "DOC_TEMPLATES_STORAGE_DIR",
@@ -118,7 +190,7 @@ DOC_TEMPLATES_STORAGE_DIR = Path(
     )
 ).resolve()
 
-DOC_TEMPLATES_MAX_MB = int(os.getenv("DOC_TEMPLATES_MAX_MB", "5"))
+DOC_TEMPLATES_MAX_MB    = int(os.getenv("DOC_TEMPLATES_MAX_MB", "5"))
 DOC_TEMPLATES_MAX_BYTES = DOC_TEMPLATES_MAX_MB * 1024 * 1024
 
 _PLACEHOLDER_RE = re.compile(r"\{\{\s*([a-zA-Z0-9_]+)\s*\}\}")
@@ -139,9 +211,7 @@ def get_doc_title(doc_key: str) -> str:
 
 def get_allowed_placeholders(doc_key: str) -> list[str]:
     spec = get_doc_spec(doc_key)
-    if not spec:
-        return []
-    return spec["allowed_placeholders"]
+    return spec["allowed_placeholders"] if spec else []
 
 
 def sanitize_filename(name: str) -> str:
@@ -163,11 +233,10 @@ def build_storage_path(
     version: int,
     original_filename: str,
 ) -> str:
-    base_dir = Path(ensure_storage_dir(office_id, doc_key))
+    base_dir  = Path(ensure_storage_dir(office_id, doc_key))
     safe_name = sanitize_filename(original_filename or f"{doc_key}.docx")
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    final_name = f"v{version}_{timestamp}_{safe_name}"
-    return str((base_dir / final_name).resolve())
+    return str((base_dir / f"v{version}_{timestamp}_{safe_name}").resolve())
 
 
 def write_template_bytes(file_bytes: bytes, destination_path: str) -> None:
@@ -180,9 +249,9 @@ def write_template_bytes(file_bytes: bytes, destination_path: str) -> None:
 def remove_file_silently(path: str | None) -> None:
     try:
         if path:
-            file_path = Path(path).resolve()
-            if file_path.exists() and file_path.is_file():
-                file_path.unlink()
+            p = Path(path).resolve()
+            if p.exists() and p.is_file():
+                p.unlink()
     except Exception:
         pass
 
@@ -190,13 +259,11 @@ def remove_file_silently(path: str | None) -> None:
 def _iter_doc_texts(doc: Document):
     for p in doc.paragraphs:
         yield p.text or ""
-
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
                 for p in cell.paragraphs:
                     yield p.text or ""
-
     for section in doc.sections:
         for p in section.header.paragraphs:
             yield p.text or ""
@@ -211,25 +278,21 @@ def normalize_placeholder_name(name: str) -> str:
 def extract_placeholders_from_docx_bytes(file_bytes: bytes) -> list[str]:
     doc = Document(BytesIO(file_bytes))
     placeholders = set()
-
     for text in _iter_doc_texts(doc):
         for match in _PLACEHOLDER_RE.finditer(text or ""):
             placeholders.add(normalize_placeholder_name(match.group(1)))
-
     return sorted(placeholders)
 
 
 def validate_docx_placeholders(doc_key: str, file_bytes: bytes) -> dict:
     detected = extract_placeholders_from_docx_bytes(file_bytes)
-    allowed = set(get_allowed_placeholders(doc_key))
-
-    invalid = sorted([p for p in detected if p not in allowed])
-
+    allowed  = set(get_allowed_placeholders(doc_key))
+    invalid  = sorted([p for p in detected if p not in allowed])
     return {
-        "doc_key": doc_key,
+        "doc_key":               doc_key,
         "detected_placeholders": detected,
-        "invalid_placeholders": invalid,
-        "is_valid": len(invalid) == 0,
+        "invalid_placeholders":  invalid,
+        "is_valid":              len(invalid) == 0,
     }
 
 
