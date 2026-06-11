@@ -8,6 +8,12 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
+
+# =========================================================
+# NOVO: PWA — templates para a página /offline
+# =========================================================
+from fastapi.templating import Jinja2Templates
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy import inspect, text
@@ -67,6 +73,15 @@ STATIC_DIR = BASE_DIR / "static"
 
 FAVICON_PATH = STATIC_DIR / "favicon.ico"
 
+# =========================================================
+# NOVO: PWA — caminhos do service worker e dos templates
+# =========================================================
+SW_PATH = STATIC_DIR / "js" / "sw.js"
+
+TEMPLATES_DIR = BASE_DIR / "templates"
+
+pwa_templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
 
 # =========================================================
 # HELPERS
@@ -95,6 +110,10 @@ def _is_public_path(path: str):
         # TERMOS DE USO
         "/termos",
         "/termos/",
+
+        # NOVO: PWA — precisam ser públicos para o app instalar
+        "/sw.js",
+        "/offline",
     )
 
     return path.startswith(public_prefixes)
@@ -390,6 +409,34 @@ app.include_router(signup_router)
 @app.get("/ping", include_in_schema=False)
 def ping():
     return {"status": "ok"}
+
+
+# =========================================================
+# NOVO: PWA — SERVICE WORKER E PÁGINA OFFLINE
+# =========================================================
+@app.get("/sw.js", include_in_schema=False)
+def service_worker():
+    """
+    O sw.js PRECISA ser servido da raiz (/sw.js) para ter escopo
+    sobre o site inteiro. Se não existir, retorna 204 sem quebrar nada.
+    """
+
+    if SW_PATH.exists():
+        return FileResponse(
+            SW_PATH,
+            media_type="application/javascript",
+            headers={"Cache-Control": "no-cache"},
+        )
+
+    return Response(status_code=204)
+
+
+@app.get("/offline", include_in_schema=False)
+def offline(request: Request):
+    return pwa_templates.TemplateResponse(
+        "offline.html",
+        {"request": request},
+    )
 
 
 # =========================================================
