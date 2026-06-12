@@ -1048,6 +1048,13 @@
 })();
 </script>
 
+<!-- =========================================================
+     NOVO: PUSH — pedido de permissão e inscrição (só logado)
+     ========================================================= -->
+{% if current_user %}
+<script src="/static/js/push.js"></script>
+{% endif %}
+
 {% block scripts %}{% endblock %}
 </body>
 </html>

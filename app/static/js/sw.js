@@ -2,7 +2,7 @@
 // Estratégia: network-first (sempre busca dados atualizados do servidor;
 // usa cache apenas quando estiver offline).
 
-const CACHE_NAME = 'kratos-juris-v1';
+const CACHE_NAME = 'kratos-juris-v2';
 
 const PRECACHE_URLS = [
   '/static/manifest.json',
@@ -48,5 +48,40 @@ self.addEventListener('fetch', (event) => {
           cached || caches.match('/offline')
         )
       )
+  );
+});
+
+// =========================================================
+// PUSH — recebe a notificação e exibe na tela do celular
+// =========================================================
+self.addEventListener('push', function (event) {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) {}
+
+  const title = data.title || 'Kratos Juris';
+  const options = {
+    body: data.body || '',
+    icon: '/static/img/icons/icon-192.png',
+    badge: '/static/img/icons/icon-192.png',
+    tag: data.tag || 'kratos',
+    renotify: true,
+    data: { url: data.url || '/dashboard' }
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Ao tocar na notificação, abre/foca a tela certa
+self.addEventListener('notificationclick', function (event) {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/dashboard';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
+      for (const c of list) {
+        if (c.url.includes(url) && 'focus' in c) return c.focus();
+      }
+      if (clients.openWindow) return clients.openWindow(url);
+    })
   );
 });

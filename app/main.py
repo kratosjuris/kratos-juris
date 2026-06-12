@@ -14,6 +14,12 @@ from fastapi.staticfiles import StaticFiles
 # =========================================================
 from fastapi.templating import Jinja2Templates
 
+# =========================================================
+# NOVO: PUSH — agendador de notificações
+# =========================================================
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy import inspect, text
@@ -35,6 +41,11 @@ from app.models.office import Office
 from app.models.office_permission import OfficePermission
 from app.models.document_template import OfficeDocumentTemplate  # noqa: F401
 from app.models.hearing_contact import HearingContact  # noqa: F401
+
+# =========================================================
+# NOVO: PUSH — model da tabela de inscrições (cria no startup)
+# =========================================================
+from app.models.push_subscription import PushSubscription  # noqa: F401
 
 from app.routers import (
     web_dashboard,
@@ -63,6 +74,16 @@ from app.routers import web_whatsapp_templates
 # =========================================================
 from app.routers.web_mp import router as mp_router
 
+# =========================================================
+# NOVO: PUSH — router de notificações
+# =========================================================
+from app.routers import web_push
+
+# =========================================================
+# NOVO: PUSH — jobs agendados
+# =========================================================
+from app.services.notification_jobs import job_07h, job_12h, job_20h
+
 
 # =========================================================
 # APP / PATHS
@@ -81,6 +102,11 @@ SW_PATH = STATIC_DIR / "js" / "sw.js"
 TEMPLATES_DIR = BASE_DIR / "templates"
 
 pwa_templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+# =========================================================
+# NOVO: PUSH — agendador (timezone Brasil)
+# =========================================================
+scheduler = BackgroundScheduler(timezone="America/Sao_Paulo")
 
 
 # =========================================================
@@ -347,7 +373,42 @@ def on_startup():
     finally:
         db.close()
 
+    # =========================================================
+    # NOVO: PUSH — agenda os jobs (07h / 12h / 20h, horário BR)
+    # =========================================================
+    try:
+        if not scheduler.running:
+            scheduler.add_job(
+                job_07h, CronTrigger(hour=7, minute=0),
+                id="job_07h", replace_existing=True,
+            )
+            scheduler.add_job(
+                job_12h, CronTrigger(hour=12, minute=0),
+                id="job_12h", replace_existing=True,
+            )
+            scheduler.add_job(
+                job_20h, CronTrigger(hour=20, minute=0),
+                id="job_20h", replace_existing=True,
+            )
+            scheduler.start()
+            print("[SCHEDULER] jobs de notificação agendados (07h, 12h, 20h BRT)")
+    except Exception as e:
+        print(f"[SCHEDULER] erro ao agendar jobs: {e}")
+
     print("=" * 70)
+
+
+# =========================================================
+# NOVO: PUSH — encerra o agendador ao desligar
+# =========================================================
+@app.on_event("shutdown")
+def on_shutdown():
+    try:
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+            print("[SCHEDULER] encerrado")
+    except Exception as e:
+        print(f"[SCHEDULER] erro ao encerrar: {e}")
 
 
 # =========================================================
@@ -402,6 +463,11 @@ app.include_router(web_superadmin_assinantes.router)
 # =========================================================
 app.include_router(signup_router)
 
+# =========================================================
+# NOVO: PUSH — rotas de inscrição/teste
+# =========================================================
+app.include_router(web_push.router)
+
 
 # =========================================================
 # PING (KEEP ALIVE)
@@ -424,7 +490,7 @@ def service_worker():
     if SW_PATH.exists():
         return FileResponse(
             SW_PATH,
-            media_type="application/javascript",
+            media_type="application/javascript; charset=utf-8",
             headers={"Cache-Control": "no-cache"},
         )
 
