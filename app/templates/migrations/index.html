@@ -381,56 +381,169 @@
 
   <!-- ✅ ALTERADO: painel DJEN abre por padrão (active) -->
   <div class="kj-import-pane active" id="kj-pane-djen">
-    <form method="post" action="/migracoes/consultar-djen" class="mb-3">
-      <div class="border rounded p-3 kj-dupbox">
-        <div class="fw-semibold mb-2">🔎 Consultar DJEN por OAB</div>
+    <div class="border rounded p-3 kj-dupbox mb-3">
+      <div class="fw-semibold mb-2">🔎 Consultar DJEN por OAB</div>
 
-        <div class="row g-2">
-          <div class="col-md-3">
-            <label class="form-label">Número da OAB</label>
-            <input class="form-control" type="text" name="numero_oab" placeholder="Ex: 123456" required>
-          </div>
-
-          <div class="col-md-2">
-            <label class="form-label">UF</label>
-            <input class="form-control" type="text" name="uf_oab" maxlength="2" placeholder="BA" required>
-          </div>
-
-          <div class="col-md-3">
-            <label class="form-label">Data início</label>
-            <input class="form-control" type="date" name="data_inicio" required>
-          </div>
-
-          <div class="col-md-3">
-            <label class="form-label">Data fim</label>
-            <input class="form-control" type="date" name="data_fim" required>
-          </div>
-
-          <div class="col-md-1 d-flex align-items-end">
-            <button class="btn btn-primary w-100" type="submit">Buscar</button>
-          </div>
+      <div class="row g-2" id="formDjenInputs">
+        <div class="col-md-3">
+          <label class="form-label">Número da OAB</label>
+          <input class="form-control" type="text" id="djenOab" placeholder="Ex: 123456">
         </div>
 
-        <div class="mt-3">
-          <div class="fw-semibold mb-1">Deseja duplicar registros já importados hoje?</div>
-
-          <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="dup_hoje" id="djenDupNao" value="nao" checked>
-            <label class="form-check-label" for="djenDupNao">Não</label>
-          </div>
-
-          <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="dup_hoje" id="djenDupSim" value="sim">
-            <label class="form-check-label" for="djenDupSim">Sim</label>
-          </div>
+        <div class="col-md-2">
+          <label class="form-label">UF</label>
+          <input class="form-control" type="text" id="djenUf" maxlength="2" placeholder="BA">
         </div>
 
-        <div class="text-muted mt-2" style="font-size: 13px;">
-          Os resultados encontrados no DJEN serão enviados para a mesma fila de pendentes da migração.
+        <div class="col-md-3">
+          <label class="form-label">Data início</label>
+          <input class="form-control" type="date" id="djenInicio">
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Data fim</label>
+          <input class="form-control" type="date" id="djenFim">
+        </div>
+
+        <div class="col-md-1 d-flex align-items-end">
+          <button class="btn btn-primary w-100" onclick="djenBuscar()">Buscar</button>
         </div>
       </div>
-    </form>
+
+      <div class="mt-3">
+        <div class="fw-semibold mb-1">Deseja duplicar registros já importados hoje?</div>
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="radio" name="dup_hoje_js" id="djenDupNao" value="nao" checked>
+          <label class="form-check-label" for="djenDupNao">Não</label>
+        </div>
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="radio" name="dup_hoje_js" id="djenDupSim" value="sim">
+          <label class="form-check-label" for="djenDupSim">Sim</label>
+        </div>
+      </div>
+
+      <!-- Status da consulta -->
+      <div id="djenStatus" class="mt-3" style="display:none;">
+        <div id="djenStatusMsg" class="text-muted" style="font-size:13px;"></div>
+        <div class="progress mt-2" style="height:6px; display:none;" id="djenProgress">
+          <div class="progress-bar progress-bar-striped progress-bar-animated"
+               style="width:100%"></div>
+        </div>
+      </div>
+
+      <div class="text-muted mt-2" style="font-size: 13px;">
+        A consulta é feita diretamente do seu navegador para o DJEN, garantindo funcionamento
+        tanto local quanto no servidor.
+      </div>
+    </div>
   </div>
+
+  <script>
+  // =====================================================================
+  // CONSULTA DJEN — feita pelo browser (evita bloqueio 403 no servidor)
+  // =====================================================================
+  async function djenBuscar() {
+    const oab     = document.getElementById("djenOab").value.trim().replace(/\D/g, "");
+    const uf      = document.getElementById("djenUf").value.trim().toUpperCase();
+    const inicio  = document.getElementById("djenInicio").value;
+    const fim     = document.getElementById("djenFim").value;
+    const dupHoje = document.querySelector('input[name="dup_hoje_js"]:checked')?.value || "nao";
+
+    if (!oab || !uf || !inicio || !fim) {
+      alert("Preencha todos os campos: OAB, UF, Data início e Data fim.");
+      return;
+    }
+
+    const statusEl  = document.getElementById("djenStatus");
+    const msgEl     = document.getElementById("djenStatusMsg");
+    const progEl    = document.getElementById("djenProgress");
+
+    statusEl.style.display = "block";
+    progEl.style.display   = "block";
+    msgEl.textContent      = "🔎 Consultando DJEN...";
+
+    const DJEN_BASE = "https://comunicaapi.pje.jus.br/api/v1/comunicacao";
+    const MAX_PAG   = 20;
+    const POR_PAG   = 100;
+    let todosItens  = [];
+
+    try {
+      for (let pagina = 1; pagina <= MAX_PAG; pagina++) {
+        msgEl.textContent = `🔎 Consultando DJEN — página ${pagina}...`;
+
+        const params = new URLSearchParams({
+          numeroOab: oab,
+          ufOab: uf,
+          dataDisponibilizacaoInicio: inicio,
+          dataDisponibilizacaoFim: fim,
+          itensPorPagina: POR_PAG,
+          pagina: pagina,
+        });
+
+        const resp = await fetch(`${DJEN_BASE}?${params}`, {
+          headers: {
+            "Accept": "application/json",
+          },
+        });
+
+        if (!resp.ok) {
+          throw new Error(`DJEN retornou HTTP ${resp.status}`);
+        }
+
+        const data  = await resp.json();
+        const itens = data.items || data.result || [];
+
+        todosItens = todosItens.concat(itens);
+
+        if (itens.length < POR_PAG) break;
+      }
+    } catch (e) {
+      progEl.style.display = "none";
+      msgEl.textContent    = `❌ Erro na consulta ao DJEN: ${e.message}`;
+      msgEl.style.color    = "red";
+      return;
+    }
+
+    if (todosItens.length === 0) {
+      progEl.style.display = "none";
+      msgEl.textContent    = `⚠️ Nenhuma intimação encontrada para OAB ${oab}/${uf} no período informado.`;
+      return;
+    }
+
+    msgEl.textContent = `✅ ${todosItens.length} intimação(ões) encontrada(s). Enviando para o sistema...`;
+
+    // Envia os dados para o servidor salvar (POST normal)
+    try {
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = "/migracoes/importar-djen-browser";
+
+      const campos = {
+        numero_oab: oab,
+        uf_oab: uf,
+        data_inicio: inicio,
+        data_fim: fim,
+        dup_hoje: dupHoje,
+        itens_json: JSON.stringify(todosItens),
+      };
+
+      for (const [k, v] of Object.entries(campos)) {
+        const inp = document.createElement("input");
+        inp.type  = "hidden";
+        inp.name  = k;
+        inp.value = v;
+        form.appendChild(inp);
+      }
+
+      document.body.appendChild(form);
+      form.submit();
+    } catch (e) {
+      progEl.style.display = "none";
+      msgEl.textContent    = `❌ Erro ao enviar dados: ${e.message}`;
+      msgEl.style.color    = "red";
+    }
+  }
+  </script>
 
   <!-- ✅ ALTERADO: painel upload agora começa fechado (sem active) -->
   <div class="kj-import-pane" id="kj-pane-upload">

@@ -928,3 +928,129 @@ async def migracoes_enriquecer_datajud(
         f"Processo {numero} enriquecido via DataJud ({tribunal.upper()}). "
         f"Atualizado: {', '.join(atualizado)}."
     )
+
+
+@router.post("/migracoes/importar-djen-browser")
+async def migracoes_importar_djen_browser(
+    request: Request,
+    numero_oab: str = Form(...),
+    uf_oab: str = Form(...),
+    data_inicio: str = Form(...),
+    data_fim: str = Form(...),
+    dup_hoje: str = Form("nao"),
+    itens_json: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    """
+    Recebe os itens do DJEN já coletados pelo browser do usuário (JavaScript)
+    e os processa/salva exatamente como a rota consultar-djen faz.
+
+    Esta abordagem contorna o bloqueio HTTP 403 que o DJEN aplica a servidores
+    cloud (Render, AWS, etc.) — a consulta usa o IP residencial do advogado.
+    """
+    import json as _json
+
+    office_id = _get_office_id(request)
+    permitir_dup_hoje = (dup_hoje or "").strip().lower() == "sim"
+
+    # desserializa os itens enviados pelo browser
+    try:
+        itens = _json.loads(itens_json or "[]")
+        if not isinstance(itens, list):
+            itens = []
+    except Exception:
+        return _redirect_msg("Erro ao processar os dados recebidos do DJEN.")
+
+    num_oab, uf = _norm_oab(numero_oab, uf_oab)
+
+    if not itens:
+        return _redirect_msg(
+            f"Nenhuma intimação recebida para OAB {num_oab}/{uf}."
+        )
+
+    # ---- batch ----
+    batch = MigrationBatch(office_id=office_id, criado_em=now_br())
+    _safe_set(batch, "status", BatchStatus.PROCESSANDO)
+    _safe_set(batch, "arquivo_nome",
+              f"DJEN (browser) — OAB {num_oab}/{uf} ({data_inicio} a {data_fim})")
+    _safe_set(batch, "total_extraidos", 0)
+    _safe_set(batch, "total_inseridos", 0)
+    _safe_set(batch, "total_ignorados", 0)
+    db.add(batch)
+    db.commit()
+    db.refresh(batch)
+    batch_id = batch.id
+
+    # ---- duplicidade ----
+    hoje = now_br().date()
+    nums_hoje = set(
+        x[0] for x in (
+            db.query(MigrationRow.numero_processo)
+            .join(MigrationBatch, MigrationBatch.id == MigrationRow.batch_id)
+            .filter(
+                MigrationBatch.office_id == office_id,
+                func.date(MigrationBatch.criado_em) == hoje,
+            )
+            .all()
+        ) if x and x[0]
+    )
+
+    # ---- processa com a mesma lógica da rota original ----
+    try:
+        resultado = _processar_itens_djen(
+            db=db,
+            office_id=office_id,
+            batch_id=batch_id,
+            itens_djen=itens,
+            nums_hoje=nums_hoje,
+            permitir_dup_hoje=permitir_dup_hoje,
+        )
+    except Exception as e:
+        db.rollback()
+        batch = db.query(MigrationBatch).filter(MigrationBatch.id == batch_id).first()
+        if batch:
+            batch.status = BatchStatus.ERRO
+            _safe_set(batch, "erro_processamento", str(e)[:10000])
+            _safe_set(batch, "processado_em", now_br())
+            db.add(batch); db.commit()
+        return _redirect_msg(f"Falha ao processar resultados do DJEN: {e}")
+
+    # ---- enriquecimento DataJud em lote ----
+    ids_inseridos = resultado.get("ids_inseridos") or []
+    if ids_inseridos:
+        try:
+            await _enriquecer_lote_datajud(db, ids_inseridos, office_id)
+        except Exception:
+            pass
+
+    # ---- finaliza batch ----
+    batch = db.query(MigrationBatch).filter(MigrationBatch.id == batch_id).first()
+    if batch:
+        batch.periodo_inicio = resultado["periodo_ini"]
+        batch.periodo_fim    = resultado["periodo_fim"]
+        batch.status         = BatchStatus.CONCLUIDO
+        _safe_set(batch, "total_extraidos", resultado["total_extraidos"])
+        _safe_set(batch, "total_inseridos", resultado["total_inseridos"])
+        _safe_set(batch, "total_ignorados", resultado["total_ignorados"])
+        _safe_set(batch, "processado_em", now_br())
+        db.add(batch); db.commit()
+
+    total_inseridos = resultado["total_inseridos"]
+    total_ignorados = resultado["total_ignorados"]
+    total_extraidos = resultado["total_extraidos"]
+    blocked_by_db   = resultado["blocked_by_db"]
+
+    if total_inseridos <= 0 and total_extraidos > 0:
+        return _redirect_msg(
+            f"Consulta DJEN concluída, mas nenhum item novo inserido. "
+            f"Extraídos: {total_extraidos}. Ignorados: {total_ignorados}."
+        )
+    if blocked_by_db > 0:
+        return _redirect_msg(
+            f"Consulta DJEN concluída. Inseridos: {total_inseridos}. "
+            f"Ignorados: {total_ignorados}. Bloqueados por duplicidade: {blocked_by_db}."
+        )
+    return _redirect_msg(
+        f"Consulta DJEN concluída (OAB {num_oab}/{uf}). "
+        f"Inseridos: {total_inseridos}. Ignorados: {total_ignorados}."
+    )
