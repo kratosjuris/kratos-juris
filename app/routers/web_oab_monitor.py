@@ -2,15 +2,16 @@
 app/routers/web_oab_monitor.py
 
 Router de gerenciamento das OABs monitoradas automaticamente.
-Rotas: GET/POST /configuracoes/oabs
+
+Todas as ações redirecionam para /migracoes (com ?msg=...) pois
+o painel de OABs está integrado como aba dentro do index.html de migrações.
 """
 
 import re
 from urllib.parse import quote
 
 from fastapi import APIRouter, Request, Depends, Form, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -19,13 +20,6 @@ from app.core.datetime_utils import now_br
 from app.models.oab_monitorada import OabMonitorada
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
-
-UFS = [
-    "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA",
-    "MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN",
-    "RS","RO","RR","SC","SP","SE","TO",
-]
 
 
 def _get_office_id(request: Request) -> int:
@@ -36,8 +30,9 @@ def _get_office_id(request: Request) -> int:
 
 
 def _redirect(msg: str) -> RedirectResponse:
+    """Redireciona para /migracoes com mensagem — onde fica o painel de OABs."""
     return RedirectResponse(
-        url=f"/configuracoes/oabs?msg={quote(str(msg))}",
+        url=f"/migracoes?msg={quote(str(msg))}",
         status_code=303,
     )
 
@@ -49,32 +44,22 @@ def _norm_oab(numero: str, uf: str):
 
 
 # ---------------------------------------------------------------------------
-# GET — listagem
+# GET /configuracoes/oabs → redireciona para /migracoes (aba OABs Monitoradas)
 # ---------------------------------------------------------------------------
 
-@router.get("/configuracoes/oabs", response_class=HTMLResponse)
-def oabs_view(request: Request, db: Session = Depends(get_db)):
-    office_id = _get_office_id(request)
-
-    oabs = (
-        db.query(OabMonitorada)
-        .filter(OabMonitorada.office_id == office_id)
-        .order_by(OabMonitorada.ativa.desc(), OabMonitorada.criado_em.asc())
-        .all()
-    )
-
-    msg = request.query_params.get("msg")
-
-    return templates.TemplateResponse(
-        "configuracoes/oabs.html",
-        {
-            "request": request,
-            "title": "OABs Monitoradas",
-            "oabs": oabs,
-            "ufs": UFS,
-            "msg": msg,
-        },
-    )
+@router.get("/configuracoes/oabs")
+def oabs_view(request: Request):
+    """
+    Redireciona para /migracoes onde o painel de OABs está integrado
+    como terceira aba (⚙️ OABs Monitoradas).
+    """
+    msg = request.query_params.get("msg", "")
+    if msg:
+        return RedirectResponse(
+            url=f"/migracoes?msg={quote(msg)}",
+            status_code=303,
+        )
+    return RedirectResponse(url="/migracoes", status_code=303)
 
 
 # ---------------------------------------------------------------------------
@@ -226,7 +211,7 @@ async def oabs_monitorar_agora(
 
     return _redirect(
         f"OAB {oab.numero_oab}/{oab.uf_oab} — "
-        f"{resultado['total_inseridos']} intimação(ões) inserida(s) | "
-        f"extraídas: {resultado['total_extraidos']} | "
-        f"ignoradas: {resultado['total_ignorados']}."
+        f"{resultado['total_inseridos']} processo(s) inserido(s) | "
+        f"encontrados: {resultado['total_extraidos']} | "
+        f"ignorados: {resultado['total_ignorados']}."
     )
