@@ -47,6 +47,11 @@ from app.models.hearing_contact import HearingContact  # noqa: F401
 # =========================================================
 from app.models.push_subscription import PushSubscription  # noqa: F401
 
+# =========================================================
+# NOVO: MONITOR DJEN — model da tabela de OABs monitoradas
+# =========================================================
+from app.models.oab_monitorada import OabMonitorada  # noqa: F401
+
 from app.routers import (
     web_dashboard,
     web_clients,
@@ -59,7 +64,7 @@ from app.routers import (
     hearings,
     web_calculadora_juridica,
 )
-
+from app.routers import djen_consulta
 from app.routers.web_doc import router as web_doc_router
 from app.routers.web_doc_templates import router as web_doc_templates_router
 from app.routers.web_signup import router as signup_router
@@ -68,6 +73,10 @@ from app.routers import web_auth, web_users, web_account
 from app.routers import web_offices
 from app.routers import web_whatsapp_templates
 
+# =========================================================
+# NOVO: MONITOR DJEN — router de gerenciamento de OABs
+# =========================================================
+from app.routers import web_oab_monitor
 
 # =========================================================
 # NOVO: MERCADO PAGO
@@ -83,6 +92,11 @@ from app.routers import web_push
 # NOVO: PUSH — jobs agendados
 # =========================================================
 from app.services.notification_jobs import job_07h, job_12h, job_20h
+
+# =========================================================
+# NOVO: MONITOR DJEN — job diário de monitoramento por OAB
+# =========================================================
+from app.services.monitor_djen import job_monitorar_djen
 
 
 # =========================================================
@@ -374,10 +388,12 @@ def on_startup():
         db.close()
 
     # =========================================================
-    # NOVO: PUSH — agenda os jobs (07h / 12h / 20h, horário BR)
+    # PUSH + MONITOR DJEN — agenda todos os jobs (horário BR)
     # =========================================================
     try:
         if not scheduler.running:
+
+            # PUSH — notificações (07h / 12h / 20h)
             scheduler.add_job(
                 job_07h, CronTrigger(hour=7, minute=0),
                 id="job_07h", replace_existing=True,
@@ -390,8 +406,25 @@ def on_startup():
                 job_20h, CronTrigger(hour=20, minute=0),
                 id="job_20h", replace_existing=True,
             )
+
+            # MONITOR DJEN — consulta DJEN + enriquecimento DataJud
+            # Roda às 7h15, 15 min após as notificações push,
+            # para não disputar recursos com o job_07h.
+            scheduler.add_job(
+                job_monitorar_djen,
+                CronTrigger(hour=7, minute=15),
+                id="job_monitor_djen",
+                replace_existing=True,
+            )
+
             scheduler.start()
-            print("[SCHEDULER] jobs de notificação agendados (07h, 12h, 20h BRT)")
+
+            print(
+                "[SCHEDULER] jobs agendados: "
+                "notificações (07h, 12h, 20h BRT) | "
+                "monitor DJEN (07h15 BRT)"
+            )
+
     except Exception as e:
         print(f"[SCHEDULER] erro ao agendar jobs: {e}")
 
@@ -440,6 +473,8 @@ app.include_router(web_pericias.router)
 
 app.include_router(web_migrations.router)
 
+app.include_router(djen_consulta.router)
+
 app.include_router(hearings.router)
 
 app.include_router(web_calculadora_juridica.router)
@@ -447,6 +482,11 @@ app.include_router(web_calculadora_juridica.router)
 app.include_router(web_doc_router)
 
 app.include_router(web_doc_templates_router)
+
+# =========================================================
+# NOVO: MONITOR DJEN — gerenciamento de OABs monitoradas
+# =========================================================
+app.include_router(web_oab_monitor.router)
 
 # =========================================================
 # NOVO: MERCADO PAGO

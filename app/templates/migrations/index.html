@@ -2,16 +2,6 @@
 {% block content %}
 
 <style>
-  /* =========================================================
-     ✅ MIGRAÇÕES — ARQUITETURA
-     - Dark somente em body:not(.kj-day)
-     - Day somente em body.kj-day
-     - não altera nada no modo noite (fora deste arquivo)
-     ========================================================= */
-
-  /* =========================================================
-     🌙 DARK (NOITE) — KPIs NO ESTILO DO PRINT (SÓ MIGRAÇÕES)
-     ========================================================= */
   body:not(.kj-day) .migracoes-page .kj-kpi-strip{
     background:
       radial-gradient(900px 260px at 10% 40%, rgba(231,198,106,.10), transparent 55%),
@@ -19,24 +9,21 @@
       linear-gradient(180deg, rgba(15,20,30,.88), rgba(10,14,22,.88));
     border: 1px solid rgba(255,255,255,.08);
     border-radius: 18px;
-    padding: 14px 14px;
+    padding: 14px;
     box-shadow: 0 18px 48px rgba(0,0,0,.35);
     margin-bottom: 14px;
   }
 
-  body:not(.kj-day) .migracoes-page .kj-kpi-row{
+  .kj-kpi-row,
+  .kj-kpis{
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
     align-items: center;
-    justify-content: space-between;
   }
 
-  body:not(.kj-day) .migracoes-page .kj-kpis{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: center;
+  .kj-kpi-row{
+    justify-content: space-between;
   }
 
   body:not(.kj-day) .migracoes-page .kj-kpi{
@@ -45,64 +32,32 @@
     border-radius: 14px;
     background: linear-gradient(180deg, rgba(24,30,44,.86), rgba(16,20,30,.86));
     border: 1px solid rgba(255,255,255,.10);
-    box-shadow:
-      0 12px 32px rgba(0,0,0,.32),
-      0 1px 0 rgba(255,255,255,.05) inset;
+    box-shadow: 0 12px 32px rgba(0,0,0,.32);
   }
 
   body:not(.kj-day) .migracoes-page .kj-kpi.kpi-gold{
     border-color: rgba(231,198,106,.32);
-    box-shadow:
-      0 14px 38px rgba(0,0,0,.34),
-      0 0 0 1px rgba(231,198,106,.10) inset,
-      0 0 18px rgba(231,198,106,.10);
   }
 
   body:not(.kj-day) .migracoes-page .kj-kpi.kpi-blue{
     border-color: rgba(37,99,235,.35);
-    box-shadow:
-      0 14px 38px rgba(0,0,0,.34),
-      0 0 0 1px rgba(37,99,235,.12) inset,
-      0 0 18px rgba(37,99,235,.10);
   }
 
   body:not(.kj-day) .migracoes-page .kj-kpi.kpi-red{
     border-color: rgba(220,38,38,.40);
-    box-shadow:
-      0 14px 38px rgba(0,0,0,.34),
-      0 0 0 1px rgba(220,38,38,.12) inset,
-      0 0 18px rgba(220,38,38,.10);
   }
 
   body:not(.kj-day) .migracoes-page .kj-kpi-num{
     font-weight: 1000;
     font-size: 22px;
-    line-height: 1.05;
     color: #f3f6ff;
-    letter-spacing: -0.02em;
   }
 
   body:not(.kj-day) .migracoes-page .kj-kpi-label{
-    margin-top: 2px;
     font-size: 11px;
     color: rgba(230,235,255,.70);
-    letter-spacing: .02em;
   }
 
-  body:not(.kj-day) .migracoes-page .kj-kpi-actions{
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-
-
-  /* =========================================================
-     ☀️ DAY (MODO DIA) — SEU PADRÃO KJ (branco + azul suave)
-     ========================================================= */
-
-  /* Base */
   body.kj-day .migracoes-page{
     color: #0b1b33 !important;
   }
@@ -110,106 +65,64 @@
   body.kj-day .migracoes-page h3{
     color: #0b1b33 !important;
     font-weight: 900;
-    letter-spacing: -0.02em;
   }
 
-  /* ✅ KPIs (modo dia) — igual estrutura do print, porém claro */
-  body.kj-day .migracoes-page .kj-kpi-strip{
+  body.kj-day .migracoes-page .kj-kpi-strip,
+  body.kj-day .migracoes-page .kj-kpi{
     background: #fff !important;
     border: 1px solid rgba(37,99,235,.16) !important;
     border-radius: 18px !important;
-    padding: 14px 14px !important;
     box-shadow: 0 14px 34px rgba(2,6,23,.06) !important;
-    margin-bottom: 14px !important;
-  }
-
-  body.kj-day .migracoes-page .kj-kpi-row{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  body.kj-day .migracoes-page .kj-kpis{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: center;
   }
 
   body.kj-day .migracoes-page .kj-kpi{
     min-width: 170px;
     padding: 10px 12px;
-    border-radius: 14px;
-    background: #fff !important;
-    border: 1px solid rgba(37,99,235,.16) !important;
-    box-shadow: 0 12px 26px rgba(2,6,23,.05) !important;
-  }
-
-  body.kj-day .migracoes-page .kj-kpi.kpi-gold{
-    border-color: rgba(37,99,235,.20) !important;
-  }
-
-  body.kj-day .migracoes-page .kj-kpi.kpi-blue{
-    border-color: rgba(37,99,235,.22) !important;
-  }
-
-  body.kj-day .migracoes-page .kj-kpi.kpi-red{
-    border-color: rgba(220,38,38,.25) !important;
   }
 
   body.kj-day .migracoes-page .kj-kpi-num{
     font-weight: 1000;
     font-size: 22px;
-    line-height: 1.05;
     color: #0b1b33 !important;
-    letter-spacing: -0.02em;
   }
 
   body.kj-day .migracoes-page .kj-kpi-label{
-    margin-top: 2px;
     font-size: 11px;
     color: rgba(11,27,51,.66) !important;
-    letter-spacing: .02em;
   }
 
-  body.kj-day .migracoes-page .kj-kpi-actions{
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-
-  /* Alerts (deixa legível no dia) */
   body.kj-day .migracoes-page .alert{
     border-radius: 14px !important;
     box-shadow: 0 10px 22px rgba(2,6,23,.05) !important;
   }
+
   body.kj-day .migracoes-page .alert-warning{
     background: rgba(245,158,11,.10) !important;
     border: 1px solid rgba(245,158,11,.22) !important;
-    color: #0b1b33 !important;
+    color: #000 !important;
   }
+
+  body.kj-day .migracoes-page .alert-warning strong{
+    color: #000 !important;
+  }
+
   body.kj-day .migracoes-page .alert-danger{
     background: rgba(220,38,38,.10) !important;
     border: 1px solid rgba(220,38,38,.22) !important;
     color: #0b1b33 !important;
   }
 
-  /* Caixa “duplicar migração” (bg-light vira branco elegante) */
   body.kj-day .migracoes-page .kj-dupbox{
     background: #fff !important;
     border: 1px solid rgba(37,99,235,.18) !important;
     border-radius: 16px !important;
     box-shadow: 0 12px 28px rgba(2,6,23,.05) !important;
   }
+
   body.kj-day .migracoes-page .kj-dupbox .text-muted{
     color: rgba(11,27,51,.65) !important;
   }
 
-  /* Inputs/selects */
   body.kj-day .migracoes-page .form-control,
   body.kj-day .migracoes-page .form-select{
     background: #fff !important;
@@ -218,15 +131,11 @@
     border-radius: 12px !important;
     box-shadow: 0 10px 22px rgba(2,6,23,.04) !important;
   }
+
   body.kj-day .migracoes-page .form-control:focus,
   body.kj-day .migracoes-page .form-select:focus{
     border-color: rgba(37,99,235,.55) !important;
     box-shadow: 0 0 0 .2rem rgba(37,99,235,.18) !important;
-  }
-
-  /* Tabela */
-  body.kj-day .migracoes-page .table-responsive{
-    border-radius: 18px !important;
   }
 
   body.kj-day .migracoes-page table.table{
@@ -238,7 +147,6 @@
   body.kj-day .migracoes-page table.table thead th{
     background: rgba(37,99,235,.08) !important;
     color: #0b1b33 !important;
-    border-bottom: 1px solid rgba(37,99,235,.18) !important;
   }
 
   body.kj-day .migracoes-page table.table td,
@@ -248,119 +156,171 @@
     vertical-align: middle;
   }
 
-  /* ✅ Zebra AZUL MAIS FRACA (bem suave) */
   body.kj-day .migracoes-page table.table tbody tr:nth-of-type(odd):not(.table-danger) > *{
     background-color: rgba(37,99,235,.018) !important;
   }
 
-  /* Hover suave */
   body.kj-day .migracoes-page table.table tbody tr:hover:not(.table-danger) > *{
     background-color: rgba(37,99,235,.040) !important;
   }
 
-  /* DUP HOJE / duplicados: força vermelho sem zebra */
   body.kj-day .migracoes-page tr.table-danger > *{
     background-color: rgba(220,38,38,.12) !important;
-    border-color: rgba(220,38,38,.22) !important;
-    color: #0b1b33 !important;
   }
 
-  /* Badge DUP HOJE (mantém destaque) */
   body.kj-day .migracoes-page .badge.bg-danger{
     background: #dc2626 !important;
   }
 
-  /* Botões (padroniza e impede “dourado”) */
   body.kj-day .migracoes-page .btn{
     border-radius: 12px !important;
     font-weight: 800 !important;
   }
 
-  /* Primary */
   body.kj-day .migracoes-page .btn.btn-primary{
-    border: 1px solid rgba(37,99,235,.28) !important;
     background: linear-gradient(180deg, rgba(37,99,235,.98), rgba(29,78,216,.98)) !important;
     color: #fff !important;
-    box-shadow: 0 14px 28px rgba(2,6,23,.10), 0 1px 0 rgba(255,255,255,.18) inset !important;
   }
 
-  /* Success */
   body.kj-day .migracoes-page .btn.btn-success{
-    border: 1px solid rgba(34,197,94,.35) !important;
     background: linear-gradient(180deg, rgba(34,197,94,.95), rgba(22,163,74,.95)) !important;
     color: #fff !important;
-    box-shadow: 0 14px 28px rgba(2,6,23,.10), 0 1px 0 rgba(255,255,255,.18) inset !important;
   }
 
-  /* Outline-danger */
   body.kj-day .migracoes-page .btn.btn-outline-danger{
     background: transparent !important;
     color: #dc2626 !important;
     border: 1px solid rgba(220,38,38,.55) !important;
-    box-shadow: none !important;
-  }
-  body.kj-day .migracoes-page .btn.btn-outline-danger:hover{
-    background: rgba(220,38,38,.08) !important;
   }
 
-  /* Outline-secondary */
-  body.kj-day .migracoes-page .btn.btn-outline-secondary{
-    background: #fff !important;
-    color: rgba(11,27,51,.92) !important;
-    border: 1px solid rgba(37,99,235,.22) !important;
-    box-shadow: 0 10px 22px rgba(2,6,23,.04) !important;
-  }
-  body.kj-day .migracoes-page .btn.btn-outline-secondary:hover{
-    background: rgba(37,99,235,.06) !important;
-  }
-
-  /* Outline primary */
   body.kj-day .migracoes-page .btn.btn-outline-primary{
     background: #fff !important;
     color: #2563eb !important;
     border: 1px solid rgba(37,99,235,.35) !important;
-    box-shadow: none !important;
-  }
-  body.kj-day .migracoes-page .btn.btn-outline-primary:hover{
-    background: rgba(37,99,235,.08) !important;
-    border-color: rgba(37,99,235,.55) !important;
-    color: #1d4ed8 !important;
   }
 
-  /* =========================================================
-     🔧 CORREÇÃO: "Última migração" texto preto no modo dia
-     ========================================================= */
-  body.kj-day .migracoes-page .alert-warning strong{
-    color: #000000 !important;
+  .kj-import-tabs{
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
   }
-  body.kj-day .migracoes-page .alert-warning{
-    color: #000000 !important;
+
+  .kj-import-pane{
+    display: none;
+  }
+
+  .kj-import-pane.active{
+    display: block;
+  }
+
+  /* ✅ NOVO: Modal de observação */
+  .kj-obs-modal-overlay{
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.60);
+    z-index: 1055;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .kj-obs-modal-overlay.open{
+    display: flex;
+  }
+  .kj-obs-modal-box{
+    background: #fff;
+    border-radius: 18px;
+    padding: 24px;
+    width: 100%;
+    max-width: 720px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 24px 64px rgba(0,0,0,.28);
+  }
+  body:not(.kj-day) .kj-obs-modal-box{
+    background: #1a2030;
+    color: #f3f6ff;
+    border: 1px solid rgba(255,255,255,.10);
+  }
+  .kj-obs-modal-header{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    flex-shrink: 0;
+  }
+  .kj-obs-modal-title{
+    font-weight: 900;
+    font-size: 15px;
+  }
+  .kj-obs-modal-close{
+    background: none;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    line-height: 1;
+    opacity: .6;
+  }
+  .kj-obs-modal-close:hover{ opacity: 1; }
+  .kj-obs-modal-body{
+    overflow-y: auto;
+    flex: 1;
+    font-size: 13px;
+    line-height: 1.75;
+    white-space: pre-wrap;
+    word-break: break-word;
+    padding-right: 4px;
+  }
+  /* chip de preview na célula */
+  .kj-obs-chip{
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: #2563eb;
+    cursor: pointer;
+    background: rgba(37,99,235,.08);
+    border: 1px solid rgba(37,99,235,.20);
+    border-radius: 8px;
+    padding: 3px 9px;
+    white-space: nowrap;
+    transition: background .15s;
+  }
+  .kj-obs-chip:hover{ background: rgba(37,99,235,.16); }
+  .kj-obs-preview{
+    font-size: 12px;
+    color: #6b7280;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+    margin-top: 3px;
   }
 </style>
 
 <div class="migracoes-page">
 
-  <!-- ✅ BARRA DE CONTADORES NO ESTILO DO PRINT -->
   <div class="kj-kpi-strip">
     <div class="kj-kpi-row">
       <div class="d-flex align-items-center gap-2 flex-wrap">
-        <h3 class="m-0">Migrações</h3>
+        <!-- ✅ ALTERADO: Migrações → Intimações -->
+        <h3 class="m-0">Intimações</h3>
       </div>
 
       <div class="kj-kpis">
-        <!-- Pendentes -->
         <div class="kj-kpi kpi-blue">
           <div class="kj-kpi-num" id="kpiPendentes">{{ pendentes|length if pendentes else 0 }}</div>
           <div class="kj-kpi-label">Pendentes</div>
         </div>
 
-        <!-- Selecionados (JS) -->
         <div class="kj-kpi kpi-gold">
           <div class="kj-kpi-num" id="kpiSelecionados">0</div>
           <div class="kj-kpi-label">Selecionados</div>
         </div>
 
-        <!-- Duplicados Hoje -->
         <div class="kj-kpi kpi-red">
           <div class="kj-kpi-num" id="kpiDups">{{ dup_nums|length if dup_nums else 0 }}</div>
           <div class="kj-kpi-label">Duplicados hoje</div>
@@ -374,62 +334,279 @@
   {% endif %}
 
   <div class="alert alert-warning">
-  <strong>⏱ Última migração:</strong>
-  {% if last_batch and last_batch.criado_em %}
-    {{ last_batch.criado_em | br_date }}
-  {% else %}
-    (ainda não há migração registrada)
-  {% endif %}
+    <strong>⏱ Última migração:</strong>
+    {% if last_batch and last_batch.criado_em %}
+      {{ last_batch.criado_em | br_date }}
+    {% else %}
+      (ainda não há migração registrada)
+    {% endif %}
 
-  {% if last_batch and last_batch.periodo_inicio and last_batch.periodo_fim %}
+    {% if last_batch and last_batch.periodo_inicio and last_batch.periodo_fim %}
+      <br>
+      <strong>📄 Período importado:</strong>
+      {{ last_batch.periodo_inicio | br_date }} até {{ last_batch.periodo_fim | br_date }}
+    {% endif %}
+
     <br>
-    <strong>📄 Período importado:</strong>
-    {{ last_batch.periodo_inicio | br_date }} até {{ last_batch.periodo_fim | br_date }}
-  {% endif %}
-      <br>
-      (Obs: O período importado considera a primeira data de disponibilização e a última data de publicação do documento obtido no site Publicações Online).
-      <br>
-      <br>
-      Sites para Extração do arquivo para migração:
-      <br>
-     <strong>
-  <a href="https://recortedigital.oab-ba.org.br/" target="_blank">
-    https://recortedigital.oab-ba.org.br/
-  </a>
-</strong>
-<br>
-<strong>
-  <a href="https://publicacoesonline.com.br/" target="_blank">
-    https://publicacoesonline.com.br/
-  </a>
-</strong>
-</div>
+    (Obs: O período importado considera a primeira data de disponibilização e a última data de publicação do documento obtido no site Publicações Online).
+    <br><br>
+    Sites para Extração do arquivo para migração:
+    <br>
+    <strong>
+      <a href="https://recortedigital.oab-ba.org.br/" target="_blank">
+        https://recortedigital.oab-ba.org.br/
+      </a>
+    </strong>
+    <br>
+    <strong>
+      <a href="https://publicacoesonline.com.br/" target="_blank">
+        https://publicacoesonline.com.br/
+      </a>
+    </strong>
+  </div>
 
-  <form method="post" action="/migracoes/upload" enctype="multipart/form-data" class="mb-3">
-    <div class="d-flex gap-2 align-items-center mb-2">
-      <input class="form-control" type="file" name="files" multiple required>
-      <button class="btn btn-primary" type="submit">Migrar Planilhas</button>
+  <div class="kj-import-tabs">
+    <button type="button" class="btn btn-primary" id="btnDjen" onclick="kjShowImportPane('djen')">
+      🔎 Consultar DJEN por OAB
+    </button>
+
+    <button type="button" class="btn btn-outline-primary" id="btnUpload" onclick="kjShowImportPane('upload')">
+      📄 Importar Planilha/PDF
+    </button>
+
+    <button type="button" class="btn btn-outline-primary" id="btnMonitor" onclick="kjShowImportPane('monitor')">
+      ⚙️ OABs Monitoradas
+    </button>
+  </div>
+
+  <!-- ✅ ALTERADO: painel DJEN abre por padrão (active) -->
+  <div class="kj-import-pane active" id="kj-pane-djen">
+    <form method="post" action="/migracoes/consultar-djen" class="mb-3">
+      <div class="border rounded p-3 kj-dupbox">
+        <div class="fw-semibold mb-2">🔎 Consultar DJEN por OAB</div>
+
+        <div class="row g-2">
+          <div class="col-md-3">
+            <label class="form-label">Número da OAB</label>
+            <input class="form-control" type="text" name="numero_oab" placeholder="Ex: 123456" required>
+          </div>
+
+          <div class="col-md-2">
+            <label class="form-label">UF</label>
+            <input class="form-control" type="text" name="uf_oab" maxlength="2" placeholder="BA" required>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Data início</label>
+            <input class="form-control" type="date" name="data_inicio" required>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Data fim</label>
+            <input class="form-control" type="date" name="data_fim" required>
+          </div>
+
+          <div class="col-md-1 d-flex align-items-end">
+            <button class="btn btn-primary w-100" type="submit">Buscar</button>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <div class="fw-semibold mb-1">Deseja duplicar registros já importados hoje?</div>
+
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="dup_hoje" id="djenDupNao" value="nao" checked>
+            <label class="form-check-label" for="djenDupNao">Não</label>
+          </div>
+
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="dup_hoje" id="djenDupSim" value="sim">
+            <label class="form-check-label" for="djenDupSim">Sim</label>
+          </div>
+        </div>
+
+        <div class="text-muted mt-2" style="font-size: 13px;">
+          Os resultados encontrados no DJEN serão enviados para a mesma fila de pendentes da migração.
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- ✅ ALTERADO: painel upload agora começa fechado (sem active) -->
+  <div class="kj-import-pane" id="kj-pane-upload">
+    <form method="post" action="/migracoes/upload" enctype="multipart/form-data" class="mb-3">
+      <div class="d-flex gap-2 align-items-center mb-2">
+        <input class="form-control" type="file" name="files" multiple required>
+        <button class="btn btn-primary" type="submit">Migrar Planilhas</button>
+      </div>
+
+      <div class="border rounded p-2 kj-dupbox">
+        <div class="fw-semibold mb-1">Deseja duplicar a migração?</div>
+
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="radio" name="dup_hoje" id="dupNao" value="nao" checked>
+          <label class="form-check-label" for="dupNao">Não</label>
+        </div>
+
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="radio" name="dup_hoje" id="dupSim" value="sim">
+          <label class="form-check-label" for="dupSim">Sim</label>
+        </div>
+
+        <div class="text-muted mt-2" style="font-size: 13px;">
+          • Dentro do mesmo upload, o sistema nunca duplica.<br>
+          • Se você marcar <strong>Sim</strong>, ele permite duplicar registros já migrados <strong>hoje</strong> e destaca em vermelho.
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- ✅ NOVO: painel OABs Monitoradas -->
+  <div class="kj-import-pane" id="kj-pane-monitor">
+    <div class="border rounded p-3 kj-dupbox mb-3">
+      <div class="fw-semibold mb-3">⚙️ OABs Monitoradas automaticamente</div>
+
+      <div class="text-muted mb-3" style="font-size: 13px;">
+        Cadastre as OABs dos advogados do escritório. O sistema consulta o DJEN automaticamente
+        todo dia às <strong>7h15</strong> e já preenche cliente, vara e movimentações via DataJud.
+      </div>
+
+      <!-- Formulário de cadastro -->
+      <form method="post" action="/configuracoes/oabs/adicionar" class="row g-2 align-items-end mb-4">
+        <div class="col-md-3">
+          <label class="form-label" style="font-size:12px; font-weight:700;">Número OAB</label>
+          <input class="form-control form-control-sm" type="text" name="numero_oab" placeholder="123456" required>
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label" style="font-size:12px; font-weight:700;">UF</label>
+          <select class="form-select form-select-sm" name="uf_oab" required>
+            <option value="">UF</option>
+            <option>AC</option><option>AL</option><option>AP</option><option>AM</option>
+            <option>BA</option><option>CE</option><option>DF</option><option>ES</option>
+            <option>GO</option><option>MA</option><option>MT</option><option>MS</option>
+            <option>MG</option><option>PA</option><option>PB</option><option>PR</option>
+            <option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
+            <option>RS</option><option>RO</option><option>RR</option><option>SC</option>
+            <option>SP</option><option>SE</option><option>TO</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label" style="font-size:12px; font-weight:700;">Nome do advogado (opcional)</label>
+          <input class="form-control form-control-sm" type="text" name="nome_advogado" placeholder="Dr. João da Silva">
+        </div>
+        <div class="col-md-3">
+          <button class="btn btn-primary btn-sm w-100" type="submit">➕ Adicionar OAB</button>
+        </div>
+      </form>
+
+      <!-- Tabela de OABs cadastradas -->
+      {% if oabs_monitoradas %}
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>OAB</th>
+                <th>UF</th>
+                <th>Advogado</th>
+                <th>Status</th>
+                <th>Último monitoramento</th>
+                <th>Resultado</th>
+                <th style="min-width:200px;">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for o in oabs_monitoradas %}
+              <tr>
+                <td><strong>{{ o.numero_oab }}</strong></td>
+                <td>{{ o.uf_oab }}</td>
+                <td>{{ o.nome_advogado or '—' }}</td>
+                <td>
+                  {% if o.ativa %}
+                    <span class="badge bg-success">Ativa</span>
+                  {% else %}
+                    <span class="badge bg-secondary">Inativa</span>
+                  {% endif %}
+                </td>
+                <td style="font-size:12px; white-space:nowrap;">
+                  {% if o.ultimo_monitoramento_em %}
+                    {{ o.ultimo_monitoramento_em.strftime('%d/%m/%Y %H:%M') }}
+                  {% else %}
+                    <span class="text-muted">Nunca executado</span>
+                  {% endif %}
+                </td>
+                <td style="font-size:12px;">
+                  {% if o.ultimo_monitoramento_status == 'OK' %}
+                    <span class="text-success fw-bold">OK</span>
+                  {% elif o.ultimo_monitoramento_status == 'ERRO' %}
+                    <span class="text-danger fw-bold">ERRO</span>
+                  {% elif o.ultimo_monitoramento_status == 'VAZIO' %}
+                    <span class="text-muted">Sem intimações</span>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                  {% if o.ultimo_monitoramento_resumo %}
+                    <div style="font-size:11px; color:#6b7280; margin-top:2px;">
+                      {{ o.ultimo_monitoramento_resumo[:80] }}{% if o.ultimo_monitoramento_resumo|length > 80 %}…{% endif %}
+                    </div>
+                  {% endif %}
+                </td>
+                <td>
+                  <div class="d-flex gap-1 flex-wrap">
+
+                    <!-- Monitorar agora -->
+                    <button class="btn btn-sm btn-outline-warning"
+                            onclick="abrirModalMonitor({{ o.id }}, '{{ o.numero_oab }}', '{{ o.uf_oab }}')">
+                      ▶ Agora
+                    </button>
+
+                    <!-- Ativar/Desativar -->
+                    <form method="post" action="/configuracoes/oabs/{{ o.id }}/toggle">
+                      <button class="btn btn-sm btn-outline-secondary" type="submit">
+                        {% if o.ativa %}Desativar{% else %}Ativar{% endif %}
+                      </button>
+                    </form>
+
+                    <!-- Excluir -->
+                    <form method="post" action="/configuracoes/oabs/{{ o.id }}/excluir"
+                          onsubmit="return confirm('Remover OAB {{ o.numero_oab }}/{{ o.uf_oab }} do monitoramento?');">
+                      <button class="btn btn-sm btn-outline-danger" type="submit">Excluir</button>
+                    </form>
+
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="text-center text-muted py-3" style="font-size:13px;">
+          Nenhuma OAB cadastrada ainda. Adicione acima para ativar o monitoramento automático.
+        </div>
+      {% endif %}
     </div>
+  </div>
 
-    <div class="border rounded p-2 kj-dupbox">
-      <div class="fw-semibold mb-1">Deseja duplicar a migração?</div>
-
-      <div class="form-check form-check-inline">
-        <input class="form-check-input" type="radio" name="dup_hoje" id="dupNao" value="nao" checked>
-        <label class="form-check-label" for="dupNao">Não</label>
-      </div>
-
-      <div class="form-check form-check-inline">
-        <input class="form-check-input" type="radio" name="dup_hoje" id="dupSim" value="sim">
-        <label class="form-check-label" for="dupSim">Sim</label>
-      </div>
-
-      <div class="text-muted mt-2" style="font-size: 13px;">
-        • Dentro do mesmo upload, o sistema nunca duplica.<br>
-        • Se você marcar <strong>Sim</strong>, ele permite duplicar registros já migrados <strong>hoje</strong> e destaca em vermelho.
-      </div>
+  <!-- Modal "Monitorar agora" -->
+  <div id="modalMonitorOab" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:1050; align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:18px; padding:24px; width:100%; max-width:400px; box-shadow:0 24px 64px rgba(0,0,0,.25);">
+      <h5 style="font-weight:900; margin-bottom:16px;">▶ Monitorar agora — OAB <span id="modalMonitorLabel"></span></h5>
+      <form method="post" id="formMonitorAgora">
+        <div class="mb-3">
+          <label class="form-label" style="font-size:12px; font-weight:700;">Data início</label>
+          <input class="form-control form-control-sm" type="date" name="data_inicio" id="monitorDataInicio" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" style="font-size:12px; font-weight:700;">Data fim</label>
+          <input class="form-control form-control-sm" type="date" name="data_fim" id="monitorDataFim" required>
+        </div>
+        <div class="d-flex gap-2 justify-content-end">
+          <button type="button" class="btn btn-sm btn-outline-secondary" onclick="fecharModalMonitor()">Cancelar</button>
+          <button type="submit" class="btn btn-sm btn-success">Executar</button>
+        </div>
+      </form>
     </div>
-  </form>
+  </div>
 
   {% if dup_nums and (dup_nums|length) > 0 %}
     <div class="alert alert-danger">
@@ -469,16 +646,16 @@
           <th>Vara de Tramitação</th>
           <th>Observação</th>
           <th style="width:90px;">Rompe em</th>
+          <th style="width:120px;">Tipo Contagem</th>
           <th style="min-width:210px;">Enviar Para</th>
-          <th style="width:120px;">Ações</th>
-            <th style="width:120px;">Tipo Contagem</th>
+          <th style="width:180px;">Ações</th>
         </tr>
       </thead>
 
       <tbody>
         {% if not pendentes %}
           <tr>
-            <td colspan="10" class="text-center text-muted">Nenhum processo pendente para migração.</td>
+            <td colspan="11" class="text-center text-muted">Nenhum processo pendente para migração.</td>
           </tr>
         {% endif %}
 
@@ -520,30 +697,48 @@
           </td>
 
           <td>
-            <input class="form-control form-control-sm"
-                   id="obs_{{ p.id }}"
-                   name="obs_{{ p.id }}"
-                   form="formSalvarLote"
-                   value="{{ p.observacao or '' }}">
+            {% set obs_txt = p.observacao or '' %}
+            {% if obs_txt %}
+              <span class="kj-obs-chip" onclick="abrirObs('{{ p.id }}')">
+                📄 Ver conteúdo
+              </span>
+              <span class="kj-obs-preview">{{ obs_txt[:80] }}{% if obs_txt|length > 80 %}…{% endif %}</span>
+              <!-- campo hidden para o form de salvar -->
+              <input type="hidden"
+                     id="obs_{{ p.id }}"
+                     name="obs_{{ p.id }}"
+                     form="formSalvarLote"
+                     value="{{ obs_txt }}">
+            {% else %}
+              <input class="form-control form-control-sm"
+                     id="obs_{{ p.id }}"
+                     name="obs_{{ p.id }}"
+                     form="formSalvarLote"
+                     value=""
+                     placeholder="Observação">
+            {% endif %}
           </td>
 
           <td>
             <input class="form-control form-control-sm"
                    style="max-width:80px;"
-                   type="number" min="1"
+                   type="number"
+                   min="1"
                    id="rompe_{{ p.id }}"
                    name="rompe_{{ p.id }}"
                    form="formSalvarLote"
                    value="{{ p.rompe_em_dias or '' }}">
           </td>
-            <td>
-  <select class="form-select form-select-sm"
-          id="tipo_{{ p.id }}" name="tipo_{{ p.id }}"
-          form="formSalvarLote">
-    <option value="uteis" {% if (p.tipo_contagem or 'uteis') == 'uteis' %}selected{% endif %}>Dias Úteis</option>
-    <option value="corridos" {% if (p.tipo_contagem or 'uteis') == 'corridos' %}selected{% endif %}>Dias Corridos</option>
-  </select>
-</td>
+
+          <td>
+            <select class="form-select form-select-sm"
+                    id="tipo_{{ p.id }}"
+                    name="tipo_{{ p.id }}"
+                    form="formSalvarLote">
+              <option value="uteis" {% if (p.tipo_contagem or 'uteis') == 'uteis' %}selected{% endif %}>Dias Úteis</option>
+              <option value="corridos" {% if (p.tipo_contagem or 'uteis') == 'corridos' %}selected{% endif %}>Dias Corridos</option>
+            </select>
+          </td>
 
           <td>
             <select class="form-select form-select-sm"
@@ -557,10 +752,16 @@
             </select>
           </td>
 
-          <td class="text-center d-flex gap-1 justify-content-center">
+          <td class="text-center d-flex gap-1 justify-content-center flex-wrap">
             <button class="btn btn-sm btn-primary" type="button" onclick="saveRow({{ p.id }})">
               Salvar
             </button>
+
+            <form method="post" action="/migracoes/{{ p.id }}/enriquecer-datajud">
+              <button class="btn btn-sm btn-outline-primary" type="submit">
+                ⚖️ DataJud
+              </button>
+            </form>
 
             <form method="post" action="/migracoes/pendente/{{ p.id }}/excluir"
                   onsubmit="return confirm('Excluir este item da migração?');">
@@ -579,10 +780,95 @@
     <input type="hidden" name="observacao" id="f_obs">
     <input type="hidden" name="rompe_em" id="f_rompe">
     <input type="hidden" name="enviar_para" id="f_dest">
-      <input type="hidden" name="tipo_contagem" id="f_tipo">
+    <input type="hidden" name="tipo_contagem" id="f_tipo">
   </form>
 
+  <!-- ✅ NOVO: Modal de observação / conteúdo DJEN+DataJud -->
+  <div class="kj-obs-modal-overlay" id="obsModalOverlay">
+    <div class="kj-obs-modal-box">
+      <div class="kj-obs-modal-header">
+        <span class="kj-obs-modal-title" id="obsModalTitle">📄 Conteúdo da Intimação</span>
+        <button class="kj-obs-modal-close" onclick="fecharObs()">✕</button>
+      </div>
+      <div class="kj-obs-modal-body" id="obsModalBody"></div>
+    </div>
+  </div>
+
   <script>
+  // Guarda textos de observação indexados por id do item
+  const _obsData = {};
+  {% for p in pendentes %}
+  {% if p.observacao %}_obsData["{{ p.id }}"] = {{ p.observacao | tojson }};{% endif %}
+  {% endfor %}
+
+  function abrirObs(id){
+    const txt = _obsData[id] || "(sem conteúdo)";
+    document.getElementById("obsModalBody").textContent = txt;
+    document.getElementById("obsModalTitle").textContent =
+      "📄 Conteúdo da Intimação";
+    document.getElementById("obsModalOverlay").classList.add("open");
+  }
+
+  function fecharObs(){
+    document.getElementById("obsModalOverlay").classList.remove("open");
+  }
+
+  document.getElementById("obsModalOverlay").addEventListener("click", function(e){
+    if (e.target === this) fecharObs();
+  });
+
+  document.addEventListener("keydown", function(e){
+    if (e.key === "Escape") fecharObs();
+  });
+
+  function kjShowImportPane(tipo){
+    document.querySelectorAll(".kj-import-pane").forEach(el => {
+      el.classList.remove("active");
+    });
+
+    const pane = document.getElementById("kj-pane-" + tipo);
+    if (pane) pane.classList.add("active");
+
+    const btns = {
+      djen:    document.getElementById("btnDjen"),
+      upload:  document.getElementById("btnUpload"),
+      monitor: document.getElementById("btnMonitor"),
+    };
+    Object.entries(btns).forEach(([key, btn]) => {
+      if (!btn) return;
+      if (key === tipo) {
+        btn.classList.remove("btn-outline-primary");
+        btn.classList.add("btn-primary");
+      } else {
+        btn.classList.remove("btn-primary");
+        btn.classList.add("btn-outline-primary");
+      }
+    });
+  }
+
+  function abrirModalMonitor(id, num, uf) {
+    document.getElementById("modalMonitorLabel").textContent = num + "/" + uf;
+    document.getElementById("formMonitorAgora").action = "/configuracoes/oabs/" + id + "/monitorar-agora";
+
+    const hoje = new Date();
+    const ontem = new Date(hoje);
+    ontem.setDate(hoje.getDate() - 1);
+    const fmt = d => d.toISOString().split("T")[0];
+    document.getElementById("monitorDataInicio").value = fmt(ontem);
+    document.getElementById("monitorDataFim").value    = fmt(ontem);
+
+    const modal = document.getElementById("modalMonitorOab");
+    modal.style.display = "flex";
+  }
+
+  function fecharModalMonitor() {
+    document.getElementById("modalMonitorOab").style.display = "none";
+  }
+
+  document.getElementById("modalMonitorOab").addEventListener("click", function(e){
+    if (e.target === this) fecharModalMonitor();
+  });
+
   function toggleAll(master){
     document.querySelectorAll(".rowCheck").forEach(cb => cb.checked = master.checked);
     syncIds();
@@ -593,7 +879,6 @@
     const el = document.getElementById("idsExcluir");
     if (el) el.value = ids.join(",");
 
-    // ✅ contador "Selecionados"
     const kSel = document.getElementById("kpiSelecionados");
     if (kSel) kSel.textContent = String(ids.length);
   }
@@ -608,7 +893,6 @@
     const dest = document.getElementById("dest_" + id)?.value || "PRAZOS";
     const tipo = document.getElementById("tipo_" + id)?.value || "uteis";
 
-
     document.getElementById("f_cliente").value = cliente;
     document.getElementById("f_vara").value = vara;
     document.getElementById("f_obs").value = obs;
@@ -621,7 +905,6 @@
     form.submit();
   }
 
-  // inicia contador corretamente
   syncIds();
   </script>
 

@@ -5,6 +5,7 @@ import tempfile
 from datetime import datetime, date, timedelta
 from typing import List, Tuple, Optional, Iterable
 from urllib.parse import quote
+from collections import Counter
 
 try:
     from pypdf import PdfReader
@@ -22,6 +23,9 @@ from app.core.database import get_db
 from app.core.datetime_utils import now_br
 from app.models.migration import MigrationBatch, MigrationRow
 from app.models.process_item import ProcessItem
+
+# ✅ NOVO: model de OABs monitoradas
+from app.models.oab_monitorada import OabMonitorada
 
 
 router = APIRouter()
@@ -1054,9 +1058,6 @@ def _process_parsed_rows_into_migration_rows(
 
         _safe_set(row, "cliente", (r.get("cliente") or "").strip() or None)
         _safe_set(row, "vara_tramitacao", (r.get("vara_tramitacao") or "").strip() or None)
-
-        # ✅ NOVO:
-        # todo item migrado nasce com contagem padrão em dias úteis
         _safe_set(row, "tipo_contagem", "uteis")
 
         buffer_insert.append(row)
@@ -1087,6 +1088,9 @@ def _process_parsed_rows_into_migration_rows(
     )
 
 
+# =========================================================
+# GET /migracoes — view principal
+# =========================================================
 @router.get("/migracoes", response_class=HTMLResponse)
 def migracoes_view(request: Request, db: Session = Depends(get_db)):
     office_id = _get_office_id(request)
@@ -1108,23 +1112,30 @@ def migracoes_view(request: Request, db: Session = Depends(get_db)):
         .all()
     )
 
-    from collections import Counter
-
     nums = [p.numero_processo for p in pendentes if (p.numero_processo or "").strip()]
     c = Counter(nums)
     dup_nums = [n for n, qtd in c.items() if qtd > 1]
 
     msg = request.query_params.get("msg")
 
+    # ✅ NOVO: carrega OABs monitoradas do escritório para a aba "OABs Monitoradas"
+    oabs_monitoradas = (
+        db.query(OabMonitorada)
+        .filter(OabMonitorada.office_id == office_id)
+        .order_by(OabMonitorada.ativa.desc(), OabMonitorada.criado_em.asc())
+        .all()
+    )
+
     return templates.TemplateResponse(
         "migrations/index.html",
         {
             "request": request,
-            "title": "Migrações",
+            "title": "Intimações",            # ✅ NOVO: título atualizado
             "last_batch": last_batch,
             "pendentes": pendentes,
             "msg": msg,
             "dup_nums": dup_nums,
+            "oabs_monitoradas": oabs_monitoradas,  # ✅ NOVO: passa para o template
         },
     )
 
@@ -1353,9 +1364,6 @@ def _migrar_row_para_process_item(
     except Exception:
         prazo_int = 0
 
-    # ✅ NOVO:
-    # "uteis" continua sendo o padrão do sistema.
-    # "corridos" passa a ser opção para os prazos que correm em dias corridos.
     tipo_contagem = _normalize_tipo_contagem(tipo_contagem)
 
     venc = calcular_vencimento_prazo(
@@ -1375,11 +1383,7 @@ def _migrar_row_para_process_item(
         _safe_set(existing, "cliente", (cliente or "").strip() or getattr(existing, "cliente", None))
         _safe_set(existing, "data_intimacao", djen)
         _safe_set(existing, "prazo_dias", prazo_int if prazo_int > 0 else getattr(existing, "prazo_dias", None))
-
-        # ✅ NOVO:
-        # grava a forma de contagem no controle de prazos/processos
         _safe_set(existing, "tipo_contagem", tipo_contagem)
-
         _safe_set(existing, "vencimento", venc)
 
         if (obs or "").strip():
@@ -1410,11 +1414,7 @@ def _migrar_row_para_process_item(
         _safe_set(item, "cliente", (cliente or "").strip() or None)
         _safe_set(item, "data_intimacao", djen)
         _safe_set(item, "prazo_dias", prazo_int if prazo_int > 0 else None)
-
-        # ✅ NOVO:
-        # grava a forma de contagem no controle de prazos/processos
         _safe_set(item, "tipo_contagem", tipo_contagem)
-
         _safe_set(item, "vencimento", venc)
 
         _set_obs_compat(item, (obs or "").strip())
@@ -1441,11 +1441,7 @@ def _migrar_row_para_process_item(
                 _safe_set(existing2, "vara", vara_value)
                 _safe_set(existing2, "data_intimacao", djen)
                 _safe_set(existing2, "prazo_dias", prazo_int if prazo_int > 0 else getattr(existing2, "prazo_dias", None))
-
-                # ✅ NOVO:
-                # grava a forma de contagem no controle de prazos/processos
                 _safe_set(existing2, "tipo_contagem", tipo_contagem)
-
                 _safe_set(existing2, "vencimento", venc)
 
                 if (obs or "").strip():
@@ -1469,11 +1465,7 @@ def _migrar_row_para_process_item(
     row.vara_tramitacao = vara
     row.observacao = obs
     row.rompe_em_dias = prazo_int if str(rompe_em or "").strip() else None
-
-    # ✅ NOVO:
-    # grava também na linha da migração
     row.tipo_contagem = tipo_contagem
-
     row.enviar_para = aba_code
     row.enviado_em = now_br()
     row.enviado_para_status = aba_code
@@ -1489,11 +1481,7 @@ def migracoes_salvar_individual(
     observacao: str = Form(""),
     rompe_em: int = Form(0),
     enviar_para: str = Form("PRAZOS"),
-
-    # ✅ NOVO:
-    # vem do formulário; se não vier nada, mantém dias úteis
     tipo_contagem: str = Form("uteis"),
-
     db: Session = Depends(get_db),
 ):
     office_id = _get_office_id(request)
@@ -1569,9 +1557,6 @@ async def migracoes_salvar_lote(
         obs = str(form.get(f"obs_{rid}", "") or "")
         rompe = form.get(f"rompe_{rid}", "0") or "0"
         dest = str(form.get(f"dest_{rid}", "PRAZOS") or "PRAZOS")
-
-        # ✅ NOVO:
-        # cada linha do lote pode ter sua própria forma de contagem
         tipo_contagem = str(form.get(f"tipo_contagem_{rid}", "uteis") or "uteis")
 
         try:
