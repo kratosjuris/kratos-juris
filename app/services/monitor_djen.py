@@ -71,6 +71,22 @@ DATAJUD_TR_MAP = {
 
 NUM_CNJ_RX = re.compile(r"^\D*(\d{7})\D?\d{2}\D?\d{4}\D?(\d{1})\D?(\d{2})\D?\d{4}\D*$")
 
+# Headers de browser para contornar bloqueio 403 da API DJEN em servidores cloud
+DJEN_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/125.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Origin": "https://comunica.pje.jus.br",
+    "Referer": "https://comunica.pje.jus.br/",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-site",
+}
+
 # ---------------------------------------------------------------------------
 # Helpers internos
 # ---------------------------------------------------------------------------
@@ -171,7 +187,7 @@ async def _fetch_djen(
             "pagina": pagina,
         }
         try:
-            resp = await client.get(DJEN_API_BASE, params=params, timeout=DJEN_TIMEOUT)
+            resp = await client.get(DJEN_API_BASE, params=params, timeout=DJEN_TIMEOUT, headers=DJEN_HEADERS)
         except httpx.RequestError as e:
             raise RuntimeError(f"DJEN — falha de rede: {e}")
 

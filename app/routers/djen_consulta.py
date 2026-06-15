@@ -408,6 +408,26 @@ async def _enriquecer_lote_datajud(db: Session, row_ids: List[int], office_id: i
 # DJEN — consulta paginada
 # ---------------------------------------------------------------------------
 
+# Headers que simulam requisição legítima de browser
+# Necessário pois a API DJEN bloqueia requisições de servidores cloud (Render, etc)
+DJEN_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/125.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Origin": "https://comunica.pje.jus.br",
+    "Referer": "https://comunica.pje.jus.br/",
+    "Connection": "keep-alive",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-site",
+}
+
+
 async def consultar_djen_por_oab(
     numero_oab: str,
     uf_oab: str,
@@ -424,7 +444,7 @@ async def consultar_djen_por_oab(
 
     todos: List[dict] = []
 
-    async with httpx.AsyncClient(timeout=DJEN_TIMEOUT) as client:
+    async with httpx.AsyncClient(timeout=DJEN_TIMEOUT, headers=DJEN_HEADERS, follow_redirects=True) as client:
         for pagina in range(1, DJEN_MAX_PAGINAS + 1):
             params = {
                 "numeroOab": num,
