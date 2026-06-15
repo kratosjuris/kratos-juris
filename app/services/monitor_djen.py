@@ -38,10 +38,15 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Constantes de API
 # ---------------------------------------------------------------------------
+import os
+
 DJEN_API_BASE   = "https://comunicaapi.pje.jus.br/api/v1/comunicacao"
 DJEN_TIMEOUT    = 30.0
 DJEN_ITENS_POR_PAGINA = 100
 DJEN_MAX_PAGINAS = 20
+
+# URL do Cloudflare Worker proxy (variável de ambiente no Render)
+DJEN_PROXY_URL = os.environ.get("DJEN_PROXY_URL", "").strip()
 
 DATAJUD_API_BASE = "https://api-publica.datajud.cnj.jus.br"
 DATAJUD_API_KEY  = "cDZHYzlZa0JadVREZDJCendQbXY6SkJlTzNjLV9TRENyQk1RdnFKZGRQdw=="
@@ -173,21 +178,40 @@ async def _fetch_djen(
     data_fim: date,
     client: httpx.AsyncClient,
 ) -> List[dict]:
-    """Consulta DJEN com paginação automática."""
+    """Consulta DJEN com paginação automática. Usa proxy Cloudflare no Render."""
     todos: List[dict] = []
     num = re.sub(r"\D+", "", numero_oab)
 
     for pagina in range(1, DJEN_MAX_PAGINAS + 1):
-        params = {
-            "numeroOab": num,
-            "ufOab": uf_oab.upper(),
-            "dataDisponibilizacaoInicio": data_inicio.isoformat(),
-            "dataDisponibilizacaoFim":   data_fim.isoformat(),
-            "itensPorPagina": DJEN_ITENS_POR_PAGINA,
-            "pagina": pagina,
-        }
         try:
-            resp = await client.get(DJEN_API_BASE, params=params, timeout=DJEN_TIMEOUT, headers=DJEN_HEADERS)
+            if DJEN_PROXY_URL:
+                # ---- via Cloudflare Worker (Render/produção) ----
+                resp = await client.post(
+                    DJEN_PROXY_URL,
+                    json={
+                        "numeroOab": num,
+                        "ufOab": uf_oab.upper(),
+                        "dataInicio": data_inicio.isoformat(),
+                        "dataFim":    data_fim.isoformat(),
+                        "pagina":     pagina,
+                    },
+                    timeout=DJEN_TIMEOUT,
+                )
+            else:
+                # ---- chamada direta (local) ----
+                resp = await client.get(
+                    DJEN_API_BASE,
+                    params={
+                        "numeroOab": num,
+                        "ufOab": uf_oab.upper(),
+                        "dataDisponibilizacaoInicio": data_inicio.isoformat(),
+                        "dataDisponibilizacaoFim":   data_fim.isoformat(),
+                        "itensPorPagina": DJEN_ITENS_POR_PAGINA,
+                        "pagina": pagina,
+                    },
+                    headers=DJEN_HEADERS,
+                    timeout=DJEN_TIMEOUT,
+                )
         except httpx.RequestError as e:
             raise RuntimeError(f"DJEN — falha de rede: {e}")
 

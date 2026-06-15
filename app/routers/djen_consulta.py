@@ -408,8 +408,13 @@ async def _enriquecer_lote_datajud(db: Session, row_ids: List[int], office_id: i
 # DJEN — consulta paginada
 # ---------------------------------------------------------------------------
 
-# Headers que simulam requisição legítima de browser
-# Necessário pois a API DJEN bloqueia requisições de servidores cloud (Render, etc)
+import os
+
+# URL do Cloudflare Worker proxy (definida como variável de ambiente no Render)
+# Se não estiver definida, chama o DJEN diretamente (funciona localmente)
+DJEN_PROXY_URL = os.environ.get("DJEN_PROXY_URL", "").strip()
+
+# Headers para chamada direta (funciona localmente)
 DJEN_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -418,14 +423,74 @@ DJEN_HEADERS = {
     ),
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Accept-Encoding": "gzip, deflate, br",
     "Origin": "https://comunica.pje.jus.br",
     "Referer": "https://comunica.pje.jus.br/",
-    "Connection": "keep-alive",
     "Sec-Fetch-Dest": "empty",
     "Sec-Fetch-Mode": "cors",
     "Sec-Fetch-Site": "same-site",
 }
+
+
+async def _fetch_djen_pagina(
+    client: httpx.AsyncClient,
+    num: str,
+    uf: str,
+    data_inicio: date,
+    data_fim: date,
+    pagina: int,
+) -> list:
+    """
+    Busca uma página do DJEN.
+    Se DJEN_PROXY_URL estiver definida (ambiente Render), usa o Cloudflare Worker.
+    Caso contrário, chama a API diretamente (ambiente local).
+    """
+    if DJEN_PROXY_URL:
+        # ---- via Cloudflare Worker (Render/produção) ----
+        payload = {
+            "numeroOab": num,
+            "ufOab": uf,
+            "dataInicio": data_inicio.isoformat(),
+            "dataFim": data_fim.isoformat(),
+            "pagina": pagina,
+        }
+        try:
+            resp = await client.post(
+                DJEN_PROXY_URL,
+                json=payload,
+                timeout=DJEN_TIMEOUT,
+            )
+        except httpx.RequestError as e:
+            raise ValueError(f"Falha de conexão com o proxy DJEN: {e}")
+    else:
+        # ---- chamada direta (local) ----
+        params = {
+            "numeroOab": num,
+            "ufOab": uf,
+            "dataDisponibilizacaoInicio": data_inicio.isoformat(),
+            "dataDisponibilizacaoFim":   data_fim.isoformat(),
+            "itensPorPagina": DJEN_ITENS_POR_PAGINA,
+            "pagina": pagina,
+        }
+        try:
+            resp = await client.get(
+                DJEN_API_BASE,
+                params=params,
+                headers=DJEN_HEADERS,
+                timeout=DJEN_TIMEOUT,
+            )
+        except httpx.RequestError as e:
+            raise ValueError(f"Falha de conexão com o DJEN: {e}")
+
+    if resp.status_code != 200:
+        raise ValueError(f"DJEN retornou HTTP {resp.status_code}.")
+
+    try:
+        data = resp.json()
+    except Exception:
+        raise ValueError("Resposta inesperada do DJEN (não é JSON válido).")
+
+    itens = data.get("items") or data.get("result") or []
+    return itens if isinstance(itens, list) else []
 
 
 async def consultar_djen_por_oab(
@@ -444,34 +509,10 @@ async def consultar_djen_por_oab(
 
     todos: List[dict] = []
 
-    async with httpx.AsyncClient(timeout=DJEN_TIMEOUT, headers=DJEN_HEADERS, follow_redirects=True) as client:
+    async with httpx.AsyncClient(follow_redirects=True) as client:
         for pagina in range(1, DJEN_MAX_PAGINAS + 1):
-            params = {
-                "numeroOab": num,
-                "ufOab": uf,
-                "dataDisponibilizacaoInicio": data_inicio.isoformat(),
-                "dataDisponibilizacaoFim":   data_fim.isoformat(),
-                "itensPorPagina": DJEN_ITENS_POR_PAGINA,
-                "pagina": pagina,
-            }
-            try:
-                resp = await client.get(DJEN_API_BASE, params=params)
-            except httpx.RequestError as e:
-                raise ValueError(f"Falha de conexão com o DJEN: {e}")
-
-            if resp.status_code != 200:
-                raise ValueError(f"DJEN retornou HTTP {resp.status_code}.")
-
-            try:
-                data = resp.json()
-            except Exception:
-                raise ValueError("Resposta inesperada do DJEN (não é JSON válido).")
-
-            itens = data.get("items") or data.get("result") or []
-            if not isinstance(itens, list):
-                itens = []
+            itens = await _fetch_djen_pagina(client, num, uf, data_inicio, data_fim, pagina)
             todos.extend(itens)
-
             if len(itens) < DJEN_ITENS_POR_PAGINA:
                 break
 
