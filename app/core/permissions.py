@@ -46,7 +46,7 @@ def _get_office_permission_codes(user: User) -> set[str]:
     return codes
 
 
-def user_has_permission(user: User | None, code: str) -> bool:
+def user_has_permission(user: User | None, code: str, request: Request | None = None) -> bool:
     """
     Verifica se o usuário possui determinada permissão.
     """
@@ -59,13 +59,21 @@ def user_has_permission(user: User | None, code: str) -> bool:
     if getattr(user, "is_superuser", False):
         return True
 
+    # Verifica permissões diretas do usuário
     user_codes = _get_user_permission_codes(user)
     if code in user_codes:
         return True
 
+    # Verifica permissões do escritório pelo objeto
     office_codes = _get_office_permission_codes(user)
     if code in office_codes:
         return True
+
+    # Fallback: verifica cache da sessão
+    if request is not None:
+        session_perms = request.session.get("_office_permissions", [])
+        if code in session_perms:
+            return True
 
     return False
 
@@ -138,7 +146,7 @@ def require_permission(request: Request, code: str) -> User:
     """
     user = require_login_user(request)
 
-    if not user_has_permission(user, code):
+    if not user_has_permission(user, code, request=request):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Você não possui a permissão: {code}",
