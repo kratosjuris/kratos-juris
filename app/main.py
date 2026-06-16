@@ -168,17 +168,35 @@ def _load_user_from_session(request: Request):
         print("[SESSION] request.scope sem 'session'")
         return None
 
-    print(f"[SESSION] conteúdo bruto: {dict(request.session)}")
-
     user_id = get_session_user_id(request)
     session_office_id = get_session_office_id(request)
-
-    print(f"[SESSION] user_id lido da sessão: {user_id}")
-    print(f"[SESSION] office_id lido da sessão: {session_office_id}")
 
     if not user_id:
         return None
 
+    # =========================================================
+    # CORREÇÃO: cache na sessão evita query ao banco
+    # em cada request, reduzindo consumo de memória e conexões
+    # =========================================================
+    cached_user_id = request.session.get("_cached_user_id")
+    if cached_user_id == user_id:
+
+        class _CachedUser:
+            pass
+
+        u = _CachedUser()
+        u.id = user_id
+        u.username = request.session.get("_cached_username")
+        u.is_active = True
+        u.office_id = session_office_id
+        u.office = None
+        u.permission_links = []
+
+        request.state.current_user = u
+        request.state.current_office_id = session_office_id
+        return u
+
+    # ── Primeira vez ou sessão nova: vai ao banco normalmente ──
     db = SessionLocal()
 
     try:
@@ -231,6 +249,10 @@ def _load_user_from_session(request: Request):
                 )
 
         if user and user.is_active:
+
+            # Salva na sessão para próximas requests
+            request.session["_cached_user_id"] = user_id
+            request.session["_cached_username"] = user.username
 
             request.state.current_user = user
 
@@ -408,8 +430,6 @@ def on_startup():
             )
 
             # MONITOR DJEN — consulta DJEN + enriquecimento DataJud
-            # Roda às 7h15, 15 min após as notificações push,
-            # para não disputar recursos com o job_07h.
             scheduler.add_job(
                 job_monitorar_djen,
                 CronTrigger(hour=7, minute=15),
