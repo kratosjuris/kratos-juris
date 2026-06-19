@@ -1055,6 +1055,181 @@
 <script src="/static/js/push.js"></script>
 {% endif %}
 
+<!-- =========================================================
+     MONITOR DJEN AUTOMÁTICO — executa ao fazer login
+     Detecta tarefas pendentes e consulta o DJEN pelo browser
+     ========================================================= -->
+{% if current_user %}
+<script>
+(function(){
+  // Só roda uma vez por sessão (evita re-execução em refresh)
+  const SESS_KEY = "kj_monitor_executado";
+  if (sessionStorage.getItem(SESS_KEY) === "1") return;
+  sessionStorage.setItem(SESS_KEY, "1");
+
+  const DJEN_BASE = "https://comunicaapi.pje.jus.br/api/v1/comunicacao";
+
+  // ---- Toast de notificação ----
+  function mostrarToast(html, tipo) {
+    let container = document.getElementById("kj-monitor-toasts");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "kj-monitor-toasts";
+      container.style.cssText = (
+        "position:fixed;bottom:24px;right:24px;z-index:9999;"
+        "display:flex;flex-direction:column;gap:10px;max-width:420px;"
+      );
+      document.body.appendChild(container);
+    }
+
+    const toast = document.createElement("div");
+    toast.style.cssText = (
+      "background:" + (tipo === "ok" ? "#15803d" : tipo === "info" ? "#1a4a8a" : "#b91c1c") + ";"
+      "color:#fff;border-radius:14px;padding:14px 18px;"
+      "font-size:13px;line-height:1.6;box-shadow:0 8px 32px rgba(0,0,0,.25);"
+      "opacity:0;transition:opacity .3s ease;"
+    );
+    toast.innerHTML = html;
+    container.appendChild(toast);
+    requestAnimationFrame(() => { toast.style.opacity = "1"; });
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      setTimeout(() => toast.remove(), 400);
+    }, 8000);
+  }
+
+  // ---- Consulta DJEN para uma tarefa ----
+  async function executarTarefa(tarefa) {
+    const { id, numero_oab, uf_oab, data_inicio, data_fim } = tarefa;
+    const POR_PAG = 100;
+    let todosItens = [];
+
+    try {
+      for (let pag = 1; pag <= 20; pag++) {
+        const params = new URLSearchParams({
+          numeroOab: numero_oab,
+          ufOab: uf_oab,
+          dataDisponibilizacaoInicio: data_inicio,
+          dataDisponibilizacaoFim: data_fim,
+          itensPorPagina: POR_PAG,
+          pagina: pag,
+        });
+        const resp = await fetch(`${DJEN_BASE}?${params}`, {
+          headers: { "Accept": "application/json" }
+        });
+        if (!resp.ok) throw new Error(`DJEN HTTP ${resp.status}`);
+        const data = await resp.json();
+        const itens = data.items || data.result || [];
+        todosItens = todosItens.concat(itens);
+        if (itens.length < POR_PAG) break;
+      }
+    } catch (e) {
+      // Marca como erro no servidor
+      await concluirTarefa(id, 0, 0, 0, e.message);
+      return { oab: `${numero_oab}/${uf_oab}`, erro: e.message };
+    }
+
+    // Envia itens para o servidor salvar
+    let inseridos = 0, ignorados = 0, extraidos = todosItens.length;
+
+    if (todosItens.length > 0) {
+      try {
+        const form = new FormData();
+        form.append("numero_oab",  numero_oab);
+        form.append("uf_oab",      uf_oab);
+        form.append("data_inicio", data_inicio);
+        form.append("data_fim",    data_fim);
+        form.append("dup_hoje",    "nao");
+        form.append("itens_json",  JSON.stringify(todosItens));
+
+        const r = await fetch("/migracoes/importar-djen-browser", {
+          method: "POST",
+          body: form,
+          redirect: "manual",
+        });
+
+        // Extrai números da mensagem de redirect
+        const location = r.headers.get("location") || "";
+        const mIns = location.match(/Inseridos?:\s*(\d+)/i);
+        const mIgn = location.match(/Ignorados?:\s*(\d+)/i);
+        if (mIns) inseridos = parseInt(mIns[1]);
+        if (mIgn) ignorados = parseInt(mIgn[1]);
+      } catch(e) {
+        await concluirTarefa(id, 0, 0, extraidos, e.message);
+        return { oab: `${numero_oab}/${uf_oab}`, erro: e.message };
+      }
+    }
+
+    await concluirTarefa(id, inseridos, ignorados, extraidos, "");
+    return { oab: `${numero_oab}/${uf_oab}`, inseridos, ignorados, extraidos };
+  }
+
+  // ---- Marca tarefa como concluída no servidor ----
+  async function concluirTarefa(id, inseridos, ignorados, extraidos, erro) {
+    const form = new FormData();
+    form.append("inseridos", inseridos);
+    form.append("ignorados", ignorados);
+    form.append("extraidos", extraidos);
+    form.append("erro",      erro || "");
+    try {
+      await fetch(`/api/monitor/tarefas/${id}/concluir`, {
+        method: "POST", body: form
+      });
+    } catch(e) {}
+  }
+
+  // ---- Fluxo principal ----
+  async function rodarMonitoramento() {
+    let tarefas;
+    try {
+      const r = await fetch("/api/monitor/tarefas-pendentes");
+      if (!r.ok) return;
+      tarefas = await r.json();
+    } catch(e) { return; }
+
+    if (!tarefas || tarefas.length === 0) return;
+
+    // Agrupa datas para o toast
+    const dataInicio = tarefas[0].data_inicio;
+    const dataFim    = tarefas[tarefas.length - 1].data_fim;
+    const fmtDate    = s => s.split("-").reverse().join("/");
+
+    mostrarToast(
+      `⏳ <strong>Monitoramento automático em execução…</strong><br>`
+      + `Período: ${fmtDate(dataInicio)} a ${fmtDate(dataFim)}<br>`
+      + `OABs: ${tarefas.map(t => t.numero_oab + "/" + t.uf_oab).join(", ")}`,
+      "info"
+    );
+
+    // Executa em série (para não sobrecarregar o DJEN)
+    const resultados = [];
+    for (const tarefa of tarefas) {
+      const r = await executarTarefa(tarefa);
+      resultados.push(r);
+    }
+
+    // Monta resumo final
+    const linhas = resultados.map(r => {
+      if (r.erro) return `❌ OAB ${r.oab} — Erro: ${r.erro}`;
+      return `✅ OAB ${r.oab} — ${r.inseridos} inserida(s) | encontradas: ${r.extraidos} | ignoradas: ${r.ignorados}`;
+    });
+
+    mostrarToast(
+      `<strong>📋 Monitoramento automático concluído</strong><br>`
+      + `Período: ${fmtDate(dataInicio)} a ${fmtDate(dataFim)}<br><br>`
+      + linhas.join("<br>"),
+      resultados.some(r => r.erro) ? "erro" : "ok"
+    );
+  }
+
+  // Aguarda a página carregar para não atrasar o login
+  window.addEventListener("load", function() {
+    setTimeout(rodarMonitoramento, 1500);
+  }, { once: true });
+})();
+</script>
+{% endif %}
+
 {% block scripts %}{% endblock %}
 </body>
 </html>

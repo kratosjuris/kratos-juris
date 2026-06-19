@@ -1,14 +1,214 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="container py-4">
+<style>
+  .calc-report {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11px;
+    color: #333;
+    background: #fff;
+  }
 
-  <div class="d-flex justify-content-between align-items-center mb-4">
+  .calc-report .no-print {
+    font-size: 14px;
+  }
+
+  .calc-report .tj-header {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    border-bottom: 1px solid #eeeeee;
+    padding-bottom: 16px;
+    margin-bottom: 18px;
+  }
+
+  .calc-report .tj-logo {
+    font-size: 34px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    color: #111;
+    line-height: 1;
+  }
+
+  .calc-report .tj-subtitle {
+    font-size: 12px;
+    color: #333;
+    line-height: 1.25;
+  }
+
+  .calc-report .process-box {
+    border-left: 3px solid #48c7dc;
+    border-top: 1px solid #eeeeee;
+    border-bottom: 1px solid #eeeeee;
+    padding: 11px 16px;
+    margin-bottom: 10px;
+  }
+
+  .calc-report .process-row {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    line-height: 1.45;
+  }
+
+  .calc-report .label-muted {
+    color: #777;
+    font-weight: 400;
+  }
+
+  .calc-report .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    border-top: 1px solid #eeeeee;
+    border-bottom: 1px solid #eeeeee;
+    margin-bottom: 6px;
+  }
+
+  .calc-report .info-card {
+    min-height: 105px;
+    padding: 10px 12px;
+    border-right: 1px solid #eeeeee;
+  }
+
+  .calc-report .info-card:last-child {
+    border-right: none;
+  }
+
+  .calc-report .info-card.moeda {
+    border-left: 3px solid #37b24d;
+  }
+
+  .calc-report .info-card.atualizacao {
+    border-left: 3px solid #228be6;
+  }
+
+  .calc-report .info-card.juros {
+    border-left: 3px solid #f0ad4e;
+  }
+
+  .calc-report .info-title {
+    font-size: 15px;
+    color: #555;
+    margin-bottom: 4px;
+  }
+
+  .calc-report .info-text {
+    font-size: 10px;
+    color: #555;
+    line-height: 1.45;
+  }
+
+  .calc-report .section-title {
+    text-align: center;
+    font-size: 15px;
+    font-weight: 700;
+    color: #111;
+    padding: 6px 8px;
+    border: 1px solid #dddddd;
+    border-bottom: none;
+    margin: 14px 0 0;
+    background: #fff;
+  }
+
+  .calc-report table.report-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+    margin-bottom: 12px;
+  }
+
+  .calc-report table.report-table th {
+    background: #fafafa;
+    color: #111;
+    font-weight: 700;
+    text-align: center;
+    border: 1px solid #dddddd;
+    padding: 6px 5px;
+    vertical-align: middle;
+  }
+
+  .calc-report table.report-table td {
+    border: 1px solid #dddddd;
+    padding: 6px 5px;
+    vertical-align: middle;
+  }
+
+  .calc-report table.report-table tbody tr:nth-child(odd) {
+    background: #f3f3f3;
+  }
+
+  .calc-report table.report-table tfoot td {
+    background: #f8f8f8;
+  }
+
+  .calc-report .text-end {
+    text-align: right;
+  }
+
+  .calc-report .text-center {
+    text-align: center;
+  }
+
+  .calc-report .font-monospace {
+    font-family: Consolas, "Courier New", monospace;
+  }
+
+  .calc-report .total-final td {
+    background: #fff !important;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .calc-report .small-note {
+    font-size: 10px;
+    color: #666;
+    border: 1px solid #e5e5e5;
+    padding: 8px 10px;
+    margin-top: 12px;
+  }
+
+  .calc-report .docs-card {
+    border: 1px solid #dddddd;
+    padding: 14px;
+    margin-top: 18px;
+    background: #fff;
+  }
+
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+
+    body {
+      background: #fff !important;
+    }
+
+    .container {
+      max-width: 100% !important;
+      width: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+
+    .calc-report {
+      font-size: 10px;
+    }
+
+    .calc-report .section-title {
+      font-size: 13px;
+    }
+
+    .calc-report table.report-table {
+      font-size: 9px;
+    }
+  }
+</style>
+
+<div class="container py-4 calc-report">
+
+  <div class="d-flex justify-content-between align-items-center mb-4 no-print">
     <div>
       <h3 class="mb-1">Relatório de Atualização Monetária</h3>
-      <div class="text-muted">
-        Memorial demonstrativo do cálculo realizado.
-      </div>
+      <div class="text-muted">Memorial demonstrativo do cálculo realizado.</div>
     </div>
 
     <div class="d-flex gap-2">
@@ -16,279 +216,331 @@
         Imprimir
       </button>
 
-      <a href="/calculadora-juridica/atualizacao" class="btn btn-primary">
-        Novo cálculo
-      </a>
+      <form method="post" action="/calculadora-juridica/atualizacao/pdf" style="display:inline">
+        <input type="hidden" name="resultado_json" value="{{ resultado_json | e }}">
+        <button class="btn btn-danger">⬇ Baixar PDF</button>
+      </form>
+
+      <a href="/calculadora-juridica/atualizacao" class="btn btn-primary">Novo cálculo</a>
     </div>
   </div>
 
-  {# ── Dados do processo ── #}
-  <div class="card shadow-sm mb-4">
-    <div class="card-body">
-      <h5 class="mb-3">Dados do processo</h5>
+  <div class="tj-header">
+    <div class="tj-logo">KRATOS JURIS</div>
+    <div class="tj-subtitle">
+      Sistema de Gestão Jurídica<br>
+      RELATÓRIO DE ATUALIZAÇÃO MONETÁRIA
+    </div>
+  </div>
 
-      <div class="row g-3">
-        <div class="col-md-3">
-          <div class="small text-muted">Processo</div>
-          <strong>{{ resultado.processo or "-" }}</strong>
-        </div>
+  <div class="process-box">
+    <div class="process-row">
+      <div class="label-muted">Processo:</div>
+      <div>{{ resultado.processo or "-" }}</div>
+    </div>
+    <div class="process-row">
+      <div class="label-muted">Polo ativo:</div>
+      <div>{{ resultado.exequente or "-" }}</div>
+    </div>
+    <div class="process-row">
+      <div class="label-muted">Polo passivo:</div>
+      <div>{{ resultado.executado or "-" }}</div>
+    </div>
+    <div class="process-row">
+      <div class="label-muted">Vara:</div>
+      <div>{{ resultado.vara or "-" }}</div>
+    </div>
+  </div>
 
-        <div class="col-md-3">
-          <div class="small text-muted">Vara</div>
-          <strong>{{ resultado.vara or "-" }}</strong>
-        </div>
+  <div class="info-grid">
+    <div class="info-card moeda">
+      <div class="info-title">Moeda</div>
+      <div class="info-text">
+        Valores em Real (R$).<br>
+        Relatório gerado com base nas informações fornecidas pelo usuário.
+      </div>
+    </div>
 
-        <div class="col-md-3">
-          <div class="small text-muted">Exequente</div>
-          <strong>{{ resultado.exequente or "-" }}</strong>
-        </div>
+    <div class="info-card atualizacao">
+      <div class="info-title">Atualização monetária até {{ resultado.data_calculo }}</div>
+      <div class="info-text">
+        Data final do cálculo: {{ resultado.data_calculo }}<br><br>
+        <strong>Índices de atualização monetária:</strong><br>
+        {{ resultado.indice_correcao }}
+      </div>
+    </div>
 
-        <div class="col-md-3">
-          <div class="small text-muted">Executado</div>
-          <strong>{{ resultado.executado or "-" }}</strong>
-        </div>
-
-        <div class="col-md-12">
-          <div class="small text-muted">Índice aplicado</div>
-          <strong>{{ resultado.indice_correcao }}</strong>
-        </div>
+    <div class="info-card juros">
+      <div class="info-title">Juros</div>
+      <div class="info-text">
+        <strong>Tipo de juros:</strong> {{ resultado.juros_descricao or "Sem juros" }}<br>
+        {% if resultado.juros_periodo %}
+          <strong>Período:</strong> {{ resultado.juros_periodo }}
+        {% else %}
+          Sem período de juros informado.
+        {% endif %}
       </div>
     </div>
   </div>
 
-  {# ── Valores atualizados ── #}
-  <div class="card shadow-sm mb-4">
-    <div class="card-body">
-      <h5 class="mb-3">Valores atualizados</h5>
+  <div class="section-title">Demonstrativo dos valores principais</div>
 
-      <div class="table-responsive">
-        <table class="table table-sm align-middle">
-          <thead>
-            <tr>
-              <th>Data</th>
-              <th>Tipo</th>
-              <th>Descrição</th>
-              <th>Original</th>
-              <th>Fator</th>
-              <th>Corrigido</th>
-              <th>Juros desde</th>
-              <th>Juros</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for item in resultado.itens %}
-              <tr>
-                <td>{{ item.data }}</td>
-                <td>{{ item.tipo }}</td>
-                <td>{{ item.descricao }}</td>
-                <td>{{ item.valor_original }}</td>
-                <td>{{ item.fator }}</td>
-                <td>{{ item.valor_corrigido }}</td>
-                <td>{{ item.data_inicio_juros }}</td>
-                <td>{{ item.juros }}</td>
-                <td><strong>{{ item.total }}</strong></td>
-              </tr>
-            {% endfor %}
+  <div class="table-responsive">
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Descrição</th>
+          <th>Valor</th>
+          <th>Índices de atualização</th>
+          <th>Fator da atualização</th>
+          <th>Correção monetária</th>
+          <th>Valor atualizado</th>
+          <th>% de juros acumulado</th>
+          <th>Valor dos juros</th>
+          <th>Total</th>
+        </tr>
+      </thead>
 
-            {% if not resultado.itens %}
-              <tr>
-                <td colspan="9" class="text-muted">
-                  Nenhum lançamento válido foi informado.
-                </td>
-              </tr>
-            {% endif %}
-          </tbody>
-        </table>
-      </div>
-    </div>
+      <tbody>
+        {% for item in resultado.itens %}
+        <tr>
+          <td class="text-center">{{ item.data }}</td>
+          <td>{{ item.tipo }}{% if item.descricao %} — {{ item.descricao }}{% endif %}</td>
+          <td class="text-end">{{ item.valor_original }}</td>
+          <td>{{ resultado.indice_correcao_curto or resultado.indice_correcao }}</td>
+          <td class="text-end font-monospace">{{ item.fator }}</td>
+          <td class="text-end">{{ item.valor_atualizacao or "-" }}</td>
+          <td class="text-end">{{ item.valor_corrigido }}</td>
+          <td class="text-end font-monospace">{{ item.juros_percentual_total }}</td>
+          <td class="text-end">{{ item.juros }}</td>
+          <td class="text-end">{{ item.total }}</td>
+        </tr>
+        {% endfor %}
+
+        {% if not resultado.itens %}
+        <tr>
+          <td colspan="10" class="text-center label-muted">Nenhum lançamento informado.</td>
+        </tr>
+        {% endif %}
+      </tbody>
+
+      <tfoot>
+        <tr>
+          <td colspan="2" class="text-end">Total valores</td>
+          <td class="text-end">{{ resultado.valor_original }}</td>
+          <td colspan="2"></td>
+          <td class="text-end">{{ resultado.valor_atualizacao or "-" }}</td>
+          <td class="text-end">{{ resultado.valor_corrigido }}</td>
+          <td></td>
+          <td class="text-end">{{ resultado.juros }}</td>
+          <td class="text-end">{{ resultado.total_principal }} (A)</td>
+        </tr>
+      </tfoot>
+    </table>
   </div>
 
-  {# ── Memória de índices aplicados ── #}
+  {% if resultado.tem_acessorios %}
+  <div class="section-title">Demonstrativo dos valores acessórios</div>
+
+  <div class="table-responsive">
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>Descrição</th>
+          <th>Base de cálculo</th>
+          <th>Percentual</th>
+          <th>Principal</th>
+          <th>Juros</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for h in resultado.honorarios_lista %}
+        <tr>
+          <td>Honorários — {{ h.descricao }}</td>
+          <td class="text-end">{{ resultado.total_principal or resultado.valor_corrigido }} (A)</td>
+          <td class="text-end">{{ h.referencia if h.tipo == "Percentual" else "—" }}</td>
+          <td class="text-end">{{ h.valor }}</td>
+          <td class="text-end">—</td>
+          <td class="text-end">{{ h.valor }}</td>
+        </tr>
+        {% endfor %}
+
+        {% for m in resultado.multas_lista %}
+        <tr>
+          <td>Multa — {{ m.descricao }}</td>
+          <td class="text-end">{{ resultado.total_principal or resultado.valor_corrigido }} (A)</td>
+          <td class="text-end">{{ m.referencia if m.tipo == "Percentual" else "—" }}</td>
+          <td class="text-end">{{ m.valor }}</td>
+          <td class="text-end">—</td>
+          <td class="text-end">{{ m.valor }}</td>
+        </tr>
+        {% endfor %}
+
+        {% if resultado.custas and resultado.custas != "R$ 0,00" %}
+        <tr>
+          <td>Custas/despesas</td>
+          <td class="text-end">—</td>
+          <td class="text-end">—</td>
+          <td class="text-end">{{ resultado.custas }}</td>
+          <td class="text-end">—</td>
+          <td class="text-end">{{ resultado.custas }}</td>
+        </tr>
+        {% endif %}
+      </tbody>
+
+      <tfoot>
+        <tr>
+          <td class="text-end">Total acessórios</td>
+          <td colspan="2"></td>
+          <td class="text-end">{{ resultado.total_acessorios_principal }}</td>
+          <td class="text-end">—</td>
+          <td class="text-end">{{ resultado.total_acessorios }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  {% endif %}
+
+  <div class="section-title">Agrupamento dos valores apurados</div>
+
+  <table class="report-table">
+    <tbody>
+      <tr>
+        <td>Montante principal em favor do(a)s credor(a)(es)</td>
+        <td class="text-end">{{ resultado.total_principal }}</td>
+      </tr>
+
+      {% if resultado.honorarios and resultado.honorarios != "R$ 0,00" %}
+      {% for h in resultado.honorarios_lista %}
+      <tr>
+        <td>Honorários — {{ h.descricao }}{% if h.tipo == "Percentual" %} ({{ h.referencia }}){% endif %}</td>
+        <td class="text-end">{{ h.valor }}</td>
+      </tr>
+      {% endfor %}
+      <tr>
+        <td><strong>Total dos Honorários advocatícios</strong></td>
+        <td class="text-end"><strong>{{ resultado.honorarios }}</strong></td>
+      </tr>
+      {% endif %}
+
+      {% if resultado.multa and resultado.multa != "R$ 0,00" %}
+      {% for m in resultado.multas_lista %}
+      <tr>
+        <td>Multa — {{ m.descricao }}{% if m.tipo == "Percentual" %} ({{ m.referencia }}){% endif %}</td>
+        <td class="text-end">{{ m.valor }}</td>
+      </tr>
+      {% endfor %}
+      {% endif %}
+
+      {% if resultado.custas and resultado.custas != "R$ 0,00" %}
+      <tr>
+        <td>Custas/despesas processuais</td>
+        <td class="text-end">{{ resultado.custas }}</td>
+      </tr>
+      {% endif %}
+
+      <tr>
+        <td>Subtotal bruto do cálculo</td>
+        <td class="text-end">{{ resultado.total_bruto }}</td>
+      </tr>
+
+      {% if resultado.deducoes %}
+        {% for d in resultado.deducoes %}
+        <tr>
+          <td>Dedução — {{ d.nome }} ({{ d.referencia }})</td>
+          <td class="text-end">— {{ d.valor_deduzido }}</td>
+        </tr>
+        {% endfor %}
+      {% endif %}
+
+      <tr class="total-final">
+        <td class="text-end">Total do cálculo:</td>
+        <td class="text-end">{{ resultado.total_liquido }}</td>
+      </tr>
+    </tbody>
+  </table>
+
   {% if resultado.detalhamento_indices %}
-    <div class="card shadow-sm mb-4">
-      <div class="card-body">
+  <div class="section-title no-print">Memória de índices aplicados</div>
 
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h5 class="mb-0">Memória de índices aplicados</h5>
-          <button
-            class="btn btn-sm btn-outline-secondary"
-            type="button"
-            data-bs-toggle="collapse"
-            data-bs-target="#tabelaIndices"
-            aria-expanded="false">
-            Expandir / Recolher
-          </button>
-        </div>
-
-        <div class="collapse" id="tabelaIndices">
-          <div class="table-responsive">
-            <table class="table table-sm table-striped align-middle">
-              <thead class="table-light">
-                <tr>
-                  <th>Mês/Ano</th>
-                  <th>Índice de correção</th>
-                  <th class="text-end">Taxa correção</th>
-                  {% if resultado.juros_tipo != "sem" %}
-                    <th>Índice de juros</th>
-                    <th class="text-end">Taxa juros</th>
-                  {% endif %}
-                </tr>
-              </thead>
-              <tbody>
-                {% for linha in resultado.detalhamento_indices %}
-                  <tr>
-                    <td>{{ linha.mes }}</td>
-                    <td>
-                      <span class="badge
-                        {% if linha.indice_nome == 'IPCA' %}bg-primary
-                        {% else %}bg-secondary{% endif %}">
-                        {{ linha.indice_nome }}
-                      </span>
-                    </td>
-                    <td class="text-end font-monospace">{{ linha.correcao }}</td>
-                    {% if resultado.juros_tipo != "sem" %}
-                      <td>
-                        {% if linha.juros != "—" %}
-                          <span class="badge bg-warning text-dark">
-                            {{ linha.juros_nome }}
-                          </span>
-                        {% else %}
-                          <span class="text-muted">—</span>
-                        {% endif %}
-                      </td>
-                      <td class="text-end font-monospace">{{ linha.juros }}</td>
-                    {% endif %}
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  {% endif %}
-
-  {# ── Deduções ── #}
-  {% if resultado.deducoes %}
-    <div class="card shadow-sm mb-4">
-      <div class="card-body">
-        <h5 class="mb-3">Deduções</h5>
-
-        <div class="table-responsive">
-          <table class="table table-sm align-middle">
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Tipo</th>
-                <th>Referência</th>
-                <th>Valor deduzido</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for d in resultado.deducoes %}
-                <tr>
-                  <td>{{ d.nome }}</td>
-                  <td>{{ d.tipo }}</td>
-                  <td>{{ d.referencia }}</td>
-                  <td>{{ d.valor_deduzido }}</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-
-      </div>
-    </div>
-  {% endif %}
-
-  {# ── Resumo ── #}
-  <div class="card shadow-sm mb-4">
-    <div class="card-body">
-      <h5 class="mb-3">Resumo</h5>
-
-      <div class="row g-3">
-        <div class="col-md-3">
-          <div class="small text-muted">Valor original</div>
-          <h5>{{ resultado.valor_original }}</h5>
-        </div>
-
-        <div class="col-md-3">
-          <div class="small text-muted">Valor corrigido</div>
-          <h5>{{ resultado.valor_corrigido }}</h5>
-        </div>
-
-        <div class="col-md-3">
-          <div class="small text-muted">Juros</div>
-          <h5>{{ resultado.juros }}</h5>
-        </div>
-
-        <div class="col-md-3">
-          <div class="small text-muted">Multa</div>
-          <h5>{{ resultado.multa }}</h5>
-        </div>
-
-        <div class="col-md-3">
-          <div class="small text-muted">Honorários</div>
-          <h5>{{ resultado.honorarios }}</h5>
-        </div>
-
-        <div class="col-md-3">
-          <div class="small text-muted">Custas</div>
-          <h5>{{ resultado.custas }}</h5>
-        </div>
-
-        <div class="col-md-3">
-          <div class="small text-muted">Deduções</div>
-          <h5>{{ resultado.total_deducoes }}</h5>
-        </div>
-
-        <div class="col-md-3">
-          <div class="small text-muted">Total líquido</div>
-          <h4>{{ resultado.total_liquido }}</h4>
-        </div>
-      </div>
-    </div>
+  <div class="no-print mb-2">
+    <button class="btn btn-sm btn-outline-secondary" type="button"
+            data-bs-toggle="collapse" data-bs-target="#tabelaIndices">
+      Expandir / Recolher
+    </button>
   </div>
 
-  {# ── Gerar documentos ── #}
-  <div class="card shadow-sm mb-4">
-    <div class="card-body">
-      <h5 class="mb-3">Gerar documentos</h5>
+  <div class="collapse no-print" id="tabelaIndices">
+    <div class="table-responsive">
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Mês/Ano</th>
+            <th>Índice de correção</th>
+            <th>Taxa correção</th>
+            {% if resultado.juros_tipo != "sem" %}
+              <th>Índice de juros</th>
+              <th>Taxa juros</th>
+            {% endif %}
+          </tr>
+        </thead>
 
-      <div class="d-flex gap-2 flex-wrap">
+        <tbody>
+          {% for linha in resultado.detalhamento_indices %}
+          <tr>
+            <td class="text-center">{{ linha.mes }}</td>
+            <td class="text-center">{{ linha.indice_nome }}</td>
+            <td class="text-end font-monospace">{{ linha.correcao }}</td>
 
-        <form method="post" action="/calculadora-juridica/atualizacao/documento">
-          <input type="hidden" name="doc_key" value="memorial-calculo">
-          <input type="hidden" name="resultado_json" value="{{ resultado_json }}">
-          <button class="btn btn-outline-primary">
-            Gerar Memorial de Cálculo
-          </button>
-        </form>
-
-        <form method="post" action="/calculadora-juridica/atualizacao/documento">
-          <input type="hidden" name="doc_key" value="cumprimento-voluntario">
-          <input type="hidden" name="resultado_json" value="{{ resultado_json }}">
-          <button class="btn btn-outline-primary">
-            Gerar Petição de Cumprimento Voluntário
-          </button>
-        </form>
-
-        <form method="post" action="/calculadora-juridica/atualizacao/documento">
-          <input type="hidden" name="doc_key" value="execucao-sentenca">
-          <input type="hidden" name="resultado_json" value="{{ resultado_json }}">
-          <button class="btn btn-outline-primary">
-            Gerar Petição de Execução de Sentença
-          </button>
-        </form>
-
-      </div>
+            {% if resultado.juros_tipo != "sem" %}
+            <td class="text-center">
+              {% if linha.juros != "—" %}
+                {{ linha.juros_nome }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td class="text-end font-monospace">{{ linha.juros }}</td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
+  {% endif %}
 
-  <div class="alert alert-info">
-    O relatório é gerado com base nas informações fornecidas pelo usuário. Confira os dados antes de utilizar em petição ou protocolo.
+  <div class="small-note">
+    O presente relatório é gerado com base nas informações fornecidas pelo usuário, incluindo datas, valores, índice de correção monetária, juros, multa, honorários, custas e deduções. Confira os dados antes de utilizar em petição ou protocolo.
+  </div>
+
+  <div class="docs-card no-print">
+    <h5 class="mb-3">Gerar documentos</h5>
+
+    <div class="d-flex gap-2 flex-wrap">
+
+      {# Memorial de Cálculo → PDF (mesmo layout da tela) #}
+      <form method="post" action="/calculadora-juridica/atualizacao/pdf">
+        <input type="hidden" name="resultado_json" value="{{ resultado_json | e }}">
+        <button class="btn btn-outline-primary">⬇ Gerar Memorial de Cálculo (PDF)</button>
+      </form>
+
+      <form method="post" action="/calculadora-juridica/atualizacao/documento">
+        <input type="hidden" name="doc_key" value="cumprimento-voluntario">
+        <input type="hidden" name="resultado_json" value="{{ resultado_json | e }}">
+        <button class="btn btn-outline-primary">Gerar Petição de Cumprimento Voluntário</button>
+      </form>
+
+      <form method="post" action="/calculadora-juridica/atualizacao/documento">
+        <input type="hidden" name="doc_key" value="execucao-sentenca">
+        <input type="hidden" name="resultado_json" value="{{ resultado_json | e }}">
+        <button class="btn btn-outline-primary">Gerar Petição de Execução de Sentença</button>
+      </form>
+
+    </div>
   </div>
 
 </div>

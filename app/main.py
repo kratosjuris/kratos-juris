@@ -50,7 +50,7 @@ from app.models.push_subscription import PushSubscription  # noqa: F401
 # =========================================================
 # NOVO: MONITOR DJEN — model da tabela de OABs monitoradas
 # =========================================================
-from app.models.oab_monitorada import OabMonitorada  # noqa: F401
+from app.models.oab_monitorada import OabMonitorada, MonitorTarefa  # noqa: F401
 
 from app.routers import (
     web_dashboard,
@@ -179,34 +179,6 @@ def _load_user_from_session(request: Request):
     if not user_id:
         return None
 
-    # =========================================================
-    # CACHE: se permissões já estão na sessão, não vai ao banco
-    # =========================================================
-    cached_user_id = request.session.get("_cached_user_id")
-    cached_is_superuser = request.session.get("_cached_is_superuser", False)
-    cached_is_ceo = request.session.get("_cached_is_ceo", False)
-
-    if cached_user_id == user_id and "_office_permissions" in request.session:
-
-        class _CachedUser:
-            pass
-
-        u = _CachedUser()
-        u.id = user_id
-        u.username = request.session.get("_cached_username")
-        u.is_active = True
-        u.is_superuser = cached_is_superuser
-        u.is_ceo = cached_is_ceo
-        u.office_id = session_office_id
-        u.office = None
-        u.permission_links = []
-
-        request.state.current_user = u
-        request.state.current_office_id = session_office_id
-        print(f"[SESSION] usuário carregado do cache: id={user_id}")
-        return u
-
-    # ── Primeira vez ou sessão nova: vai ao banco ──
     db = SessionLocal()
 
     try:
@@ -242,8 +214,11 @@ def _load_user_from_session(request: Request):
                 office_perm_codes = []
 
                 for op in getattr(office, "permission_links", []) or []:
+
                     perm = getattr(op, "permission", None)
+
                     code = getattr(perm, "code", None)
+
                     if code:
                         office_perm_codes.append(code)
 
@@ -254,19 +229,6 @@ def _load_user_from_session(request: Request):
                     f"is_active={office.is_active}, "
                     f"permissions={office_perm_codes}"
                 )
-
-                # Salva permissões do escritório na sessão
-                request.session["_office_permissions"] = office_perm_codes
-
-            # Salva dados do usuário na sessão
-            request.session["_cached_user_id"] = user_id
-            request.session["_cached_username"] = user.username
-            request.session["_cached_is_superuser"] = bool(
-                getattr(user, "is_superuser", False)
-            )
-            request.session["_cached_is_ceo"] = bool(
-                getattr(user, "is_ceo", False)
-            )
 
         if user and user.is_active:
 
@@ -446,6 +408,8 @@ def on_startup():
             )
 
             # MONITOR DJEN — consulta DJEN + enriquecimento DataJud
+            # Roda às 7h15, 15 min após as notificações push,
+            # para não disputar recursos com o job_07h.
             scheduler.add_job(
                 job_monitorar_djen,
                 CronTrigger(hour=7, minute=15),

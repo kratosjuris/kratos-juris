@@ -3,23 +3,23 @@ app/services/monitor_djen.py
 
 Serviço de monitoramento automático DJEN + DataJud.
 
-Fluxo por OAB ativa:
-  1. Consulta DJEN (comunicaapi.pje.jus.br) pelo período informado
-  2. Injeta os resultados como MigrationRow (mesmo padrão do upload)
-  3. Para cada item novo, chama o DataJud e preenche automaticamente:
-     - cliente (parte ativa/passiva)
-     - vara_tramitacao (órgão julgador)
-     - observacao (classe, ajuizamento, últimas movimentações)
-  4. Atualiza OabMonitorada com status e resumo do resultado
+Fluxo:
+  - job_monitorar_djen(): chamado pelo APScheduler às 7h15.
+    Calcula o período correto (feriados nacionais, segunda-feira, etc)
+    e cria MonitorTarefa pendente por OAB ativa.
+    O browser do advogado executa a consulta DJEN ao fazer login.
 
-Chamado por:
-  - app/scripts/rodar_monitor.py  (cron diário)
-  - app/main.py via APScheduler   (job agendado no startup)
+  - monitorar_oab(): cria uma MonitorTarefa imediata para execução
+    via browser (botão '▶ Agora' na tela de OABs Monitoradas).
+
+  - rodar_monitoramento(): mantido para compatibilidade com
+    app/scripts/rodar_monitor.py (CLI).
 """
 
 import re
 import asyncio
 import logging
+import os
 from datetime import date, datetime, timedelta
 from typing import List, Optional, Tuple
 
@@ -30,7 +30,7 @@ from sqlalchemy import func
 
 from app.core.database import SessionLocal
 from app.core.datetime_utils import now_br
-from app.models.oab_monitorada import OabMonitorada
+from app.models.oab_monitorada import OabMonitorada, MonitorTarefa
 from app.models.migration import MigrationBatch, MigrationRow, BatchStatus
 
 logger = logging.getLogger(__name__)
@@ -38,12 +38,11 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Constantes de API
 # ---------------------------------------------------------------------------
-import os
 
-DJEN_API_BASE   = "https://comunicaapi.pje.jus.br/api/v1/comunicacao"
-DJEN_TIMEOUT    = 30.0
+DJEN_API_BASE        = "https://comunicaapi.pje.jus.br/api/v1/comunicacao"
+DJEN_TIMEOUT         = 30.0
 DJEN_ITENS_POR_PAGINA = 100
-DJEN_MAX_PAGINAS = 20
+DJEN_MAX_PAGINAS     = 20
 
 # URL do Cloudflare Worker proxy (variável de ambiente no Render)
 DJEN_PROXY_URL = os.environ.get("DJEN_PROXY_URL", "").strip()
@@ -54,7 +53,6 @@ DATAJUD_TIMEOUT  = 20.0
 
 INSERT_CHUNK = 300
 
-# Mapeamento J+TR -> alias do tribunal (DataJud)
 DATAJUD_TR_MAP = {
     ("8","01"):"tjac",("8","02"):"tjal",("8","03"):"tjap",("8","04"):"tjam",
     ("8","05"):"tjba",("8","06"):"tjce",("8","07"):"tjdft",("8","08"):"tjes",
@@ -76,7 +74,6 @@ DATAJUD_TR_MAP = {
 
 NUM_CNJ_RX = re.compile(r"^\D*(\d{7})\D?\d{2}\D?\d{4}\D?(\d{1})\D?(\d{2})\D?\d{4}\D*$")
 
-# Headers de browser para contornar bloqueio 403 da API DJEN em servidores cloud
 DJEN_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -91,6 +88,76 @@ DJEN_HEADERS = {
     "Sec-Fetch-Mode": "cors",
     "Sec-Fetch-Site": "same-site",
 }
+
+# ---------------------------------------------------------------------------
+# Feriados nacionais + cálculo de período
+# ---------------------------------------------------------------------------
+
+FERIADOS_FIXOS = {
+    (1,  1),   # Ano Novo
+    (21, 4),   # Tiradentes
+    (1,  5),   # Dia do Trabalho
+    (7,  9),   # Independência
+    (12, 10),  # Nossa Senhora Aparecida
+    (2,  11),  # Finados
+    (15, 11),  # Proclamação da República
+    (20, 11),  # Consciência Negra
+    (25, 12),  # Natal
+}
+
+
+def _pascoa(ano: int) -> date:
+    a = ano % 19
+    b = ano // 100
+    c = ano % 100
+    d = b // 4
+    e = b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i = c // 4
+    k = c % 4
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    mes = (h + l - 7 * m + 114) // 31
+    dia = ((h + l - 7 * m + 114) % 31) + 1
+    return date(ano, mes, dia)
+
+
+def _feriados_moveis(ano: int) -> set:
+    pascoa = _pascoa(ano)
+    return {
+        pascoa - timedelta(days=48),
+        pascoa - timedelta(days=47),
+        pascoa - timedelta(days=2),
+        pascoa,
+        pascoa + timedelta(days=60),
+    }
+
+
+def _eh_feriado(d: date) -> bool:
+    if (d.day, d.month) in FERIADOS_FIXOS:
+        return True
+    if d in _feriados_moveis(d.year):
+        return True
+    return False
+
+
+def _eh_dia_util(d: date) -> bool:
+    return d.weekday() < 5 and not _eh_feriado(d)
+
+
+def _calcular_periodo(hoje: date) -> tuple:
+    """
+    Calcula data_inicio e data_fim para o monitoramento.
+    Retrocede até o último dia útil para cobrir fins de semana e feriados.
+    """
+    data_fim = hoje - timedelta(days=1)
+    data_inicio = data_fim
+    while not _eh_dia_util(data_inicio):
+        data_inicio -= timedelta(days=1)
+    return data_inicio, data_fim
+
 
 # ---------------------------------------------------------------------------
 # Helpers internos
@@ -125,17 +192,10 @@ def _identificar_tribunal(numero: str) -> Optional[str]:
     digits = re.sub(r"\D+", "", numero or "")
     if len(digits) != 20:
         return None
-    j  = digits[13]
-    tr = digits[14:16]
-    return DATAJUD_TR_MAP.get((j, tr))
+    return DATAJUD_TR_MAP.get((digits[13], digits[14:16]))
 
 
 def _extrair_parte(fonte: dict, polo: str) -> Optional[str]:
-    """
-    Extrai nome da parte pelo polo.
-    DataJud retorna polo como objeto {"id":"0","nome":"ATIVO"} OU como string "ATIVO".
-    Trata os dois formatos.
-    """
     polo_upper = polo.strip().upper()
     for p in (fonte.get("partes") or []):
         campo_polo = p.get("polo") or ""
@@ -168,7 +228,7 @@ def _resumo_movimentos(fonte: dict, limite: int = 5) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Chamadas de API (assíncronas)
+# Chamadas de API (assíncronas) — mantidas para uso do rodar_monitor.py
 # ---------------------------------------------------------------------------
 
 async def _fetch_djen(
@@ -185,7 +245,6 @@ async def _fetch_djen(
     for pagina in range(1, DJEN_MAX_PAGINAS + 1):
         try:
             if DJEN_PROXY_URL:
-                # ---- via Cloudflare Worker (Render/produção) ----
                 resp = await client.post(
                     DJEN_PROXY_URL,
                     json={
@@ -198,7 +257,6 @@ async def _fetch_djen(
                     timeout=DJEN_TIMEOUT,
                 )
             else:
-                # ---- chamada direta (local) ----
                 resp = await client.get(
                     DJEN_API_BASE,
                     params={
@@ -236,33 +294,23 @@ async def _fetch_djen(
 
 
 async def _fetch_datajud(numero: str, tribunal: str, client: httpx.AsyncClient) -> Optional[dict]:
-    """Consulta capa processual no DataJud."""
     digits = re.sub(r"\D+", "", numero)
     if not digits:
         return None
-
-    url = f"{DATAJUD_API_BASE}/api_publica_{tribunal}/_search"
+    url  = f"{DATAJUD_API_BASE}/api_publica_{tribunal}/_search"
     body = {"size": 1, "query": {"match": {"numeroProcesso": digits}}}
-    headers = {
-        "Authorization": f"APIKey {DATAJUD_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
+    hdrs = {"Authorization": f"APIKey {DATAJUD_API_KEY}", "Content-Type": "application/json"}
     try:
-        resp = await client.post(url, json=body, headers=headers, timeout=DATAJUD_TIMEOUT)
+        resp = await client.post(url, json=body, headers=hdrs, timeout=DATAJUD_TIMEOUT)
     except httpx.RequestError:
         return None
-
     if resp.status_code != 200:
         return None
-
     try:
-        data = resp.json()
+        hits = (resp.json().get("hits") or {}).get("hits") or []
+        return hits[0].get("_source") if hits else None
     except Exception:
         return None
-
-    hits = (data.get("hits") or {}).get("hits") or []
-    return hits[0].get("_source") if hits else None
 
 
 # ---------------------------------------------------------------------------
@@ -298,7 +346,9 @@ def _insert_chunk(db: Session, rows: List[MigrationRow]) -> Tuple[int, int]:
 
 
 # ---------------------------------------------------------------------------
-# Núcleo: processa uma OAB em um período
+# monitorar_oab — cria MonitorTarefa para execução via browser
+# ✅ NOVO: em vez de chamar o DJEN diretamente (bloqueado no Render),
+#    cria uma tarefa pendente que o browser executa no login.
 # ---------------------------------------------------------------------------
 
 async def monitorar_oab(
@@ -308,239 +358,33 @@ async def monitorar_oab(
     data_fim: date,
 ) -> dict:
     """
-    Executa o ciclo completo para uma OAB:
-      DJEN → MigrationRow → DataJud (enriquecimento automático)
-
-    Retorna dict com:
-      total_extraidos, total_inseridos, total_ignorados, erros: List[str]
+    Cria uma MonitorTarefa pendente para execução via browser do advogado.
+    Usado pelo botão '▶ Agora' e pelo job das 7h15.
     """
-    office_id = oab.office_id
-    numero_oab = oab.numero_oab
-    uf_oab = oab.uf_oab
-
-    erros: List[str] = []
-    total_extraidos = total_inseridos = total_ignorados = 0
-
-    # ---- cria batch ----
-    batch = MigrationBatch(office_id=office_id, criado_em=now_br())
-    _safe_set(batch, "status", BatchStatus.PROCESSANDO)
-    _safe_set(batch, "arquivo_nome",
-              f"Monitor DJEN — OAB {numero_oab}/{uf_oab} "
-              f"({data_inicio:%d/%m/%Y} a {data_fim:%d/%m/%Y})")
-    _safe_set(batch, "total_extraidos", 0)
-    _safe_set(batch, "total_inseridos", 0)
-    _safe_set(batch, "total_ignorados", 0)
-    db.add(batch)
-    db.commit()
-    db.refresh(batch)
-    batch_id = batch.id
-
-    # ---- duplicidade do dia ----
-    hoje = now_br().date()
-    nums_hoje = set(
-        x[0] for x in (
-            db.query(MigrationRow.numero_processo)
-            .join(MigrationBatch, MigrationBatch.id == MigrationRow.batch_id)
-            .filter(
-                MigrationBatch.office_id == office_id,
-                func.date(MigrationBatch.criado_em) == hoje,
-            )
-            .all()
-        ) if x and x[0]
+    tarefa = MonitorTarefa(
+        office_id   = oab.office_id,
+        oab_id      = oab.id,
+        numero_oab  = oab.numero_oab,
+        uf_oab      = oab.uf_oab,
+        data_inicio = data_inicio,
+        data_fim    = data_fim,
+        status      = "PENDENTE",
+        criado_em   = now_br(),
     )
-
-    async with httpx.AsyncClient() as client:
-
-        # ---- 1. consulta DJEN ----
-        try:
-            itens_djen = await _fetch_djen(numero_oab, uf_oab, data_inicio, data_fim, client)
-        except RuntimeError as e:
-            erros.append(str(e))
-            _safe_set(batch, "status", BatchStatus.ERRO)
-            _safe_set(batch, "erro_processamento", str(e)[:10000])
-            _safe_set(batch, "processado_em", now_br())
-            db.add(batch)
-            db.commit()
-            return {
-                "total_extraidos": 0,
-                "total_inseridos": 0,
-                "total_ignorados": 0,
-                "erros": erros,
-            }
-
-        # ---- 2. converte e persiste ----
-        seen: set = set()
-        buffer: List[MigrationRow] = []
-        rows_para_enriquecer: List[MigrationRow] = []
-
-        for raw in itens_djen:
-            numero = (
-                str(raw.get("numero_processo") or raw.get("numeroProcesso") or "")
-            ).strip()
-
-            if not numero or numero in seen or numero in nums_hoje:
-                total_ignorados += 1
-                continue
-
-            seen.add(numero)
-            total_extraidos += 1
-
-            d_disp = _parse_date(raw.get("data_disponibilizacao") or raw.get("dataDisponibilizacao"))
-            # ✅ data_publicacao = primeiro dia útil após disponibilização
-            d_pub = (d_disp + timedelta(days=1)) if d_disp else None
-            if d_pub:
-                while d_pub.weekday() >= 5:
-                    d_pub += timedelta(days=1)
-
-            orgao = (raw.get("nomeOrgao") or raw.get("orgao") or "").strip()
-            tipo  = (raw.get("tipoComunicacao") or raw.get("tipo_comunicacao") or "").strip()
-            trib  = (raw.get("siglaTribunal") or raw.get("tribunal") or "").strip()
-
-            diario_parts = [p for p in [trib, tipo] if p]
-            diario = " — ".join(diario_parts) or None
-
-            texto = _clean_text(str(raw.get("texto") or raw.get("conteudo") or ""))
-            link  = raw.get("link")
-
-            # ✅ extrai prazo do texto DJEN (onde o prazo realmente está)
-            prazo_djen = None
-            if texto:
-                import re as _re
-                DIAS_RX = _re.compile(
-                    r"prazo\s+(?:de\s+)?(\d+)|(\d+)\s*(?:\([^)]+\)\s*)?dias?|(\d+)\s+dias?\s+(?:úteis|corridos|para)",
-                    _re.IGNORECASE,
-                )
-                for m in DIAS_RX.finditer(texto):
-                    dias_str = m.group(1) or m.group(2) or m.group(3)
-                    try:
-                        dias = int(dias_str)
-                        if 1 <= dias <= 365:
-                            prazo_djen = dias
-                            break
-                    except (ValueError, TypeError):
-                        pass
-
-            # formata observação legível
-            obs_parts = []
-            if texto:
-                texto_fmt = _re.sub(r"([.;])\s+", r"\1\n", texto)
-                obs_parts.append(texto_fmt.strip())
-            if link:
-                obs_parts.append(f"\n🔗 Documento completo: {link}")
-
-            row = MigrationRow(
-                office_id=office_id,
-                batch_id=batch_id,
-                data_disponibilizacao=d_disp,
-                data_publicacao=d_pub,
-                numero_processo=numero,
-                diario=diario,
-            )
-            _safe_set(row, "vara_tramitacao", orgao or None)
-            _safe_set(row, "tipo_contagem", "uteis")
-            _safe_set(row, "observacao", "\n".join(obs_parts)[:8000] or None)
-            if prazo_djen:
-                _safe_set(row, "rompe_em_dias", prazo_djen)
-
-            buffer.append(row)
-
-            if len(buffer) >= INSERT_CHUNK:
-                ins, blk = _insert_chunk(db, buffer)
-                total_inseridos += ins
-                total_ignorados += blk
-                rows_para_enriquecer.extend(buffer[:ins])
-                buffer.clear()
-
-        if buffer:
-            ins, blk = _insert_chunk(db, buffer)
-            total_inseridos += ins
-            total_ignorados += blk
-            rows_para_enriquecer.extend(buffer[:ins])
-            buffer.clear()
-
-        # ---- 3. enriquecimento DataJud automático ----
-        for row in rows_para_enriquecer:
-            # re-busca o objeto do banco (pode ter sido expungido)
-            row_db = db.query(MigrationRow).filter(MigrationRow.id == row.id).first()
-            if not row_db:
-                continue
-
-            tribunal = _identificar_tribunal(row_db.numero_processo)
-            if not tribunal:
-                continue
-
-            try:
-                fonte = await _fetch_datajud(row_db.numero_processo, tribunal, client)
-            except Exception:
-                continue
-
-            if not fonte:
-                continue
-
-            atualizado = False
-
-            # preenche cliente se vazio
-            if not (row_db.cliente or "").strip():
-                nome = _extrair_parte(fonte, "ATIVO") or _extrair_parte(fonte, "PASSIVO")
-                if nome:
-                    row_db.cliente = nome
-                    atualizado = True
-
-            # preenche vara se vazio
-            if not (row_db.vara_tramitacao or "").strip():
-                orgao_dj = ((fonte.get("orgaoJulgador") or {}).get("nome") or "").strip()
-                if orgao_dj:
-                    row_db.vara_tramitacao = orgao_dj
-                    atualizado = True
-
-            # anexa bloco DataJud na observação
-            classe   = ((fonte.get("classe") or {}).get("nome") or "").strip()
-            grau     = (fonte.get("grau") or "").strip()
-            d_ajuiz  = _parse_date(str(fonte.get("dataAjuizamento") or "")[:10])
-            resumo   = _resumo_movimentos(fonte, limite=5)
-
-            bloco_partes = []
-            if classe:
-                bloco_partes.append(f"Classe: {classe}" + (f" ({grau})" if grau else ""))
-            if d_ajuiz:
-                bloco_partes.append(f"Ajuizamento: {d_ajuiz:%d/%m/%Y}")
-            if resumo:
-                bloco_partes.append(f"Últimas movimentações:\n{resumo}")
-
-            if bloco_partes:
-                bloco = f"[DataJud — {tribunal.upper()}]\n" + "\n".join(bloco_partes)
-                existente = (row_db.observacao or "").strip()
-                row_db.observacao = (
-                    existente + ("\n\n" if existente else "") + bloco
-                )[:8000]
-                atualizado = True
-
-            if atualizado:
-                db.add(row_db)
-
-        db.commit()
-
-    # ---- finaliza batch ----
-    batch = db.query(MigrationBatch).filter(MigrationBatch.id == batch_id).first()
-    if batch:
-        _safe_set(batch, "status", BatchStatus.CONCLUIDO)
-        _safe_set(batch, "total_extraidos", total_extraidos)
-        _safe_set(batch, "total_inseridos", total_inseridos)
-        _safe_set(batch, "total_ignorados", total_ignorados)
-        _safe_set(batch, "processado_em", now_br())
-        db.add(batch)
-        db.commit()
+    db.add(tarefa)
+    db.commit()
 
     return {
-        "total_extraidos": total_extraidos,
-        "total_inseridos": total_inseridos,
-        "total_ignorados": total_ignorados,
-        "erros": erros,
+        "total_extraidos": 0,
+        "total_inseridos": 0,
+        "total_ignorados": 0,
+        "erros": [],
+        "tarefa_id": tarefa.id,
     }
 
 
 # ---------------------------------------------------------------------------
-# Ponto de entrada: roda para TODOS os escritórios com OABs ativas
+# rodar_monitoramento — mantido para compatibilidade com rodar_monitor.py
 # ---------------------------------------------------------------------------
 
 async def rodar_monitoramento(
@@ -548,21 +392,14 @@ async def rodar_monitoramento(
     data_fim: Optional[date] = None,
 ) -> None:
     """
-    Chamado pelo APScheduler (main.py) ou pelo script CLI.
-    Varre todos os escritórios que têm OABs ativas e executa
-    `monitorar_oab` para cada uma.
-
-    Se data_inicio/data_fim não forem passadas, usa ontem como período
-    (padrão para o job diário automático).
+    Chamado pelo script CLI (rodar_monitor.py).
+    Cria MonitorTarefa pendente para cada OAB ativa.
     """
     hoje = now_br().date()
-    if data_inicio is None:
-        data_inicio = hoje - timedelta(days=1)
-    if data_fim is None:
-        data_fim = hoje - timedelta(days=1)
+    if data_inicio is None or data_fim is None:
+        data_inicio, data_fim = _calcular_periodo(hoje)
 
     db: Session = SessionLocal()
-
     try:
         oabs_ativas: List[OabMonitorada] = (
             db.query(OabMonitorada)
@@ -575,66 +412,100 @@ async def rodar_monitoramento(
             logger.info("[MONITOR] Nenhuma OAB ativa cadastrada.")
             return
 
-        logger.info(f"[MONITOR] {len(oabs_ativas)} OAB(s) ativa(s) — "
-                    f"período {data_inicio:%d/%m/%Y} a {data_fim:%d/%m/%Y}")
+        logger.info(
+            f"[MONITOR] {len(oabs_ativas)} OAB(s) ativa(s) — "
+            f"{data_inicio:%d/%m/%Y} a {data_fim:%d/%m/%Y}"
+        )
 
         for oab in oabs_ativas:
-            label = f"OAB {oab.numero_oab}/{oab.uf_oab} (office {oab.office_id})"
-            logger.info(f"[MONITOR] Iniciando {label}")
-
             try:
-                resultado = await monitorar_oab(db, oab, data_inicio, data_fim)
-
-                resumo = (
-                    f"{resultado['total_inseridos']} intimação(ões) nova(s) | "
-                    f"extraídas: {resultado['total_extraidos']} | "
-                    f"ignoradas: {resultado['total_ignorados']}"
+                await monitorar_oab(db, oab, data_inicio, data_fim)
+                logger.info(
+                    f"[MONITOR] Tarefa criada — "
+                    f"OAB {oab.numero_oab}/{oab.uf_oab} (office {oab.office_id})"
                 )
-
-                status = "VAZIO" if resultado["total_inseridos"] == 0 else "OK"
-                if resultado["erros"]:
-                    status = "ERRO"
-                    resumo += " | Erros: " + "; ".join(resultado["erros"])
-
-                oab.ultimo_monitoramento_em     = now_br()
-                oab.ultimo_monitoramento_status  = status
-                oab.ultimo_monitoramento_resumo  = resumo[:1000]
-                oab.atualizado_em               = now_br()
-                db.add(oab)
-                db.commit()
-
-                logger.info(f"[MONITOR] {label} → {status} — {resumo}")
-
             except Exception as e:
                 db.rollback()
-                logger.exception(f"[MONITOR] Erro inesperado em {label}: {e}")
-
-                try:
-                    oab.ultimo_monitoramento_em     = now_br()
-                    oab.ultimo_monitoramento_status  = "ERRO"
-                    oab.ultimo_monitoramento_resumo  = str(e)[:1000]
-                    oab.atualizado_em               = now_br()
-                    db.add(oab)
-                    db.commit()
-                except Exception:
-                    db.rollback()
+                logger.exception(f"[MONITOR] Erro ao criar tarefa: {e}")
 
     finally:
         db.close()
 
 
 # ---------------------------------------------------------------------------
-# Wrapper síncrono para o APScheduler (BackgroundScheduler é síncrono)
+# job_monitorar_djen — chamado pelo APScheduler às 7h15
+# ✅ NOVO: calcula período automático com feriados nacionais e cria tarefas
 # ---------------------------------------------------------------------------
 
 def job_monitorar_djen() -> None:
     """
     Wrapper síncrono chamado pelo APScheduler.
-    Cria um event loop temporário para rodar o código assíncrono.
+    Calcula o período correto (cobrindo fins de semana e feriados nacionais)
+    e cria MonitorTarefa pendente para cada OAB ativa.
+    O browser executa a consulta DJEN no próximo login do advogado.
     """
-    logger.info("[MONITOR] Job diário DJEN iniciado")
+    logger.info("[MONITOR] Job das 7h15 iniciado")
+
+    hoje = now_br().date()
+    data_inicio, data_fim = _calcular_periodo(hoje)
+
+    logger.info(
+        f"[MONITOR] Período calculado: "
+        f"{data_inicio:%d/%m/%Y} a {data_fim:%d/%m/%Y}"
+    )
+
+    db: Session = SessionLocal()
     try:
-        asyncio.run(rodar_monitoramento())
+        oabs_ativas: List[OabMonitorada] = (
+            db.query(OabMonitorada)
+            .filter(OabMonitorada.ativa == True)  # noqa: E712
+            .order_by(OabMonitorada.office_id, OabMonitorada.id)
+            .all()
+        )
+
+        if not oabs_ativas:
+            logger.info("[MONITOR] Nenhuma OAB ativa cadastrada.")
+            return
+
+        criadas = 0
+        for oab in oabs_ativas:
+            # Evita criar tarefa duplicada para o mesmo dia
+            ja_existe = (
+                db.query(MonitorTarefa)
+                .filter(
+                    MonitorTarefa.office_id == oab.office_id,
+                    MonitorTarefa.oab_id    == oab.id,
+                    MonitorTarefa.data_fim  == data_fim,
+                    MonitorTarefa.status    != "ERRO",
+                )
+                .first()
+            )
+            if ja_existe:
+                continue
+
+            tarefa = MonitorTarefa(
+                office_id   = oab.office_id,
+                oab_id      = oab.id,
+                numero_oab  = oab.numero_oab,
+                uf_oab      = oab.uf_oab,
+                data_inicio = data_inicio,
+                data_fim    = data_fim,
+                status      = "PENDENTE",
+                criado_em   = now_br(),
+            )
+            db.add(tarefa)
+            criadas += 1
+
+        db.commit()
+        logger.info(
+            f"[MONITOR] {criadas} tarefa(s) criada(s) para "
+            f"{len(oabs_ativas)} OAB(s) ativa(s)."
+        )
+
     except Exception as e:
-        logger.exception(f"[MONITOR] Falha no job diário: {e}")
-    logger.info("[MONITOR] Job diário DJEN concluído")
+        db.rollback()
+        logger.exception(f"[MONITOR] Erro ao criar tarefas: {e}")
+    finally:
+        db.close()
+
+    logger.info("[MONITOR] Job das 7h15 concluído")

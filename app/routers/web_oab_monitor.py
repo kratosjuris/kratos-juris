@@ -215,3 +215,84 @@ async def oabs_monitorar_agora(
         f"encontrados: {resultado['total_extraidos']} | "
         f"ignorados: {resultado['total_ignorados']}."
     )
+
+
+# ---------------------------------------------------------------------------
+# API JSON — tarefas pendentes (chamada pelo browser no login)
+# ---------------------------------------------------------------------------
+
+from fastapi.responses import JSONResponse
+from app.models.oab_monitorada import MonitorTarefa
+
+
+@router.get("/api/monitor/tarefas-pendentes")
+def tarefas_pendentes(request: Request, db: Session = Depends(get_db)):
+    """Retorna tarefas PENDENTES do office para execução pelo browser."""
+    office_id = _get_office_id(request)
+
+    tarefas = (
+        db.query(MonitorTarefa)
+        .filter(
+            MonitorTarefa.office_id == office_id,
+            MonitorTarefa.status    == "PENDENTE",
+        )
+        .order_by(MonitorTarefa.criado_em.asc())
+        .all()
+    )
+
+    return JSONResponse([{
+        "id":          t.id,
+        "numero_oab":  t.numero_oab,
+        "uf_oab":      t.uf_oab,
+        "data_inicio": t.data_inicio.isoformat(),
+        "data_fim":    t.data_fim.isoformat(),
+    } for t in tarefas])
+
+
+@router.post("/api/monitor/tarefas/{tarefa_id}/concluir")
+async def concluir_tarefa(
+    request: Request,
+    tarefa_id: int,
+    inseridos: int = Form(0),
+    ignorados: int = Form(0),
+    extraidos: int = Form(0),
+    erro: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """
+    Chamado pelo browser após executar a consulta DJEN.
+    Marca a tarefa como CONCLUIDA e atualiza OabMonitorada.
+    """
+    office_id = _get_office_id(request)
+
+    tarefa = (
+        db.query(MonitorTarefa)
+        .filter(MonitorTarefa.id == tarefa_id, MonitorTarefa.office_id == office_id)
+        .first()
+    )
+    if not tarefa:
+        return JSONResponse({"ok": False, "erro": "Tarefa não encontrada"}, status_code=404)
+
+    tarefa.status              = "ERRO" if erro else "CONCLUIDA"
+    tarefa.resultado_inseridos = inseridos
+    tarefa.resultado_ignorados = ignorados
+    tarefa.resultado_extraidos = extraidos
+    tarefa.resultado_erro      = erro or None
+    tarefa.executado_em        = now_br()
+    db.add(tarefa)
+
+    # Atualiza OabMonitorada com último resultado
+    oab = db.query(OabMonitorada).filter(OabMonitorada.id == tarefa.oab_id).first()
+    if oab:
+        oab.ultimo_monitoramento_em     = now_br()
+        oab.ultimo_monitoramento_status = "ERRO" if erro else ("VAZIO" if inseridos == 0 else "OK")
+        oab.ultimo_monitoramento_resumo = (
+            erro or
+            f"{inseridos} intimação(ões) nova(s) | "
+            f"encontradas: {extraidos} | ignoradas: {ignorados}"
+        )[:1000]
+        oab.atualizado_em = now_br()
+        db.add(oab)
+
+    db.commit()
+    return JSONResponse({"ok": True})

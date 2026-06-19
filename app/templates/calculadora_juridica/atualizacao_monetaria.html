@@ -10,42 +10,37 @@
         Preencha os dados, lance os valores e gere o relatório de cálculo.
       </div>
     </div>
-
-    <a href="/calculadora-juridica" class="btn btn-outline-secondary">
-      Voltar
-    </a>
+    <a href="/calculadora-juridica" class="btn btn-outline-secondary">Voltar</a>
   </div>
 
   <form method="post" action="/calculadora-juridica/atualizacao/gerar" id="formCalculo">
 
-    <input type="hidden" name="lancamentos_json" id="lancamentos_json">
-    <input type="hidden" name="deducoes_json" id="deducoes_json">
+    <input type="hidden" name="lancamentos_json"  id="lancamentos_json">
+    <input type="hidden" name="deducoes_json"     id="deducoes_json">
+    <input type="hidden" name="multas_json"       id="multas_json">
+    <input type="hidden" name="honorarios_json"   id="honorarios_json">
 
+    {# ── Dados do processo ── #}
     <div class="card shadow-sm mb-4">
       <div class="card-body">
         <h5 class="mb-3">Dados do processo</h5>
-
         <div class="row g-3">
           <div class="col-md-4">
             <label class="form-label">Número do processo</label>
             <input type="text" name="processo" class="form-control">
           </div>
-
           <div class="col-md-4">
             <label class="form-label">Vara de tramitação</label>
             <input type="text" name="vara" class="form-control">
           </div>
-
           <div class="col-md-4">
             <label class="form-label">Data final do cálculo</label>
             <input type="date" name="data_final_calculo" class="form-control" required>
           </div>
-
           <div class="col-md-6">
             <label class="form-label">Parte exequente</label>
             <input type="text" name="exequente" class="form-control">
           </div>
-
           <div class="col-md-6">
             <label class="form-label">Parte executada</label>
             <input type="text" name="executado" class="form-control">
@@ -54,10 +49,10 @@
       </div>
     </div>
 
+    {# ── Índice e juros ── #}
     <div class="card shadow-sm mb-4">
       <div class="card-body">
         <h5 class="mb-3">Índice e juros</h5>
-
         <div class="row g-3">
           <div class="col-md-6">
             <label class="form-label">Índice de correção monetária</label>
@@ -67,7 +62,6 @@
               <option value="ipca">IPCA durante todo o período</option>
             </select>
           </div>
-
           <div class="col-md-3">
             <label class="form-label">Tipo de juros</label>
             <select name="juros_tipo" class="form-select">
@@ -76,12 +70,10 @@
               <option value="legal">Juros legais</option>
             </select>
           </div>
-
           <div class="col-md-3">
             <label class="form-label">Percentual de juros ao mês</label>
             <input type="text" name="juros_percentual" class="form-control" placeholder="Ex: 1">
           </div>
-
           <div class="col-md-6">
             <label class="form-label">Incidência dos juros</label>
             <select name="juros_incidencia" class="form-select">
@@ -90,7 +82,6 @@
               <option value="data_fixa">A partir de uma data fixa</option>
             </select>
           </div>
-
           <div class="col-md-3">
             <label class="form-label">Data da citação/data fixa</label>
             <input type="date" name="juros_data_base" class="form-control">
@@ -99,10 +90,10 @@
       </div>
     </div>
 
+    {# ── Lançamento individual ── #}
     <div class="card shadow-sm mb-4">
       <div class="card-body">
         <h5 class="mb-3">Valores devidos — lançamento individual</h5>
-
         <div class="row g-3 align-items-end">
           <div class="col-md-3">
             <label class="form-label">Tipo</label>
@@ -115,35 +106,30 @@
               <option value="Outro">Outro</option>
             </select>
           </div>
-
           <div class="col-md-2">
             <label class="form-label">Data</label>
             <input type="date" id="lanc_data" class="form-control">
           </div>
-
           <div class="col-md-4">
             <label class="form-label">Descrição</label>
             <input type="text" id="lanc_descricao" class="form-control">
           </div>
-
           <div class="col-md-2">
             <label class="form-label">Valor</label>
             <input type="text" id="lanc_valor" class="form-control" placeholder="0,00">
           </div>
-
           <div class="col-md-1">
-            <button type="button" class="btn btn-primary w-100" onclick="adicionarLancamento()">
-              +
-            </button>
+            <button type="button" id="lanc_btn_add" class="btn btn-primary w-100"
+                    onclick="adicionarLancamento()">+</button>
           </div>
         </div>
       </div>
     </div>
 
+    {# ── Lançamento em lote ── #}
     <div class="card shadow-sm mb-4">
       <div class="card-body">
         <h5 class="mb-3">Lançamento em lote</h5>
-
         <div class="row g-3 align-items-end">
           <div class="col-md-2">
             <label class="form-label">Tipo</label>
@@ -154,138 +140,179 @@
               <option value="Outro">Outro</option>
             </select>
           </div>
-
           <div class="col-md-2">
             <label class="form-label">Data inicial</label>
             <input type="date" id="lote_data" class="form-control">
           </div>
-
           <div class="col-md-3">
             <label class="form-label">Nomenclatura</label>
             <input type="text" id="lote_nome" class="form-control" placeholder="Parcela">
           </div>
-
           <div class="col-md-2">
             <label class="form-label">Valor nominal</label>
             <input type="text" id="lote_valor" class="form-control" placeholder="0,00">
           </div>
-
           <div class="col-md-2">
             <label class="form-label">Quantidade</label>
             <input type="number" id="lote_qtd" class="form-control" min="1">
           </div>
-
           <div class="col-md-1">
-            <button type="button" class="btn btn-primary w-100" onclick="gerarLote()">
-              +
-            </button>
+            <button type="button" class="btn btn-primary w-100" onclick="gerarLote()">+</button>
           </div>
         </div>
       </div>
     </div>
 
+    {# ── Lançamentos adicionados ── #}
     <div class="card shadow-sm mb-4">
       <div class="card-body">
         <h5 class="mb-3">Lançamentos adicionados</h5>
-
         <div class="table-responsive">
           <table class="table table-sm align-middle">
             <thead>
               <tr>
-                <th>Data</th>
-                <th>Tipo</th>
-                <th>Descrição</th>
-                <th>Valor</th>
-                <th style="width: 150px;">Ações</th>
+                <th>Data</th><th>Tipo</th><th>Descrição</th><th>Valor</th>
+                <th style="width:150px">Ações</th>
               </tr>
             </thead>
             <tbody id="tbodyLancamentos">
-              <tr>
-                <td colspan="5" class="text-muted">Nenhum lançamento adicionado.</td>
-              </tr>
+              <tr><td colspan="5" class="text-muted">Nenhum lançamento adicionado.</td></tr>
             </tbody>
           </table>
         </div>
       </div>
     </div>
 
+    {# ── Multas ── #}
     <div class="card shadow-sm mb-4">
       <div class="card-body">
-        <h5 class="mb-3">Multa, honorários e custas</h5>
-
-        <div class="row g-3">
-
-          {# ── Multa ── #}
+        <h5 class="mb-3">Multas</h5>
+        <div class="row g-3 align-items-end">
           <div class="col-md-4">
-            <label class="form-label">Tipo de multa</label>
-            <select name="multa_tipo" id="multa_tipo" class="form-select"
-                    onchange="toggleMulta()">
+            <label class="form-label">Descrição</label>
+            <input type="text" id="mul_descricao" class="form-control"
+                   placeholder="Ex: Multa art. 523 CPC">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Tipo</label>
+            <select id="mul_tipo" class="form-select" onchange="toggleMulTipo()">
               <option value="valor">Valor fixo (R$)</option>
-              <option value="percentual">Percentual sobre o valor corrigido (%)</option>
+              <option value="percentual">Percentual (%)</option>
             </select>
           </div>
-
-          <div class="col-md-4" id="campo_multa_valor">
-            <label class="form-label">Multa (R$)</label>
-            <input type="text" name="multa_valor" class="form-control" placeholder="0,00">
+          <div class="col-md-2" id="mul_campo_valor">
+            <label class="form-label">Valor (R$)</label>
+            <input type="text" id="mul_valor" class="form-control" placeholder="0,00">
           </div>
-
-          <div class="col-md-4 d-none" id="campo_multa_percentual">
-            <label class="form-label">Multa (%)</label>
+          <div class="col-md-2 d-none" id="mul_campo_percentual">
+            <label class="form-label">Percentual (%)</label>
             <div class="input-group">
-              <input type="text" name="multa_percentual" class="form-control" placeholder="Ex: 10">
+              <input type="text" id="mul_percentual" class="form-control" placeholder="Ex: 10">
               <span class="input-group-text">%</span>
             </div>
-            <div class="form-text text-muted">
-              Calculado sobre valor corrigido + juros.
-            </div>
           </div>
-
-          <div class="col-md-4">
-            <label class="form-label">Custas/despesas</label>
-            <input type="text" name="custas_valor" class="form-control" placeholder="0,00">
+          <div class="col-md-2">
+            <label class="form-label d-block">&nbsp;</label>
+            <button type="button" id="mul_btn_add" class="btn btn-primary w-100"
+                    onclick="adicionarMulta()">+</button>
           </div>
-
-          {# ── Honorários ── #}
-          <div class="col-md-4">
-            <label class="form-label">Tipo de honorários</label>
-            <select name="honorarios_tipo" id="honorarios_tipo" class="form-select"
-                    onchange="toggleHonorarios()">
-              <option value="valor">Valor fixo (R$)</option>
-              <option value="percentual">Percentual sobre o valor corrigido (%)</option>
-            </select>
-          </div>
-
-          <div class="col-md-4" id="campo_honorarios_valor">
-            <label class="form-label">Honorários (R$)</label>
-            <input type="text" name="honorarios_valor" class="form-control" placeholder="0,00">
-          </div>
-
-          <div class="col-md-4 d-none" id="campo_honorarios_percentual">
-            <label class="form-label">Honorários (%)</label>
-            <div class="input-group">
-              <input type="text" name="honorarios_percentual" class="form-control" placeholder="Ex: 20">
-              <span class="input-group-text">%</span>
-            </div>
-            <div class="form-text text-muted">
-              Calculado sobre valor corrigido + juros.
-            </div>
-          </div>
-
+        </div>
+        <div class="form-text text-muted mt-1">
+          Percentual calculado sobre valor corrigido + juros.
+        </div>
+        <hr>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Descrição</th><th>Tipo</th><th>Valor/Percentual</th>
+                <th style="width:150px">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyMultas">
+              <tr><td colspan="4" class="text-muted">Nenhuma multa adicionada.</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
 
+    {# ── Honorários ── #}
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h5 class="mb-3">Honorários</h5>
+        <div class="row g-3 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label">Descrição</label>
+            <input type="text" id="hon_descricao" class="form-control"
+                   placeholder="Ex: Honorários sucumbenciais">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Tipo</label>
+            <select id="hon_tipo" class="form-select" onchange="toggleHonTipo()">
+              <option value="valor">Valor fixo (R$)</option>
+              <option value="percentual">Percentual (%)</option>
+            </select>
+          </div>
+          <div class="col-md-2" id="hon_campo_valor">
+            <label class="form-label">Valor (R$)</label>
+            <input type="text" id="hon_valor" class="form-control" placeholder="0,00">
+          </div>
+          <div class="col-md-2 d-none" id="hon_campo_percentual">
+            <label class="form-label">Percentual (%)</label>
+            <div class="input-group">
+              <input type="text" id="hon_percentual" class="form-control" placeholder="Ex: 20">
+              <span class="input-group-text">%</span>
+            </div>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label d-block">&nbsp;</label>
+            <button type="button" id="hon_btn_add" class="btn btn-primary w-100"
+                    onclick="adicionarHonorario()">+</button>
+          </div>
+        </div>
+        <div class="form-text text-muted mt-1">
+          Percentual calculado sobre valor corrigido + juros.
+        </div>
+        <hr>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Descrição</th><th>Tipo</th><th>Valor/Percentual</th>
+                <th style="width:150px">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyHonorarios">
+              <tr><td colspan="4" class="text-muted">Nenhum honorário adicionado.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    {# ── Custas ── #}
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h5 class="mb-3">Custas/despesas</h5>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Valor (R$)</label>
+            <input type="text" name="custas_valor" class="form-control" placeholder="0,00">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# ── Deduções ── #}
     <div class="card shadow-sm mb-4">
       <div class="card-body">
         <h5 class="mb-3">Deduções</h5>
-
         <div class="row g-3 align-items-end">
           <div class="col-md-3">
             <label class="form-label">Nome da dedução</label>
             <input type="text" id="ded_nome" class="form-control" placeholder="Pagamento parcial">
           </div>
-
           <div class="col-md-3">
             <label class="form-label">Tipo</label>
             <select id="ded_tipo" class="form-select">
@@ -293,44 +320,33 @@
               <option value="percentual">Percentual</option>
             </select>
           </div>
-
           <div class="col-md-3">
             <label class="form-label">Valor</label>
             <input type="text" id="ded_valor" class="form-control" placeholder="0,00">
           </div>
-
           <div class="col-md-2">
             <label class="form-label">Percentual</label>
             <input type="text" id="ded_percentual" class="form-control" placeholder="0">
           </div>
-
           <div class="col-md-1">
-            <button type="button" class="btn btn-primary w-100" onclick="adicionarDeducao()">
-              +
-            </button>
+            <button type="button" id="ded_btn_add" class="btn btn-primary w-100"
+                    onclick="adicionarDeducao()">+</button>
           </div>
         </div>
-
         <hr>
-
         <div class="table-responsive">
           <table class="table table-sm align-middle">
             <thead>
               <tr>
-                <th>Nome</th>
-                <th>Tipo</th>
-                <th>Valor/Percentual</th>
-                <th style="width: 150px;">Ações</th>
+                <th>Nome</th><th>Tipo</th><th>Valor/Percentual</th>
+                <th style="width:150px">Ações</th>
               </tr>
             </thead>
             <tbody id="tbodyDeducoes">
-              <tr>
-                <td colspan="4" class="text-muted">Nenhuma dedução adicionada.</td>
-              </tr>
+              <tr><td colspan="4" class="text-muted">Nenhuma dedução adicionada.</td></tr>
             </tbody>
           </table>
         </div>
-
       </div>
     </div>
 
@@ -339,46 +355,25 @@
     </div>
 
     <div class="d-flex gap-2 mb-5">
-      <button type="submit" class="btn btn-primary">
-        Gerar relatório de cálculo
-      </button>
-
-      <a href="/calculadora-juridica" class="btn btn-outline-secondary">
-        Cancelar
-      </a>
+      <button type="submit" class="btn btn-primary">Gerar relatório de cálculo</button>
+      <a href="/calculadora-juridica" class="btn btn-outline-secondary">Cancelar</a>
     </div>
 
   </form>
 </div>
 
-<script src="/static/js/atualizacao_monetaria.js"></script>
+<script src="/static/js/atualizacao_monetaria.js?v=3"></script>
 
 <script>
-  function toggleMulta() {
-    const tipo = document.getElementById("multa_tipo").value;
-    const campoValor      = document.getElementById("campo_multa_valor");
-    const campoPercentual = document.getElementById("campo_multa_percentual");
-    if (tipo === "percentual") {
-      campoValor.classList.add("d-none");
-      campoPercentual.classList.remove("d-none");
-    } else {
-      campoValor.classList.remove("d-none");
-      campoPercentual.classList.add("d-none");
-    }
+  function toggleMulTipo() {
+    const t = document.getElementById("mul_tipo").value;
+    document.getElementById("mul_campo_valor").classList.toggle("d-none", t === "percentual");
+    document.getElementById("mul_campo_percentual").classList.toggle("d-none", t !== "percentual");
   }
-
-  function toggleHonorarios() {
-    const tipo = document.getElementById("honorarios_tipo").value;
-    const campoValor      = document.getElementById("campo_honorarios_valor");
-    const campoPercentual = document.getElementById("campo_honorarios_percentual");
-
-    if (tipo === "percentual") {
-      campoValor.classList.add("d-none");
-      campoPercentual.classList.remove("d-none");
-    } else {
-      campoValor.classList.remove("d-none");
-      campoPercentual.classList.add("d-none");
-    }
+  function toggleHonTipo() {
+    const t = document.getElementById("hon_tipo").value;
+    document.getElementById("hon_campo_valor").classList.toggle("d-none", t === "percentual");
+    document.getElementById("hon_campo_percentual").classList.toggle("d-none", t !== "percentual");
   }
 </script>
 

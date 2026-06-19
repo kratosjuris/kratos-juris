@@ -6,36 +6,28 @@
   <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
       <h3 class="mb-1">Cálculo de Astreintes</h3>
-      <div class="text-muted">
-        Cálculo de multa diária por descumprimento.
-      </div>
+      <div class="text-muted">Cálculo de multa diária por descumprimento.</div>
     </div>
-
-    <a href="/calculadora-juridica" class="btn btn-outline-secondary">
-      Voltar
-    </a>
+    <a href="/calculadora-juridica" class="btn btn-outline-secondary">Voltar</a>
   </div>
 
-  <div class="alert alert-warning">
-    Esta tela já ficará preparada. No próximo passo vamos ligar o cálculo e o relatório detalhado das astreintes.
-  </div>
+  <form method="post" action="/calculadora-juridica/astreintes/gerar" id="formAstreintes">
 
-  <form method="post" action="/calculadora-juridica/astreintes/gerar">
+    <input type="hidden" name="periodos_json" id="periodos_json">
 
+    {# ── Dados do processo ── #}
     <div class="card shadow-sm mb-4">
       <div class="card-body">
-
+        <h5 class="mb-3">Dados do processo</h5>
         <div class="row g-3">
           <div class="col-md-4">
             <label class="form-label">Número do processo</label>
             <input type="text" name="processo" class="form-control">
           </div>
-
           <div class="col-md-4">
             <label class="form-label">Vara de tramitação</label>
             <input type="text" name="vara" class="form-control">
           </div>
-
           <div class="col-md-4">
             <label class="form-label">Tipo de contagem</label>
             <select name="tipo_contagem" class="form-select">
@@ -43,42 +35,236 @@
               <option value="uteis">Dias úteis</option>
             </select>
           </div>
-
           <div class="col-md-6">
             <label class="form-label">Parte exequente</label>
             <input type="text" name="exequente" class="form-control">
           </div>
-
           <div class="col-md-6">
             <label class="form-label">Parte executada</label>
             <input type="text" name="executado" class="form-control">
           </div>
-
-          <div class="col-md-4">
-            <label class="form-label">Data inicial</label>
-            <input type="date" name="data_inicial" class="form-control" required>
-          </div>
-
-          <div class="col-md-4">
-            <label class="form-label">Data final</label>
-            <input type="date" name="data_final" class="form-control" required>
-          </div>
-
-          <div class="col-md-4">
-            <label class="form-label">Valor da multa diária</label>
-            <input type="text" name="valor_diario" class="form-control" placeholder="0,00" required>
-          </div>
         </div>
-
       </div>
     </div>
 
-    <button class="btn btn-primary">
+    {# ── Períodos de astreintes ── #}
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h5 class="mb-3">Períodos de astreintes</h5>
+        <p class="text-muted small mb-3">
+          Adicione um período para cada fase de descumprimento. Em caso de revigoramento,
+          adicione um novo período com a data e o valor majorado.
+        </p>
+
+        <div class="row g-3 align-items-end">
+          <div class="col-md-3">
+            <label class="form-label">Descrição / Fase</label>
+            <input type="text" id="per_descricao" class="form-control"
+                   placeholder="Ex: 1ª fase, Revigoramento 1...">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Data inicial</label>
+            <input type="date" id="per_data_inicial" class="form-control">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Data final</label>
+            <input type="date" id="per_data_final" class="form-control">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Valor diário (R$)</label>
+            <input type="text" id="per_valor" class="form-control" placeholder="0,00">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Limite máximo (R$)</label>
+            <input type="text" id="per_limite" class="form-control"
+                   placeholder="Opcional">
+          </div>
+          <div class="col-md-1">
+            <button type="button" id="per_btn_add" class="btn btn-primary w-100"
+                    onclick="adicionarPeriodo()">+</button>
+          </div>
+        </div>
+        <div class="form-text text-muted mt-1">
+          O limite máximo é opcional. Se informado, o acumulado do período não ultrapassará esse valor.
+        </div>
+
+        <hr>
+
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Fase</th>
+                <th>Data inicial</th>
+                <th>Data final</th>
+                <th>Valor diário</th>
+                <th>Limite máx.</th>
+                <th style="width:150px">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyPeriodos">
+              <tr><td colspan="6" class="text-muted">Nenhum período adicionado.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="alert alert-info small">
+      Os períodos são calculados de forma independente e o total final é a soma de todos os períodos.
+    </div>
+
+    <button type="submit" class="btn btn-primary">
       Gerar relatório de astreintes
     </button>
 
   </form>
-
 </div>
+
+<script>
+let periodos = [];
+let editandoPeriodoIndex = null;
+
+function limparMoeda(v) {
+  return v ? String(v).replace("R$","").trim() : "0,00";
+}
+function formatarData(iso) {
+  if (!iso) return "";
+  const p = iso.split("-");
+  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : iso;
+}
+
+function adicionarPeriodo() {
+  const descricao   = document.getElementById("per_descricao").value || "";
+  const data_inicial= document.getElementById("per_data_inicial").value;
+  const data_final  = document.getElementById("per_data_final").value;
+  const valor       = limparMoeda(document.getElementById("per_valor").value);
+  const limite      = limparMoeda(document.getElementById("per_limite").value);
+
+  if (!data_inicial || !data_final || !valor || valor === "0,00") {
+    alert("Informe data inicial, data final e valor diário.");
+    return;
+  }
+  if (data_final < data_inicial) {
+    alert("A data final não pode ser anterior à data inicial.");
+    return;
+  }
+
+  const item = { descricao, data_inicial, data_final, valor, limite };
+
+  if (editandoPeriodoIndex !== null) {
+    periodos[editandoPeriodoIndex] = item;
+    editandoPeriodoIndex = null;
+    document.getElementById("per_btn_add").textContent = "+";
+  } else {
+    periodos.push(item);
+  }
+
+  document.getElementById("per_descricao").value   = "";
+  document.getElementById("per_data_inicial").value= "";
+  document.getElementById("per_data_final").value  = "";
+  document.getElementById("per_valor").value       = "";
+  document.getElementById("per_limite").value      = "";
+
+  renderPeriodos();
+}
+
+function editarPeriodo(i) {
+  if (editandoPeriodoIndex !== null && editandoPeriodoIndex !== i) {
+    confirmarEdicaoPeriodo(editandoPeriodoIndex);
+  }
+  editandoPeriodoIndex = i;
+  renderPeriodos();
+}
+
+function confirmarEdicaoPeriodo(i) {
+  const descricao    = document.getElementById(`edit_per_desc_${i}`).value || "";
+  const data_inicial = document.getElementById(`edit_per_di_${i}`).value;
+  const data_final   = document.getElementById(`edit_per_df_${i}`).value;
+  const valor        = limparMoeda(document.getElementById(`edit_per_val_${i}`).value);
+  const limite       = limparMoeda(document.getElementById(`edit_per_lim_${i}`).value);
+  if (!data_inicial || !data_final || !valor || valor === "0,00") {
+    alert("Informe data inicial, data final e valor diário."); return;
+  }
+  periodos[i] = { descricao, data_inicial, data_final, valor, limite };
+  editandoPeriodoIndex = null;
+  renderPeriodos();
+}
+
+function cancelarEdicaoPeriodo() {
+  editandoPeriodoIndex = null;
+  renderPeriodos();
+}
+
+function excluirPeriodo(i) {
+  if (!confirm("Excluir este período?")) return;
+  if (editandoPeriodoIndex === i) editandoPeriodoIndex = null;
+  periodos.splice(i, 1);
+  renderPeriodos();
+}
+
+function renderPeriodos() {
+  const tbody = document.getElementById("tbodyPeriodos");
+  if (!periodos.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-muted">Nenhum período adicionado.</td></tr>`;
+    atualizarHidden(); return;
+  }
+
+  let html = "";
+  periodos.forEach((item, i) => {
+    if (editandoPeriodoIndex === i) {
+      html += `
+      <tr class="table-warning">
+        <td><input type="text" id="edit_per_desc_${i}" class="form-control form-control-sm" value="${item.descricao||""}"></td>
+        <td><input type="date" id="edit_per_di_${i}" class="form-control form-control-sm" value="${item.data_inicial}"></td>
+        <td><input type="date" id="edit_per_df_${i}" class="form-control form-control-sm" value="${item.data_final}"></td>
+        <td><input type="text" id="edit_per_val_${i}" class="form-control form-control-sm" value="${item.valor}"></td>
+        <td><input type="text" id="edit_per_lim_${i}" class="form-control form-control-sm" value="${item.limite||""}"></td>
+        <td>
+          <button type="button" class="btn btn-success btn-sm" onclick="confirmarEdicaoPeriodo(${i})">✓ Salvar</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cancelarEdicaoPeriodo()">✕</button>
+        </td>
+      </tr>`;
+    } else {
+      const limiteExib = item.limite && item.limite !== "0,00" ? `R$ ${item.limite}` : "—";
+      html += `
+      <tr>
+        <td>${item.descricao || `Período ${i+1}`}</td>
+        <td>${formatarData(item.data_inicial)}</td>
+        <td>${formatarData(item.data_final)}</td>
+        <td>R$ ${item.valor}</td>
+        <td>${limiteExib}</td>
+        <td>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="editarPeriodo(${i})">Editar</button>
+          <button type="button" class="btn btn-outline-danger btn-sm" onclick="excluirPeriodo(${i})">Excluir</button>
+        </td>
+      </tr>`;
+    }
+  });
+
+  tbody.innerHTML = html;
+  atualizarHidden();
+}
+
+function atualizarHidden() {
+  const el = document.getElementById("periodos_json");
+  if (el) el.value = JSON.stringify(periodos);
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  const form = document.getElementById("formAstreintes");
+  if (form) {
+    form.addEventListener("submit", function (e) {
+      if (!periodos.length) {
+        e.preventDefault();
+        alert("Adicione ao menos um período de astreintes.");
+        return;
+      }
+      editandoPeriodoIndex = null;
+      atualizarHidden();
+    });
+  }
+});
+</script>
 
 {% endblock %}

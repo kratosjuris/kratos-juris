@@ -6,128 +6,169 @@
   <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
       <h3 class="mb-1">Relatório de Astreintes</h3>
-      <div class="text-muted">
-        Demonstrativo da multa diária por descumprimento.
-      </div>
+      <div class="text-muted">Demonstrativo da multa diária por descumprimento.</div>
     </div>
-
     <div class="d-flex gap-2">
-      <button onclick="window.print()" class="btn btn-outline-secondary">
-        Imprimir
-      </button>
-
-      <a href="/calculadora-juridica/astreintes" class="btn btn-primary">
-        Novo cálculo
-      </a>
+      <button onclick="window.print()" class="btn btn-outline-secondary">Imprimir</button>
+      <form method="post" action="/calculadora-juridica/astreintes/pdf" style="display:inline">
+        <input type="hidden" name="resultado_json" value="{{ resultado_json | e }}">
+        <button class="btn btn-danger">⬇ Baixar PDF</button>
+      </form>
+      <a href="/calculadora-juridica/astreintes" class="btn btn-primary">Novo cálculo</a>
     </div>
   </div>
 
+  {# ── Dados do processo ── #}
   <div class="card shadow-sm mb-4">
     <div class="card-body">
       <h5 class="mb-3">Dados do processo</h5>
-
       <div class="row g-3">
         <div class="col-md-3">
           <div class="small text-muted">Processo</div>
           <strong>{{ resultado.processo or "-" }}</strong>
         </div>
-
         <div class="col-md-3">
           <div class="small text-muted">Vara</div>
           <strong>{{ resultado.vara or "-" }}</strong>
         </div>
-
         <div class="col-md-3">
           <div class="small text-muted">Exequente</div>
           <strong>{{ resultado.exequente or "-" }}</strong>
         </div>
-
         <div class="col-md-3">
           <div class="small text-muted">Executado</div>
           <strong>{{ resultado.executado or "-" }}</strong>
         </div>
-
         <div class="col-md-3">
-          <div class="small text-muted">Contagem</div>
+          <div class="small text-muted">Tipo de contagem</div>
           <strong>{{ resultado.tipo_contagem }}</strong>
         </div>
-
         <div class="col-md-3">
+          <div class="small text-muted">Total de períodos</div>
+          <strong>{{ resultado.total_periodos }}</strong>
+        </div>
+        <div class="col-md-3">
+          <div class="small text-muted">Total de dias computados</div>
+          <strong>{{ resultado.quantidade_dias }}</strong>
+        </div>
+        <div class="col-md-3">
+          <div class="small text-muted">Total geral das astreintes</div>
+          <h5 class="mb-0 text-primary">{{ resultado.total_geral }}</h5>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Períodos ── #}
+  {% for periodo in resultado.periodos %}
+
+  <div class="card shadow-sm mb-3">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
+      <strong>{{ periodo.numero }}. {{ periodo.descricao }}</strong>
+      <span class="badge bg-primary fs-6">{{ periodo.total }}</span>
+    </div>
+    <div class="card-body pb-2">
+
+      {# Cabeçalho do período #}
+      <div class="row g-2 mb-3">
+        <div class="col-md-2">
           <div class="small text-muted">Data inicial</div>
-          <strong>{{ resultado.data_inicial }}</strong>
+          <strong>{{ periodo.data_inicial }}</strong>
         </div>
-
-        <div class="col-md-3">
+        <div class="col-md-2">
           <div class="small text-muted">Data final</div>
-          <strong>{{ resultado.data_final }}</strong>
+          <strong>{{ periodo.data_final }}</strong>
         </div>
-
-        <div class="col-md-3">
+        <div class="col-md-2">
           <div class="small text-muted">Valor diário</div>
-          <strong>{{ resultado.valor_diario }}</strong>
+          <strong>{{ periodo.valor_diario }}</strong>
+        </div>
+        <div class="col-md-2">
+          <div class="small text-muted">Limite máximo</div>
+          <strong>{{ periodo.limite }}</strong>
+        </div>
+        <div class="col-md-2">
+          <div class="small text-muted">Dias computados</div>
+          <strong>{{ periodo.quantidade_dias }}</strong>
+        </div>
+        <div class="col-md-2">
+          <div class="small text-muted">Total do período</div>
+          <strong>{{ periodo.total }}</strong>
         </div>
       </div>
-    </div>
-  </div>
 
-  <div class="card shadow-sm mb-4">
-    <div class="card-body">
-      <h5 class="mb-3">Resumo</h5>
+      {# Demonstrativo diário colapsável #}
+      <button class="btn btn-sm btn-outline-secondary mb-2" type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#periodo_{{ periodo.numero }}"
+              aria-expanded="false">
+        Expandir demonstrativo diário
+      </button>
 
-      <div class="row g-3">
-        <div class="col-md-6">
-          <div class="small text-muted">Quantidade de dias computados</div>
-          <h4>{{ resultado.quantidade_dias }}</h4>
-        </div>
-
-        <div class="col-md-6">
-          <div class="small text-muted">Total das astreintes</div>
-          <h4>{{ resultado.total }}</h4>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="card shadow-sm mb-4">
-    <div class="card-body">
-      <h5 class="mb-3">Demonstrativo diário</h5>
-
-      <div class="table-responsive">
-        <table class="table table-sm align-middle">
-          <thead>
-            <tr>
-              <th>Dia</th>
-              <th>Data</th>
-              <th>Valor diário</th>
-              <th>Acumulado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for item in resultado.itens %}
+      <div class="collapse" id="periodo_{{ periodo.numero }}">
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
               <tr>
-                <td>{{ item.dia }}</td>
+                <th>Data</th>
+                <th class="text-end">Valor diário</th>
+                <th class="text-end">Acumulado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in periodo.itens %}
+              <tr>
                 <td>{{ item.data }}</td>
-                <td>{{ item.valor_diario }}</td>
-                <td><strong>{{ item.acumulado }}</strong></td>
+                <td class="text-end">{{ item.valor_diario }}</td>
+                <td class="text-end"><strong>{{ item.acumulado }}</strong></td>
               </tr>
-            {% endfor %}
-
-            {% if not resultado.itens %}
+              {% endfor %}
+              {% if not periodo.itens %}
               <tr>
-                <td colspan="4" class="text-muted">
-                  Nenhum dia foi computado. Verifique as datas e o valor diário.
-                </td>
+                <td colspan="3" class="text-muted">Nenhum dia computado neste período.</td>
               </tr>
-            {% endif %}
-          </tbody>
-        </table>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
       </div>
 
     </div>
   </div>
 
-  <div class="alert alert-info">
-    O relatório considera o período informado pelo usuário e o tipo de contagem selecionado.
+  {% endfor %}
+
+  {% if not resultado.periodos %}
+  <div class="alert alert-warning">
+    Nenhum período válido foi informado. Verifique as datas e os valores.
+  </div>
+  {% endif %}
+
+  {# ── Resumo final ── #}
+  {% if resultado.periodos %}
+  <div class="card shadow-sm mb-4 border-primary">
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <div class="small text-muted">Total de períodos</div>
+          <h5>{{ resultado.total_periodos }}</h5>
+        </div>
+        <div class="col-md-4">
+          <div class="small text-muted">Total de dias computados</div>
+          <h5>{{ resultado.quantidade_dias }}</h5>
+        </div>
+        <div class="col-md-4">
+          <div class="small text-muted">TOTAL GERAL DAS ASTREINTES</div>
+          <h4 class="text-primary">{{ resultado.total_geral }}</h4>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="alert alert-info small">
+    O relatório considera os períodos informados pelo usuário e o tipo de contagem selecionado.
+    Os valores são de responsabilidade do usuário — confira antes de utilizar em petição.
   </div>
 
 </div>

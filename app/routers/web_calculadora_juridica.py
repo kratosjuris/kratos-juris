@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
@@ -13,6 +13,8 @@ from app.services.calculos_atualizacao import calcular_atualizacao
 from app.services.calculos_astreintes import calcular_astreintes
 from app.services.calculadora_documentos import gerar_docx_calculadora
 from app.services.indices_monetarios import atualizar_cache_indices, status_cache
+from app.services.gerar_pdf_calculo import gerar_pdf_calculo
+from app.services.gerar_pdf_astreintes import gerar_pdf_astreintes
 
 
 router = APIRouter(tags=["Calculadora Jurídica"])
@@ -46,24 +48,18 @@ def _get_logged_user(request: Request, db: Session) -> User:
 @router.get("/calculadora-juridica", response_class=HTMLResponse)
 def calculadora_index(request: Request, db: Session = Depends(get_db)):
     _get_logged_user(request, db)
-
     return templates.TemplateResponse(
         "calculadora_juridica/index.html",
-        {
-            "request": request,
-        },
+        {"request": request},
     )
 
 
 @router.get("/calculadora-juridica/atualizacao", response_class=HTMLResponse)
 def atualizacao_form(request: Request, db: Session = Depends(get_db)):
     _get_logged_user(request, db)
-
     return templates.TemplateResponse(
         "calculadora_juridica/atualizacao_monetaria.html",
-        {
-            "request": request,
-        },
+        {"request": request},
     )
 
 
@@ -80,15 +76,11 @@ async def gerar_atualizacao(
     juros_percentual: str = Form(""),
     juros_incidencia: str = Form("data_valor"),
     juros_data_base: str = Form(""),
-    multa_valor: str = Form(""),
-    multa_tipo: str = Form("valor"),
-    multa_percentual: str = Form(""),
-    honorarios_tipo: str = Form("valor"),
-    honorarios_valor: str = Form(""),
-    honorarios_percentual: str = Form(""),
     custas_valor: str = Form(""),
     lancamentos_json: str = Form("[]"),
     deducoes_json: str = Form("[]"),
+    multas_json: str = Form("[]"),
+    honorarios_json: str = Form("[]"),
     db: Session = Depends(get_db),
 ):
     _get_logged_user(request, db)
@@ -103,6 +95,16 @@ async def gerar_atualizacao(
     except Exception:
         deducoes = []
 
+    try:
+        multas = json.loads(multas_json or "[]")
+    except Exception:
+        multas = []
+
+    try:
+        honorarios_lista = json.loads(honorarios_json or "[]")
+    except Exception:
+        honorarios_lista = []
+
     payload = {
         "processo": processo,
         "vara": vara,
@@ -114,15 +116,11 @@ async def gerar_atualizacao(
         "juros_percentual": juros_percentual,
         "juros_incidencia": juros_incidencia,
         "juros_data_base": juros_data_base,
-        "multa_valor": multa_valor,
-        "multa_tipo": multa_tipo,
-        "multa_percentual": multa_percentual,
-        "honorarios_tipo": honorarios_tipo,
-        "honorarios_valor": honorarios_valor,
-        "honorarios_percentual": honorarios_percentual,
         "custas_valor": custas_valor,
         "lancamentos": lancamentos,
         "deducoes": deducoes,
+        "multas": multas,
+        "honorarios_lista": honorarios_lista,
     }
 
     resultado = calcular_atualizacao(payload)
@@ -134,6 +132,32 @@ async def gerar_atualizacao(
             "resultado": resultado,
             "resultado_json": json.dumps(resultado, ensure_ascii=False),
         },
+    )
+
+
+@router.post("/calculadora-juridica/atualizacao/pdf")
+async def baixar_pdf_calculo(
+    request: Request,
+    resultado_json: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    _get_logged_user(request, db)
+
+    try:
+        resultado = json.loads(resultado_json or "{}")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Dados do cálculo inválidos")
+
+    pdf_bytes = gerar_pdf_calculo(resultado)
+
+    from app.services.calculos_utils import sanitize_filename
+    processo = resultado.get("processo") or "calculo"
+    filename = sanitize_filename(f"Calculo_{processo}.pdf")
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -172,12 +196,9 @@ async def gerar_documento_calculo(
 @router.get("/calculadora-juridica/astreintes", response_class=HTMLResponse)
 def astreintes_form(request: Request, db: Session = Depends(get_db)):
     _get_logged_user(request, db)
-
     return templates.TemplateResponse(
         "calculadora_juridica/astreintes.html",
-        {
-            "request": request,
-        },
+        {"request": request},
     )
 
 
@@ -189,12 +210,15 @@ async def gerar_astreintes(
     exequente: str = Form(""),
     executado: str = Form(""),
     tipo_contagem: str = Form("corridos"),
-    data_inicial: str = Form(""),
-    data_final: str = Form(""),
-    valor_diario: str = Form(""),
+    periodos_json: str = Form("[]"),
     db: Session = Depends(get_db),
 ):
     _get_logged_user(request, db)
+
+    try:
+        periodos = json.loads(periodos_json or "[]")
+    except Exception:
+        periodos = []
 
     resultado = calcular_astreintes(
         {
@@ -203,9 +227,7 @@ async def gerar_astreintes(
             "exequente": exequente,
             "executado": executado,
             "tipo_contagem": tipo_contagem,
-            "data_inicial": data_inicial,
-            "data_final": data_final,
-            "valor_diario": valor_diario,
+            "periodos": periodos,
         }
     )
 
@@ -214,7 +236,38 @@ async def gerar_astreintes(
         {
             "request": request,
             "resultado": resultado,
+            "resultado_json": json.dumps(resultado, ensure_ascii=False),
         },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Endpoint PDF — astreintes
+# ---------------------------------------------------------------------------
+
+@router.post("/calculadora-juridica/astreintes/pdf")
+async def baixar_pdf_astreintes(
+    request: Request,
+    resultado_json: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    _get_logged_user(request, db)
+
+    try:
+        resultado = json.loads(resultado_json or "{}")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Dados do cálculo inválidos")
+
+    pdf_bytes = gerar_pdf_astreintes(resultado)
+
+    from app.services.calculos_utils import sanitize_filename
+    processo  = resultado.get("processo") or "astreintes"
+    filename  = sanitize_filename(f"Astreintes_{processo}.pdf")
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -224,21 +277,12 @@ async def gerar_astreintes(
 
 @router.get("/calculadora-juridica/indices/status")
 def indices_status(request: Request, db: Session = Depends(get_db)):
-    """
-    Retorna o estado atual do cache de índices (IPCA e INPC).
-    Útil para verificar se os índices estão atualizados antes de calcular.
-    """
     _get_logged_user(request, db)
     return JSONResponse(content=status_cache())
 
 
 @router.post("/calculadora-juridica/indices/atualizar")
 async def indices_atualizar(request: Request, db: Session = Depends(get_db)):
-    """
-    Força o download dos índices IPCA e INPC da API do Banco Central
-    e atualiza o cache em disco.
-    Útil para acionar manualmente quando um novo índice for divulgado.
-    """
     _get_logged_user(request, db)
     resultado = await atualizar_cache_indices()
     return JSONResponse(content=resultado)
