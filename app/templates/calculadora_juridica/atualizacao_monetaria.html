@@ -6,19 +6,19 @@
   <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
       <h3 class="mb-1">Atualização Monetária</h3>
-      <div class="text-muted">
-        Preencha os dados, lance os valores e gere o relatório de cálculo.
-      </div>
+      <div class="text-muted">Preencha os dados, lance os valores e gere o relatório de cálculo.</div>
     </div>
     <a href="/calculadora-juridica" class="btn btn-outline-secondary">Voltar</a>
   </div>
 
   <form method="post" action="/calculadora-juridica/atualizacao/gerar" id="formCalculo">
 
-    <input type="hidden" name="lancamentos_json"  id="lancamentos_json">
-    <input type="hidden" name="deducoes_json"     id="deducoes_json">
-    <input type="hidden" name="multas_json"       id="multas_json">
-    <input type="hidden" name="honorarios_json"   id="honorarios_json">
+    <input type="hidden" name="lancamentos_json"        id="lancamentos_json">
+    <input type="hidden" name="periodos_correcao_json"  id="periodos_correcao_json">
+    <input type="hidden" name="periodos_juros_json"     id="periodos_juros_json">
+    <input type="hidden" name="deducoes_json"           id="deducoes_json">
+    <input type="hidden" name="multas_json"             id="multas_json">
+    <input type="hidden" name="honorarios_json"         id="honorarios_json">
 
     {# ── Dados do processo ── #}
     <div class="card shadow-sm mb-4">
@@ -49,43 +49,108 @@
       </div>
     </div>
 
-    {# ── Índice e juros ── #}
+    {# ── Períodos de Correção Monetária ── #}
     <div class="card shadow-sm mb-4">
       <div class="card-body">
-        <h5 class="mb-3">Índice e juros</h5>
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label">Índice de correção monetária</label>
-            <select name="indice_correcao" class="form-select">
-              <option value="tjdft">TJDFT — INPC até 31/08/2024 e IPCA a partir de 01/09/2024</option>
-              <option value="inpc">INPC durante todo o período</option>
-              <option value="ipca">IPCA durante todo o período</option>
+        <h5 class="mb-3">Períodos de Correção Monetária</h5>
+        <p class="text-muted small mb-3">
+          Adicione um ou mais períodos de correção. Caso a sentença determine índices diferentes
+          em períodos distintos, adicione um período para cada fase.
+        </p>
+        <div class="row g-3 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label">Índice</label>
+            <select id="pc_indice" class="form-select">
+              <option value="tjdft">TJDFT (INPC até 08/2024, IPCA a partir de 09/2024)</option>
+              <option value="inpc">INPC</option>
+              <option value="ipca">IPCA</option>
             </select>
           </div>
+          <div class="col-md-4">
+            <label class="form-label">Data final <span class="text-muted small">(vazio = data do cálculo)</span></label>
+            <input type="date" id="pc_data_fim" class="form-control">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Descrição</label>
+            <input type="text" id="pc_descricao" class="form-control" placeholder="Ex: Fase 1">
+          </div>
+          <div class="col-md-1">
+            <button type="button" id="pc_btn_add" class="btn btn-primary w-100"
+                    onclick="adicionarPeriodoCorrecao()">+</button>
+          </div>
+        </div>
+        <hr>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Descrição</th><th>Índice</th><th>Data final</th>
+                <th style="width:150px">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyCorrecao">
+              <tr><td colspan="5" class="text-muted">Nenhum período adicionado. Sem período, usa o padrão TJDFT em todo o período.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    {# ── Períodos de Juros ── #}
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h5 class="mb-3">Períodos de Juros</h5>
+        <p class="text-muted small mb-3">
+          Adicione um ou mais períodos de juros. É possível combinar regimes diferentes,
+          como 1% a.m. até 31/08/2024 e Taxa Legal a partir de 01/09/2024.
+        </p>
+        <div class="row g-3 align-items-end">
           <div class="col-md-3">
             <label class="form-label">Tipo de juros</label>
-            <select name="juros_tipo" class="form-select">
+            <select id="pj_tipo" class="form-select" onchange="togglePjPercentual()">
               <option value="sem">Sem juros</option>
+              <option value="um_porcento">1% ao mês</option>
+              <option value="legal">Taxa Legal (SELIC − IPCA)</option>
               <option value="percentual">Percentual fixo ao mês</option>
-              <option value="legal">Juros legais</option>
             </select>
           </div>
-          <div class="col-md-3">
-            <label class="form-label">Percentual de juros ao mês</label>
-            <input type="text" name="juros_percentual" class="form-control" placeholder="Ex: 1">
+          <div class="col-md-2 d-none" id="pj_campo_percentual">
+            <label class="form-label">% ao mês</label>
+            <input type="text" id="pj_percentual" class="form-control" placeholder="Ex: 1">
           </div>
-          <div class="col-md-6">
-            <label class="form-label">Incidência dos juros</label>
-            <select name="juros_incidencia" class="form-select">
-              <option value="data_valor">A partir da data dos valores</option>
-              <option value="citacao">A partir da citação ou outra data</option>
-              <option value="data_fixa">A partir de uma data fixa</option>
+          <div class="col-md-2">
+            <label class="form-label">Incidência</label>
+            <select id="pj_incidencia" class="form-select">
+              <option value="data_valor">Data de cada valor</option>
+              <option value="data_fixa">Data fixa</option>
             </select>
           </div>
-          <div class="col-md-3">
-            <label class="form-label">Data da citação/data fixa</label>
-            <input type="date" name="juros_data_base" class="form-control">
+          <div class="col-md-2">
+            <label class="form-label">Data início <span class="text-muted small">(se data fixa)</span></label>
+            <input type="date" id="pj_data_inicio" class="form-control">
           </div>
+          <div class="col-md-2">
+            <label class="form-label">Data fim <span class="text-muted small">(vazio = data do cálculo)</span></label>
+            <input type="date" id="pj_data_fim" class="form-control">
+          </div>
+          <div class="col-md-1">
+            <button type="button" id="pj_btn_add" class="btn btn-primary w-100"
+                    onclick="adicionarPeriodoJuros()">+</button>
+          </div>
+        </div>
+        <hr>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Tipo</th><th>Incidência</th><th>Data início</th><th>Data fim</th>
+                <th style="width:150px">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyJuros">
+              <tr><td colspan="5" class="text-muted">Nenhum período adicionado. Sem período, não haverá juros.</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -190,8 +255,7 @@
         <div class="row g-3 align-items-end">
           <div class="col-md-4">
             <label class="form-label">Descrição</label>
-            <input type="text" id="mul_descricao" class="form-control"
-                   placeholder="Ex: Multa art. 523 CPC">
+            <input type="text" id="mul_descricao" class="form-control" placeholder="Ex: Multa art. 523 CPC">
           </div>
           <div class="col-md-2">
             <label class="form-label">Tipo</label>
@@ -217,18 +281,11 @@
                     onclick="adicionarMulta()">+</button>
           </div>
         </div>
-        <div class="form-text text-muted mt-1">
-          Percentual calculado sobre valor corrigido + juros.
-        </div>
+        <div class="form-text text-muted mt-1">Percentual calculado sobre valor corrigido + juros.</div>
         <hr>
         <div class="table-responsive">
           <table class="table table-sm align-middle">
-            <thead>
-              <tr>
-                <th>Descrição</th><th>Tipo</th><th>Valor/Percentual</th>
-                <th style="width:150px">Ações</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Descrição</th><th>Tipo</th><th>Valor/Percentual</th><th style="width:150px">Ações</th></tr></thead>
             <tbody id="tbodyMultas">
               <tr><td colspan="4" class="text-muted">Nenhuma multa adicionada.</td></tr>
             </tbody>
@@ -244,8 +301,7 @@
         <div class="row g-3 align-items-end">
           <div class="col-md-4">
             <label class="form-label">Descrição</label>
-            <input type="text" id="hon_descricao" class="form-control"
-                   placeholder="Ex: Honorários sucumbenciais">
+            <input type="text" id="hon_descricao" class="form-control" placeholder="Ex: Honorários sucumbenciais">
           </div>
           <div class="col-md-2">
             <label class="form-label">Tipo</label>
@@ -271,18 +327,11 @@
                     onclick="adicionarHonorario()">+</button>
           </div>
         </div>
-        <div class="form-text text-muted mt-1">
-          Percentual calculado sobre valor corrigido + juros.
-        </div>
+        <div class="form-text text-muted mt-1">Percentual calculado sobre valor corrigido + juros.</div>
         <hr>
         <div class="table-responsive">
           <table class="table table-sm align-middle">
-            <thead>
-              <tr>
-                <th>Descrição</th><th>Tipo</th><th>Valor/Percentual</th>
-                <th style="width:150px">Ações</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Descrição</th><th>Tipo</th><th>Valor/Percentual</th><th style="width:150px">Ações</th></tr></thead>
             <tbody id="tbodyHonorarios">
               <tr><td colspan="4" class="text-muted">Nenhum honorário adicionado.</td></tr>
             </tbody>
@@ -310,7 +359,7 @@
         <h5 class="mb-3">Deduções</h5>
         <div class="row g-3 align-items-end">
           <div class="col-md-3">
-            <label class="form-label">Nome da dedução</label>
+            <label class="form-label">Nome</label>
             <input type="text" id="ded_nome" class="form-control" placeholder="Pagamento parcial">
           </div>
           <div class="col-md-3">
@@ -336,12 +385,7 @@
         <hr>
         <div class="table-responsive">
           <table class="table table-sm align-middle">
-            <thead>
-              <tr>
-                <th>Nome</th><th>Tipo</th><th>Valor/Percentual</th>
-                <th style="width:150px">Ações</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Nome</th><th>Tipo</th><th>Valor/Percentual</th><th style="width:150px">Ações</th></tr></thead>
             <tbody id="tbodyDeducoes">
               <tr><td colspan="4" class="text-muted">Nenhuma dedução adicionada.</td></tr>
             </tbody>
@@ -351,7 +395,7 @@
     </div>
 
     <div class="alert alert-warning">
-      Os dados informados são de inteira responsabilidade do usuário. Confira todos os valores antes de imprimir ou gerar documentos.
+      Os dados informados são de inteira responsabilidade do usuário.
     </div>
 
     <div class="d-flex gap-2 mb-5">
@@ -362,8 +406,7 @@
   </form>
 </div>
 
-<script src="/static/js/atualizacao_monetaria.js?v=3"></script>
-
+<script src="/static/js/atualizacao_monetaria.js?v=4"></script>
 <script>
   function toggleMulTipo() {
     const t = document.getElementById("mul_tipo").value;
@@ -374,6 +417,10 @@
     const t = document.getElementById("hon_tipo").value;
     document.getElementById("hon_campo_valor").classList.toggle("d-none", t === "percentual");
     document.getElementById("hon_campo_percentual").classList.toggle("d-none", t !== "percentual");
+  }
+  function togglePjPercentual() {
+    const t = document.getElementById("pj_tipo").value;
+    document.getElementById("pj_campo_percentual").classList.toggle("d-none", t !== "percentual");
   }
 </script>
 

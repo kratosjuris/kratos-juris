@@ -27,44 +27,129 @@ def _indice_curto(indice: str) -> str:
     return mapa.get(indice, indice.upper())
 
 
-def calcular_atualizacao(payload: dict) -> dict:
-    data_final = parse_date(payload.get("data_final_calculo")) or date.today()
-    indice = payload.get("indice_correcao") or "tjdft"
+def _get_indice_para_data(periodos_correcao: list, data_valor: date, data_final: date) -> str:
+    """
+    Retorna o índice a aplicar para um dado lançamento com base nos
+    períodos de correção configurados.
 
-    juros_tipo        = payload.get("juros_tipo") or "sem"
-    juros_percentual  = parse_decimal(payload.get("juros_percentual"))
-    juros_incidencia  = payload.get("juros_incidencia") or "data_valor"
-    juros_data_base   = parse_date(payload.get("juros_data_base"))
+    Cada período tem apenas data_fim (opcional). A data de início
+    é sempre a data do lançamento — portanto aplica o índice cujo
+    data_fim é >= data_valor, na ordem em que foram cadastrados.
+    Se não houver períodos ou nenhum casar, usa tjdft.
+    """
+    if not periodos_correcao:
+        return "tjdft"
 
-    # Descrição e período dos juros — montados APÓS parse de juros_data_base
-    _pct_str = payload.get("juros_percentual") or "?"
-    _juros_desc_map = {
+    for p in periodos_correcao:
+        df = parse_date(p.get("data_fim")) or data_final
+        if data_valor <= df:
+            return p.get("indice") or "tjdft"
+
+    # Se passou de todos os períodos, usa o último
+    return periodos_correcao[-1].get("indice") or "tjdft"
+
+
+def _calcular_juros_periodo(
+    valor_corrigido: Decimal,
+    periodo: dict,
+    data_valor: date,
+    data_final: date,
+) -> tuple[Decimal, Decimal]:
+    """
+    Calcula juros de um único período.
+    Retorna (valor_juros, percentual_total).
+    """
+    tipo       = periodo.get("tipo") or "sem"
+    percentual = parse_decimal(periodo.get("percentual"))
+    incidencia = periodo.get("incidencia") or "data_valor"
+    data_fim   = parse_date(periodo.get("data_fim")) or data_final
+
+    # Data de início
+    if incidencia == "data_fixa":
+        data_inicio = parse_date(periodo.get("data_inicio"))
+        if not data_inicio:
+            return Decimal("0"), Decimal("0")
+    else:
+        # data_valor = data do lançamento
+        data_inicio = data_valor
+
+    if tipo == "sem" or not data_inicio:
+        return Decimal("0"), Decimal("0")
+
+    if data_fim > data_final:
+        data_fim = data_final
+    if data_fim <= data_inicio:
+        return Decimal("0"), Decimal("0")
+
+    if tipo == "percentual" and percentual > 0:
+        dias   = max((data_fim - data_inicio).days, 0)
+        meses  = Decimal(dias) / Decimal("30")
+        pct    = percentual * meses
+        valor  = _q(valor_corrigido * (pct / Decimal("100")))
+        return valor, pct
+
+    elif tipo == "um_porcento":
+        dias   = max((data_fim - data_inicio).days, 0)
+        meses  = Decimal(dias) / Decimal("30")
+        pct    = Decimal("1") * meses
+        valor  = _q(valor_corrigido * (pct / Decimal("100")))
+        return valor, pct
+
+    elif tipo == "legal":
+        valor, pct = calcular_juros_legais(valor_corrigido, data_inicio, data_fim)
+        return _q(valor), pct
+
+    return Decimal("0"), Decimal("0")
+
+
+def _montar_descricao_juros(periodos_juros: list) -> str:
+    labels = {
         "sem":         "Sem juros",
-        "percentual":  f"Percentual fixo de {_pct_str}% ao mês",
-        "um_porcento": "1% ao mês",
-        "legal":       "Taxa Legal (Lei 14.905/2024 — SELIC − IPCA)",
+        "um_porcento": "1% a.m.",
+        "legal":       "Taxa Legal",
+        "percentual":  "% a.m.",
     }
-    juros_descricao = _juros_desc_map.get(juros_tipo, juros_tipo)
+    partes = []
+    for p in periodos_juros:
+        tipo = p.get("tipo","sem")
+        if tipo == "sem":
+            continue
+        pct   = f" {p.get('percentual','')}" if tipo == "percentual" else ""
+        di    = br_date(parse_date(p.get("data_inicio"))) or "?"
+        df    = br_date(parse_date(p.get("data_fim"))) if p.get("data_fim") else "data final"
+        partes.append(f"{labels.get(tipo,tipo)}{pct} ({di} a {df})")
+    return " | ".join(partes) if partes else "Sem juros"
 
-    _data_base_str = br_date(juros_data_base) if juros_data_base else "?"
-    _incid_map = {
-        "data_valor": "A partir da data de cada valor",
-        "citacao":    f"A partir da citação ou outra data — {_data_base_str} até {br_date(data_final)}",
-        "data_fixa":  f"A partir de {_data_base_str} até {br_date(data_final)}",
-    }
-    juros_incidencia_desc = _incid_map.get(juros_incidencia, juros_incidencia) if juros_tipo != "sem" else ""
+
+def calcular_atualizacao(payload: dict) -> dict:
+    data_final          = parse_date(payload.get("data_final_calculo")) or date.today()
+    periodos_correcao   = payload.get("periodos_correcao") or []
+    periodos_juros_glob = payload.get("periodos_juros") or []
+
+    # Índice padrão (para relatório e detalhamento)
+    indice_padrao = periodos_correcao[0].get("indice") if periodos_correcao else "tjdft"
+
+    # Descrição de juros para o cabeçalho
+    juros_descricao     = _montar_descricao_juros(periodos_juros_glob)
+    juros_tipo_global   = periodos_juros_glob[0].get("tipo") if periodos_juros_glob else "sem"
+    juros_incidencia_desc = ""
+    if periodos_juros_glob:
+        partes = []
+        for p in periodos_juros_glob:
+            di = br_date(parse_date(p.get("data_inicio"))) if p.get("data_inicio") else "data de cada valor"
+            df = br_date(parse_date(p.get("data_fim"))) if p.get("data_fim") else "data final"
+            partes.append(f"{di} a {df}")
+        juros_incidencia_desc = " | ".join(partes)
 
     lancamentos = payload.get("lancamentos") or []
     deducoes    = payload.get("deducoes") or []
 
-    itens = []
-
+    itens           = []
     total_original  = Decimal("0.00")
     total_corrigido = Decimal("0.00")
     total_juros     = Decimal("0.00")
-
-    datas_correcao = []
-    datas_juros    = []
+    datas_correcao  = []
+    datas_juros     = []
 
     for row in lancamentos:
         data_valor     = parse_date(row.get("data"))
@@ -75,52 +160,35 @@ def calcular_atualizacao(payload: dict) -> dict:
         if not data_valor or valor_original <= 0:
             continue
 
-        fator           = calcular_fator_correcao(data_valor, data_final, indice)
-        valor_corrigido = _q(valor_original * fator)
+        # Índice para este lançamento
+        indice_lancamento = _get_indice_para_data(periodos_correcao, data_valor, data_final)
+        fator             = calcular_fator_correcao(data_valor, data_final, indice_lancamento)
+        valor_corrigido   = _q(valor_original * fator)
+        _valor_atualizacao = _q(valor_corrigido - valor_original)
 
-        # --- data de início dos juros ---
-        data_inicio_juros = data_valor
-
-        if juros_incidencia == "citacao":
-            if juros_data_base and data_valor < juros_data_base:
-                data_inicio_juros = juros_data_base
-            else:
-                data_inicio_juros = data_valor
-        elif juros_incidencia == "data_fixa":
-            data_inicio_juros = juros_data_base or data_valor
-
+        # Juros: soma de todos os períodos configurados
         juros_valor            = Decimal("0.00")
         juros_percentual_total = Decimal("0.00")
+        data_inicio_juros_exib = data_final
 
-        if juros_tipo == "percentual" and juros_percentual > 0:
-            dias = max((data_final - data_inicio_juros).days, 0)
-            meses = Decimal(dias) / Decimal("30")
-            juros_percentual_total = juros_percentual * meses
-            juros_valor = _q(valor_corrigido * (juros_percentual_total / Decimal("100")))
+        for p in periodos_juros_glob:
+            v, pct = _calcular_juros_periodo(valor_corrigido, p, data_valor, data_final)
+            juros_valor            += v
+            juros_percentual_total += pct
+            di = parse_date(p.get("data_inicio")) if p.get("incidencia") == "data_fixa" else data_valor
+            if di and di < data_inicio_juros_exib:
+                data_inicio_juros_exib = di
 
-        elif juros_tipo == "um_porcento":
-            dias = max((data_final - data_inicio_juros).days, 0)
-            meses = Decimal(dias) / Decimal("30")
-            juros_percentual_total = Decimal("1") * meses
-            juros_valor = _q(valor_corrigido * (juros_percentual_total / Decimal("100")))
+        juros_valor = _q(juros_valor)
 
-        elif juros_tipo == "legal":
-            juros_valor, juros_percentual_total = calcular_juros_legais(
-                valor_corrigido, data_inicio_juros, data_final
-            )
-            juros_valor = _q(juros_valor)
+        if periodos_juros_glob:
+            datas_juros.append(data_inicio_juros_exib)
 
-        total_linha = _q(valor_corrigido + juros_valor)
-
+        total_linha      = _q(valor_corrigido + juros_valor)
         total_original  += valor_original
         total_corrigido += valor_corrigido
         total_juros     += juros_valor
-
         datas_correcao.append(data_valor)
-        if juros_tipo != "sem":
-            datas_juros.append(data_inicio_juros)
-
-        _valor_atualizacao = _q(valor_corrigido - valor_original)
 
         itens.append({
             "data":                   br_date(data_valor),
@@ -130,24 +198,23 @@ def calcular_atualizacao(payload: dict) -> dict:
             "fator":                  str(fator),
             "valor_atualizacao":      br_money(_valor_atualizacao),
             "valor_corrigido":        br_money(valor_corrigido),
-            "data_inicio_juros":      br_date(data_inicio_juros),
+            "data_inicio_juros":      br_date(data_inicio_juros_exib),
             "juros_percentual_total": f"{juros_percentual_total:.2f}%",
             "juros":                  br_money(juros_valor),
             "total":                  br_money(total_linha),
         })
 
-    # --- custas (sempre valor fixo) ---
+    # --- custas ---
     custas = parse_money(payload.get("custas_valor"))
 
-    # --- base para cálculo percentual ---
+    # --- base acessórios ---
     base_acessorios = _q(total_corrigido + total_juros)
 
-    # --- multas: lista com descrição, tipo e valor/percentual ---
-    multas_lista = payload.get("multas") or []
+    # --- multas ---
+    multas_lista     = payload.get("multas") or []
     multas_resultado = []
-    multa = Decimal("0.00")
-    multa_label = ""
-
+    multa            = Decimal("0.00")
+    multa_label      = ""
     for m in multas_lista:
         m_tipo = m.get("tipo") or "valor"
         m_desc = m.get("descricao") or "Multa"
@@ -162,22 +229,15 @@ def calcular_atualizacao(payload: dict) -> dict:
         if m_calculado <= 0:
             continue
         multa += m_calculado
-        multas_resultado.append({
-            "descricao": m_desc,
-            "tipo": "Percentual" if m_tipo == "percentual" else "Valor fixo",
-            "referencia": m_ref,
-            "valor": br_money(m_calculado),
-        })
-
+        multas_resultado.append({"descricao": m_desc, "tipo": "Percentual" if m_tipo=="percentual" else "Valor fixo", "referencia": m_ref, "valor": br_money(m_calculado)})
     if multas_resultado:
         multa_label = "; ".join(m["descricao"] for m in multas_resultado)
 
-    # --- honorários: lista com descrição, tipo e valor/percentual ---
-    honorarios_lista = payload.get("honorarios_lista") or []
+    # --- honorários ---
+    honorarios_lista     = payload.get("honorarios_lista") or []
     honorarios_resultado = []
-    honorarios = Decimal("0.00")
-    honorarios_label = ""
-
+    honorarios           = Decimal("0.00")
+    honorarios_label     = ""
     for h in honorarios_lista:
         h_tipo = h.get("tipo") or "valor"
         h_desc = h.get("descricao") or "Honorários"
@@ -192,20 +252,9 @@ def calcular_atualizacao(payload: dict) -> dict:
         if h_calculado <= 0:
             continue
         honorarios += h_calculado
-        honorarios_resultado.append({
-            "descricao": h_desc,
-            "tipo": "Percentual" if h_tipo == "percentual" else "Valor fixo",
-            "referencia": h_ref,
-            "valor": br_money(h_calculado),
-        })
-
+        honorarios_resultado.append({"descricao": h_desc, "tipo": "Percentual" if h_tipo=="percentual" else "Valor fixo", "referencia": h_ref, "valor": br_money(h_calculado)})
     if honorarios_resultado:
         honorarios_label = "; ".join(h["descricao"] for h in honorarios_resultado)
-
-    multa_percentual      = Decimal("0")
-    honorarios_percentual = Decimal("0")
-    multa_tipo            = "valor"
-    honorarios_tipo       = "valor"
 
     # --- total bruto ---
     total_bruto = _q(total_corrigido + total_juros + multa + honorarios + custas)
@@ -213,30 +262,21 @@ def calcular_atualizacao(payload: dict) -> dict:
     # --- deduções ---
     deducoes_resultado = []
     total_deducoes     = Decimal("0.00")
-
     for d in deducoes:
         nome       = d.get("nome") or "Dedução"
-        tipo       = d.get("tipo") or "valor"
+        tipo_d     = d.get("tipo") or "valor"
         valor      = parse_money(d.get("valor"))
         percentual = parse_decimal(d.get("percentual"))
-
-        if tipo == "percentual":
-            deduzido  = _q(total_bruto * (percentual / Decimal("100")))
-            descricao = f"{percentual}%"
+        if tipo_d == "percentual":
+            deduzido   = _q(total_bruto * (percentual / Decimal("100")))
+            desc_d     = f"{percentual}%"
         else:
-            deduzido  = valor
-            descricao = br_money(valor)
-
+            deduzido   = valor
+            desc_d     = br_money(valor)
         if deduzido <= 0:
             continue
-
         total_deducoes += deduzido
-        deducoes_resultado.append({
-            "nome":           nome,
-            "tipo":           "Percentual" if tipo == "percentual" else "Valor fixo",
-            "referencia":     descricao,
-            "valor_deduzido": br_money(deduzido),
-        })
+        deducoes_resultado.append({"nome": nome, "tipo": "Percentual" if tipo_d=="percentual" else "Valor fixo", "referencia": desc_d, "valor_deduzido": br_money(deduzido)})
 
     total_liquido = _q(total_bruto - total_deducoes)
     if total_liquido < 0:
@@ -247,10 +287,10 @@ def calcular_atualizacao(payload: dict) -> dict:
     if datas_correcao:
         data_inicio_min = min(datas_correcao)
         detalhamento_indices = obter_detalhamento_indices(
-            indice=indice,
+            indice=indice_padrao,
             data_inicio=data_inicio_min,
             data_final=data_final,
-            juros_tipo=juros_tipo,
+            juros_tipo=juros_tipo_global,
             data_inicio_juros=min(datas_juros) if datas_juros else None,
         )
 
@@ -259,109 +299,88 @@ def calcular_atualizacao(payload: dict) -> dict:
         total_original=total_original,
         total_corrigido=total_corrigido,
         total_juros=total_juros,
-        multa=multa,
-        multa_label=multa_label,
-        honorarios=honorarios,
-        honorarios_label=honorarios_label,
-        custas=custas,
-        total_bruto=total_bruto,
+        multa=multa, multa_label=multa_label,
+        honorarios=honorarios, honorarios_label=honorarios_label,
+        custas=custas, total_bruto=total_bruto,
         deducoes=deducoes_resultado,
         total_deducoes=total_deducoes,
         total_liquido=total_liquido,
     )
 
+    # Monta descrição do índice para o relatório
+    if periodos_correcao:
+        indice_nome = " | ".join(
+            f"{get_indice_nome(p.get('indice','tjdft'))}"
+            + (f" até {br_date(parse_date(p.get('data_fim')))}" if p.get("data_fim") else "")
+            + (f" — {p.get('descricao')}" if p.get("descricao") else "")
+            for p in periodos_correcao
+        )
+    else:
+        indice_nome = get_indice_nome("tjdft")
+
     return {
-        "processo":            payload.get("processo") or "",
-        "vara":                payload.get("vara") or "",
-        "exequente":           payload.get("exequente") or "",
-        "executado":           payload.get("executado") or "",
-        "data_calculo":        br_date(data_final),
-        "indice_correcao":     get_indice_nome(indice),
-        "indice_correcao_curto": _indice_curto(indice),
-        "juros_tipo":          juros_tipo,
-        "juros_descricao":     juros_descricao,
-        "juros_periodo":       juros_incidencia_desc,
-        "itens":               itens,
-        "deducoes":            deducoes_resultado,
-        "detalhamento_indices": detalhamento_indices,
-        "valor_original":      br_money(total_original),
-        "valor_corrigido":     br_money(total_corrigido),
-        "juros":               br_money(total_juros),
-        "multa":               br_money(multa),
-        "multa_label":         multa_label,
+        "processo":              payload.get("processo") or "",
+        "vara":                  payload.get("vara") or "",
+        "exequente":             payload.get("exequente") or "",
+        "executado":             payload.get("executado") or "",
+        "data_calculo":          br_date(data_final),
+        "indice_correcao":       indice_nome,
+        "indice_correcao_curto": _indice_curto(indice_padrao),
+        "juros_tipo":            juros_tipo_global,
+        "juros_descricao":       juros_descricao,
+        "juros_periodo":         juros_incidencia_desc,
+        "itens":                 itens,
+        "deducoes":              deducoes_resultado,
+        "detalhamento_indices":  detalhamento_indices,
+        "valor_original":        br_money(total_original),
+        "valor_corrigido":       br_money(total_corrigido),
+        "juros":                 br_money(total_juros),
+        "multa":                 br_money(multa),
+        "multa_label":           multa_label,
         "multa_percentual_display": "",
-        "multas_lista":        multas_resultado,
-        "honorarios":          br_money(honorarios),
-        "honorarios_label":    honorarios_label,
+        "multas_lista":          multas_resultado,
+        "honorarios":            br_money(honorarios),
+        "honorarios_label":      honorarios_label,
         "honorarios_percentual_display": "",
-        "honorarios_lista":    honorarios_resultado,
-        "custas":              br_money(custas),
-        "total_bruto":         br_money(total_bruto),
-        "total_deducoes":      br_money(total_deducoes),
-        "total_liquido":       br_money(total_liquido),
-        "total_principal":     br_money(_q(total_corrigido + total_juros)),
-        "tem_acessorios":      (honorarios > Decimal("0") or multa > Decimal("0") or custas > Decimal("0")),
-        "total_acessorios":    br_money(_q(honorarios + multa + custas)),
-        "memoria_calculo":     memoria_texto,
+        "honorarios_lista":      honorarios_resultado,
+        "custas":                br_money(custas),
+        "total_bruto":           br_money(total_bruto),
+        "total_deducoes":        br_money(total_deducoes),
+        "total_liquido":         br_money(total_liquido),
+        "total_principal":       br_money(_q(total_corrigido + total_juros)),
+        "tem_acessorios":        (honorarios > Decimal("0") or multa > Decimal("0") or custas > Decimal("0")),
+        "total_acessorios":      br_money(_q(honorarios + multa + custas)),
+        "memoria_calculo":       memoria_texto,
     }
 
 
 def montar_memoria_texto(
-    itens,
-    total_original,
-    total_corrigido,
-    total_juros,
-    multa,
-    multa_label,
-    honorarios,
-    honorarios_label,
-    custas,
-    total_bruto,
-    deducoes,
-    total_deducoes,
-    total_liquido,
+    itens, total_original, total_corrigido, total_juros,
+    multa, multa_label, honorarios, honorarios_label,
+    custas, total_bruto, deducoes, total_deducoes, total_liquido,
 ) -> str:
-    linhas = []
-
-    linhas.append("MEMORIAL DE CÁLCULO")
-    linhas.append("")
-    linhas.append("VALORES DEVIDOS:")
-
+    linhas = ["MEMORIAL DE CÁLCULO", "", "VALORES DEVIDOS:"]
     for i, item in enumerate(itens, start=1):
         linhas.append(
             f"{i}. {item['data']} - {item['tipo']} - {item['descricao']} - "
-            f"Valor original: {item['valor_original']} - "
-            f"Valor corrigido: {item['valor_corrigido']} - "
+            f"Original: {item['valor_original']} - Corrigido: {item['valor_corrigido']} - "
             f"Juros: {item['juros']} - Total: {item['total']}"
         )
-
-    linhas.append("")
-    linhas.append(f"Valor original: {br_money(total_original)}")
-    linhas.append(f"Valor corrigido: {br_money(total_corrigido)}")
-    linhas.append(f"Juros: {br_money(total_juros)}")
-
-    if multa_label:
-        linhas.append(f"Multa ({multa_label}): {br_money(multa)}")
-    else:
-        linhas.append(f"Multa: {br_money(multa)}")
-
-    if honorarios_label:
-        linhas.append(f"Honorários ({honorarios_label}): {br_money(honorarios)}")
-    else:
-        linhas.append(f"Honorários: {br_money(honorarios)}")
-
-    linhas.append(f"Custas: {br_money(custas)}")
-    linhas.append(f"Total bruto: {br_money(total_bruto)}")
-
+    linhas += [
+        "",
+        f"Valor original: {br_money(total_original)}",
+        f"Valor corrigido: {br_money(total_corrigido)}",
+        f"Juros: {br_money(total_juros)}",
+        f"Multa ({multa_label}): {br_money(multa)}" if multa_label else f"Multa: {br_money(multa)}",
+        f"Honorários ({honorarios_label}): {br_money(honorarios)}" if honorarios_label else f"Honorários: {br_money(honorarios)}",
+        f"Custas: {br_money(custas)}",
+        f"Total bruto: {br_money(total_bruto)}",
+    ]
     if deducoes:
         linhas.append("")
         linhas.append("DEDUÇÕES:")
         for d in deducoes:
-            linhas.append(
-                f"- {d['nome']} ({d['tipo']} - {d['referencia']}): {d['valor_deduzido']}"
-            )
-
+            linhas.append(f"- {d['nome']} ({d['tipo']} - {d['referencia']}): {d['valor_deduzido']}")
     linhas.append(f"Total de deduções: {br_money(total_deducoes)}")
     linhas.append(f"TOTAL LÍQUIDO DEVIDO: {br_money(total_liquido)}")
-
     return "\n".join(linhas)

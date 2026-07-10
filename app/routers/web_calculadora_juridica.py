@@ -71,13 +71,10 @@ async def gerar_atualizacao(
     exequente: str = Form(""),
     executado: str = Form(""),
     data_final_calculo: str = Form(""),
-    indice_correcao: str = Form("tjdft"),
-    juros_tipo: str = Form("sem"),
-    juros_percentual: str = Form(""),
-    juros_incidencia: str = Form("data_valor"),
-    juros_data_base: str = Form(""),
     custas_valor: str = Form(""),
     lancamentos_json: str = Form("[]"),
+    periodos_correcao_json: str = Form("[]"),
+    periodos_juros_json: str = Form("[]"),
     deducoes_json: str = Form("[]"),
     multas_json: str = Form("[]"),
     honorarios_json: str = Form("[]"),
@@ -85,42 +82,25 @@ async def gerar_atualizacao(
 ):
     _get_logged_user(request, db)
 
-    try:
-        lancamentos = json.loads(lancamentos_json or "[]")
-    except Exception:
-        lancamentos = []
-
-    try:
-        deducoes = json.loads(deducoes_json or "[]")
-    except Exception:
-        deducoes = []
-
-    try:
-        multas = json.loads(multas_json or "[]")
-    except Exception:
-        multas = []
-
-    try:
-        honorarios_lista = json.loads(honorarios_json or "[]")
-    except Exception:
-        honorarios_lista = []
+    def _parse(s):
+        try:
+            return json.loads(s or "[]")
+        except Exception:
+            return []
 
     payload = {
-        "processo": processo,
-        "vara": vara,
-        "exequente": exequente,
-        "executado": executado,
+        "processo":           processo,
+        "vara":               vara,
+        "exequente":          exequente,
+        "executado":          executado,
         "data_final_calculo": data_final_calculo,
-        "indice_correcao": indice_correcao,
-        "juros_tipo": juros_tipo,
-        "juros_percentual": juros_percentual,
-        "juros_incidencia": juros_incidencia,
-        "juros_data_base": juros_data_base,
-        "custas_valor": custas_valor,
-        "lancamentos": lancamentos,
-        "deducoes": deducoes,
-        "multas": multas,
-        "honorarios_lista": honorarios_lista,
+        "custas_valor":       custas_valor,
+        "lancamentos":        _parse(lancamentos_json),
+        "periodos_correcao":  _parse(periodos_correcao_json),
+        "periodos_juros":     _parse(periodos_juros_json),
+        "deducoes":           _parse(deducoes_json),
+        "multas":             _parse(multas_json),
+        "honorarios_lista":   _parse(honorarios_json),
     }
 
     resultado = calcular_atualizacao(payload)
