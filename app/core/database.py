@@ -123,4 +123,10 @@ def create_tables():
     except Exception:
         pass
 
+    # índices monetários — cache persistente entre deploys
+    try:
+        from app.models.indice_monetario import IndiceMonetario
+    except Exception:
+        pass
+
     Base.metadata.create_all(bind=engine)

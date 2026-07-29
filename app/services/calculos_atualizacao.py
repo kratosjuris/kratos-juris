@@ -144,6 +144,112 @@ def calcular_atualizacao(payload: dict) -> dict:
     lancamentos = payload.get("lancamentos") or []
     deducoes    = payload.get("deducoes") or []
 
+    # ── Pré-carrega índices UMA VEZ antes do loop ─────────────────────────
+    # Evita múltiplas chamadas ao banco/API para cada lançamento
+    from app.services.indices_monetarios import _run_async, _obter_indices, _acumular_fator
+    import asyncio as _asyncio
+
+    async def _precarregar_indices():
+        """Carrega todos os índices necessários em paralelo."""
+        series_necessarias = set()
+        for p in periodos_correcao:
+            ind = p.get("indice") or "tjdft"
+            if ind == "tjdft":
+                series_necessarias.update(["ipca", "inpc"])
+            else:
+                series_necessarias.add(ind)
+        if not series_necessarias:
+            series_necessarias.update(["ipca", "inpc"])  # padrão tjdft
+
+        tem_juros_legal = any(p.get("tipo") == "legal" for p in periodos_juros_glob)
+        if tem_juros_legal:
+            series_necessarias.add("taxa_legal")
+
+        tasks = [_obter_indices(s, date(1990, 1, 1), data_final) for s in series_necessarias]
+        resultados = await _asyncio.gather(*tasks)
+        return dict(zip(series_necessarias, resultados))
+
+    try:
+        _cache_indices = _run_async(_precarregar_indices())
+    except Exception:
+        _cache_indices = {}
+
+    def _fator_correcao_local(data_valor: date, data_final: date, indice: str) -> Decimal:
+        """Calcula fator usando índices já pré-carregados em memória."""
+        indice = indice.lower()
+        corte  = date(2024, 9, 1)
+
+        if indice == "tjdft":
+            if data_final <= corte:
+                idx = _cache_indices.get("inpc", {})
+                return _acumular_fator(idx, data_valor, data_final)
+            elif data_valor >= corte:
+                idx = _cache_indices.get("ipca", {})
+                return _acumular_fator(idx, data_valor, data_final)
+            else:
+                idx_inpc = _cache_indices.get("inpc", {})
+                idx_ipca = _cache_indices.get("ipca", {})
+                f1 = _acumular_fator(idx_inpc, data_valor, corte)
+                f2 = _acumular_fator(idx_ipca, corte, data_final)
+                return (f1 * f2).quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+        elif indice in ("ipca", "inpc"):
+            idx = _cache_indices.get(indice, {})
+            return _acumular_fator(idx, data_valor, data_final)
+        return Decimal("1.000000")
+
+    def _juros_periodo_local(valor_corrigido, periodo, data_valor, data_final):
+        """Calcula juros usando índices já pré-carregados em memória."""
+        tipo       = periodo.get("tipo") or "sem"
+        percentual = parse_decimal(periodo.get("percentual"))
+        incidencia = periodo.get("incidencia") or "data_valor"
+        data_fim   = parse_date(periodo.get("data_fim")) or data_final
+
+        if incidencia == "data_fixa":
+            data_inicio = parse_date(periodo.get("data_inicio"))
+            if not data_inicio:
+                return Decimal("0"), Decimal("0")
+        else:
+            data_inicio = data_valor
+
+        if tipo == "sem" or not data_inicio:
+            return Decimal("0"), Decimal("0")
+        if data_fim > data_final:
+            data_fim = data_final
+        if data_fim <= data_inicio:
+            return Decimal("0"), Decimal("0")
+
+        if tipo == "percentual" and percentual > 0:
+            dias  = max((data_fim - data_inicio).days, 0)
+            meses = Decimal(dias) / Decimal("30")
+            pct   = percentual * meses
+            return _q(valor_corrigido * (pct / Decimal("100"))), pct
+
+        elif tipo == "um_porcento":
+            dias  = max((data_fim - data_inicio).days, 0)
+            meses = Decimal(dias) / Decimal("30")
+            pct   = Decimal("1") * meses
+            return _q(valor_corrigido * (pct / Decimal("100"))), pct
+
+        elif tipo == "legal":
+            idx = _cache_indices.get("taxa_legal", {})
+            pct_total = Decimal("0")
+            ano, mes = data_inicio.year, data_inicio.month
+            ano_fim, mes_fim = data_fim.year, data_fim.month
+            while (ano, mes) < (ano_fim, mes_fim):
+                chave = f"{ano:04d}-{mes:02d}"
+                taxa  = idx.get(chave) or Decimal("0")
+                if taxa < Decimal("0"):
+                    taxa = Decimal("0")
+                pct_total += taxa
+                mes += 1
+                if mes > 12:
+                    mes = 1
+                    ano += 1
+            valor_j = _q(valor_corrigido * (pct_total / Decimal("100")))
+            return valor_j, pct_total
+
+        return Decimal("0"), Decimal("0")
+
     itens           = []
     total_original  = Decimal("0.00")
     total_corrigido = Decimal("0.00")
@@ -160,19 +266,19 @@ def calcular_atualizacao(payload: dict) -> dict:
         if not data_valor or valor_original <= 0:
             continue
 
-        # Índice para este lançamento
-        indice_lancamento = _get_indice_para_data(periodos_correcao, data_valor, data_final)
-        fator             = calcular_fator_correcao(data_valor, data_final, indice_lancamento)
-        valor_corrigido   = _q(valor_original * fator)
+        # Índice para este lançamento — usando cache local
+        indice_lancamento  = _get_indice_para_data(periodos_correcao, data_valor, data_final)
+        fator              = _fator_correcao_local(data_valor, data_final, indice_lancamento)
+        valor_corrigido    = _q(valor_original * fator)
         _valor_atualizacao = _q(valor_corrigido - valor_original)
 
-        # Juros: soma de todos os períodos configurados
+        # Juros usando cache local — sem chamadas externas
         juros_valor            = Decimal("0.00")
         juros_percentual_total = Decimal("0.00")
         data_inicio_juros_exib = data_final
 
         for p in periodos_juros_glob:
-            v, pct = _calcular_juros_periodo(valor_corrigido, p, data_valor, data_final)
+            v, pct = _juros_periodo_local(valor_corrigido, p, data_valor, data_final)
             juros_valor            += v
             juros_percentual_total += pct
             di = parse_date(p.get("data_inicio")) if p.get("incidencia") == "data_fixa" else data_valor

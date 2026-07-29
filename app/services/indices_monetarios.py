@@ -4,14 +4,16 @@ indices_monetarios.py
 Busca automática de índices de correção monetária e juros legais
 via API pública do Banco Central do Brasil (BCB/SGS).
 
-Índices de correção suportados:
+Cache primário: banco de dados PostgreSQL (tabela indices_monetarios)
+Cache secundário: arquivo JSON em disco (fallback local)
+
+Índices suportados:
   - "tjdft" : INPC até 31/08/2024, IPCA a partir de 01/09/2024
   - "inpc"  : INPC durante todo o período
   - "ipca"  : IPCA durante todo o período
 
-Juros suportados:
-  - "legal" : Taxa Legal (Lei 14.905/2024) — SELIC − IPCA, juros simples
-              Série SGS 29543 do Banco Central
+Juros:
+  - "legal" : Taxa Legal (Lei 14.905/2024) — série SGS 29543
 
 Dependências:
   pip install httpx
@@ -33,7 +35,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Cache em disco
+# Cache em disco (fallback quando banco não disponível)
 # ---------------------------------------------------------------------------
 _CACHE_FILE = Path(__file__).parent / "_indices_cache.json"
 _CACHE_TTL_DAYS = 1
@@ -54,7 +56,7 @@ def _save_cache(data: dict) -> None:
             json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
         )
     except Exception as e:
-        logger.warning("Não foi possível salvar cache de índices: %s", e)
+        logger.warning("Não foi possível salvar cache em disco: %s", e)
 
 
 def _cache_is_fresh(cache: dict, chave: str) -> bool:
@@ -63,6 +65,91 @@ def _cache_is_fresh(cache: dict, chave: str) -> bool:
         return False
     salvo_em = datetime.fromisoformat(meta)
     return (datetime.now() - salvo_em).days < _CACHE_TTL_DAYS
+
+
+# ---------------------------------------------------------------------------
+# Cache no banco PostgreSQL
+# ---------------------------------------------------------------------------
+
+def _get_db_session():
+    """Retorna uma sessão do banco sem depender de injeção FastAPI."""
+    try:
+        from app.core.database import SessionLocal
+        return SessionLocal()
+    except Exception:
+        return None
+
+
+def _ler_indices_do_banco(serie: str) -> dict[str, Decimal]:
+    """Lê todos os índices de uma série do banco PostgreSQL."""
+    db = _get_db_session()
+    if not db:
+        return {}
+    try:
+        from app.models.indice_monetario import IndiceMonetario
+        registros = db.query(IndiceMonetario).filter(
+            IndiceMonetario.serie == serie
+        ).all()
+        return {r.periodo: Decimal(str(r.valor)) for r in registros}
+    except Exception as e:
+        logger.warning("Erro ao ler índices do banco: %s", e)
+        return {}
+    finally:
+        db.close()
+
+
+def _salvar_indices_no_banco(serie: str, dados: dict[str, Decimal]) -> bool:
+    """
+    Salva/atualiza índices no banco PostgreSQL usando upsert.
+    Retorna True se salvou com sucesso.
+    """
+    db = _get_db_session()
+    if not db:
+        return False
+    try:
+        from app.models.indice_monetario import IndiceMonetario
+        from sqlalchemy.dialects.postgresql import insert
+
+        # Busca existentes para comparar
+        existentes = {
+            r.periodo: r
+            for r in db.query(IndiceMonetario).filter(
+                IndiceMonetario.serie == serie
+            ).all()
+        }
+
+        novos = 0
+        atualizados = 0
+
+        for periodo, valor in dados.items():
+            if periodo in existentes:
+                reg = existentes[periodo]
+                if abs(Decimal(str(reg.valor)) - valor) > Decimal("0.000001"):
+                    reg.valor = valor
+                    reg.atualizado_em = datetime.now()
+                    atualizados += 1
+            else:
+                db.add(IndiceMonetario(
+                    serie=serie,
+                    periodo=periodo,
+                    valor=valor,
+                    atualizado_em=datetime.now(),
+                ))
+                novos += 1
+
+        db.commit()
+        logger.info(
+            "Índices %s salvos no banco: %d novos, %d atualizados.",
+            serie.upper(), novos, atualizados
+        )
+        return True
+
+    except Exception as e:
+        logger.error("Erro ao salvar índices no banco: %s", e)
+        db.rollback()
+        return False
+    finally:
+        db.close()
 
 
 # ---------------------------------------------------------------------------
@@ -80,58 +167,112 @@ _BCB_URL = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados"
 async def _buscar_bcb(
     serie: str, data_inicio: date, data_fim: date
 ) -> dict[str, Decimal]:
+    """Consulta API SGS do BCB com até 3 tentativas."""
     codigo = _SGS_CODIGOS[serie]
     params = {
         "formato": "json",
         "dataInicial": data_inicio.strftime("%d/%m/%Y"),
-        "dataFinal": data_fim.strftime("%d/%m/%Y"),
+        "dataFinal":   data_fim.strftime("%d/%m/%Y"),
     }
     url = _BCB_URL.format(codigo=codigo)
 
-    async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.get(url, params=params)
-        resp.raise_for_status()
-        dados = resp.json()
-
-    resultado: dict[str, Decimal] = {}
-    for item in dados:
+    ultimo_erro = None
+    for tentativa in range(1, 4):
         try:
-            dt = datetime.strptime(item["data"], "%d/%m/%Y")
-            chave = dt.strftime("%Y-%m")
-            resultado[chave] = Decimal(str(item["valor"]))
-        except Exception:
-            continue
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.get(url, params=params)
+                resp.raise_for_status()
+                dados = resp.json()
 
-    return resultado
+            resultado: dict[str, Decimal] = {}
+            for item in dados:
+                try:
+                    dt = datetime.strptime(item["data"], "%d/%m/%Y")
+                    chave = dt.strftime("%Y-%m")
+                    resultado[chave] = Decimal(str(item["valor"]))
+                except Exception:
+                    continue
+            return resultado
 
+        except Exception as e:
+            ultimo_erro = e
+            if tentativa < 3:
+                logger.warning(
+                    "Tentativa %d/%d falhou para %s: %s. Aguardando %ds...",
+                    tentativa, 3, serie.upper(), e, 2 * tentativa
+                )
+                await asyncio.sleep(2 * tentativa)
+
+    raise ultimo_erro
+
+
+# ---------------------------------------------------------------------------
+# Obtenção de índices com cache em camadas
+# ---------------------------------------------------------------------------
 
 async def _obter_indices(
     serie: str, data_inicio: date, data_fim: date
 ) -> dict[str, Decimal]:
+    """
+    Estratégia de cache em 3 camadas:
+      1. Cache em disco (mais rápido, válido por 1 dia)
+      2. Banco PostgreSQL (persiste entre deploys)
+      3. API do BCB (fonte primária, sujeita a instabilidade)
+    """
+    ultimo_mes = data_fim.strftime("%Y-%m")
+
+    # ── Camada 1: cache em disco ──────────────────────────────────────────
     cache = _load_cache()
-    ultimo_mes_necessario = data_fim.strftime("%Y-%m")
     serie_cache: dict[str, str] = cache.get(serie, {})
 
-    if _cache_is_fresh(cache, serie) and ultimo_mes_necessario in serie_cache:
+    if _cache_is_fresh(cache, serie) and ultimo_mes in serie_cache:
         return {k: Decimal(v) for k, v in serie_cache.items()}
 
+    # ── Camada 2: banco PostgreSQL ────────────────────────────────────────
+    dados_banco = _ler_indices_do_banco(serie)
+    if dados_banco and ultimo_mes in dados_banco:
+        logger.info("Índices %s carregados do banco PostgreSQL.", serie.upper())
+        # Atualiza cache em disco com dados do banco
+        cache[serie] = {k: str(v) for k, v in dados_banco.items()}
+        cache.setdefault("_meta", {})[serie] = datetime.now().isoformat()
+        _save_cache(cache)
+        return dados_banco
+
+    # ── Camada 3: API do BCB ──────────────────────────────────────────────
     logger.info("Buscando %s na API BCB…", serie.upper())
     try:
         inicio = date(2024, 8, 1) if serie == "taxa_legal" else date(1990, 1, 1)
         novos = await _buscar_bcb(serie, inicio, date.today())
-    except Exception as e:
-        logger.error("Falha ao buscar %s: %s", serie.upper(), e)
-        if serie_cache:
-            logger.warning("Usando cache desatualizado de %s.", serie.upper())
-            return {k: Decimal(v) for k, v in serie_cache.items()}
-        raise RuntimeError(
-            f"Não foi possível obter {serie.upper()} da API BCB. Verifique sua conexão."
-        ) from e
 
-    cache[serie] = {k: str(v) for k, v in novos.items()}
-    cache.setdefault("_meta", {})[serie] = datetime.now().isoformat()
-    _save_cache(cache)
-    return novos
+        # Salva no banco (persistente entre deploys)
+        _salvar_indices_no_banco(serie, novos)
+
+        # Salva no cache em disco (rápido para próximas requisições)
+        cache[serie] = {k: str(v) for k, v in novos.items()}
+        cache.setdefault("_meta", {})[serie] = datetime.now().isoformat()
+        _save_cache(cache)
+
+        return novos
+
+    except Exception as e:
+        logger.error("Falha ao buscar %s na API BCB: %s", serie.upper(), e)
+
+        # Fallback 1: cache em disco desatualizado
+        if serie_cache:
+            logger.warning("Usando cache em disco desatualizado de %s.", serie.upper())
+            return {k: Decimal(v) for k, v in serie_cache.items()}
+
+        # Fallback 2: banco PostgreSQL (mesmo sem o mês mais recente)
+        if dados_banco:
+            logger.warning("Usando dados do banco PostgreSQL de %s (pode estar desatualizado).", serie.upper())
+            return dados_banco
+
+        # Fallback 3: retorna vazio — cálculo usará fator 1.0
+        logger.warning(
+            "Sem dados disponíveis para %s. Fator de correção será 1.0.",
+            serie.upper()
+        )
+        return {}
 
 
 # ---------------------------------------------------------------------------
@@ -178,9 +319,10 @@ async def _calcular_fator_async(
                 _obter_indices("inpc", data_inicial, corte),
                 _obter_indices("ipca", corte, data_final),
             )
-            return (_acumular_fator(indices_inpc, data_inicial, corte)
-                    * _acumular_fator(indices_ipca, corte, data_final)
-                    ).quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+            return (
+                _acumular_fator(indices_inpc, data_inicial, corte)
+                * _acumular_fator(indices_ipca, corte, data_final)
+            ).quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
 
     elif indice in ("ipca", "inpc"):
         indices = await _obter_indices(indice, data_inicial, data_final)
@@ -190,7 +332,7 @@ async def _calcular_fator_async(
 
 
 # ---------------------------------------------------------------------------
-# Cálculo de juros legais
+# Cálculo de juros legais (Taxa Legal)
 # ---------------------------------------------------------------------------
 
 async def _calcular_juros_legais_async(
@@ -220,7 +362,7 @@ async def _calcular_juros_legais_async(
 
 
 # ---------------------------------------------------------------------------
-# Detalhamento mês a mês dos índices aplicados
+# Detalhamento mês a mês
 # ---------------------------------------------------------------------------
 
 async def _obter_detalhamento_async(
@@ -230,28 +372,19 @@ async def _obter_detalhamento_async(
     juros_tipo: str,
     data_inicio_juros: Optional[date],
 ) -> List[dict]:
-    """
-    Retorna lista de dicts com o índice de cada mês no período, ex.:
-    [
-      { "mes": "Abr/2024", "indice_nome": "INPC", "correcao": "0,42%", "juros": "0,61%", "juros_nome": "Taxa Legal" },
-      ...
-    ]
-    """
     corte_tjdft = date(2024, 9, 1)
     indice = indice.lower()
 
-    # Quais séries de correção buscar
     if indice == "tjdft":
-        serie_antes = await _obter_indices("inpc", data_inicio, data_final)
+        serie_antes  = await _obter_indices("inpc", data_inicio, data_final)
         serie_depois = await _obter_indices("ipca", data_inicio, data_final)
     elif indice == "inpc":
-        serie_antes = await _obter_indices("inpc", data_inicio, data_final)
+        serie_antes  = await _obter_indices("inpc", data_inicio, data_final)
         serie_depois = serie_antes
     else:
-        serie_antes = await _obter_indices("ipca", data_inicio, data_final)
+        serie_antes  = await _obter_indices("ipca", data_inicio, data_final)
         serie_depois = serie_antes
 
-    # Série de juros
     serie_juros: dict[str, Decimal] = {}
     juros_nome = ""
     if juros_tipo == "legal":
@@ -266,32 +399,28 @@ async def _obter_detalhamento_async(
     ano, mes = data_inicio.year, data_inicio.month
     ano_fim, mes_fim = data_final.year, data_final.month
 
-    MESES_PT = [
-        "", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
-        "Jul", "Ago", "Set", "Out", "Nov", "Dez"
-    ]
+    MESES_PT = ["","Jan","Fev","Mar","Abr","Mai","Jun",
+                "Jul","Ago","Set","Out","Nov","Dez"]
 
     while (ano, mes) < (ano_fim, mes_fim):
-        chave = f"{ano:04d}-{mes:02d}"
+        chave     = f"{ano:04d}-{mes:02d}"
         mes_label = f"{MESES_PT[mes]}/{ano}"
+        data_ref  = date(ano, mes, 1)
 
-        # Correção monetária
-        data_ref = date(ano, mes, 1)
         if indice == "tjdft":
             if data_ref < corte_tjdft:
                 taxa_correcao = serie_antes.get(chave) or Decimal("0")
-                indice_nome = "INPC"
+                indice_nome   = "INPC"
             else:
                 taxa_correcao = serie_depois.get(chave) or Decimal("0")
-                indice_nome = "IPCA"
+                indice_nome   = "IPCA"
         elif indice == "inpc":
             taxa_correcao = serie_antes.get(chave) or Decimal("0")
-            indice_nome = "INPC"
+            indice_nome   = "INPC"
         else:
             taxa_correcao = serie_depois.get(chave) or Decimal("0")
-            indice_nome = "IPCA"
+            indice_nome   = "IPCA"
 
-        # Juros
         taxa_juros_str = "—"
         if juros_tipo == "legal" and data_inicio_juros:
             if data_ref >= date(data_inicio_juros.year, data_inicio_juros.month, 1):
@@ -307,11 +436,11 @@ async def _obter_detalhamento_async(
                 taxa_juros_str = "conforme contrato"
 
         resultado.append({
-            "mes": mes_label,
-            "indice_nome": indice_nome,
-            "correcao": f"{taxa_correcao:.6f}%",
-            "juros_nome": juros_nome,
-            "juros": taxa_juros_str,
+            "mes":          mes_label,
+            "indice_nome":  indice_nome,
+            "correcao":     f"{taxa_correcao:.6f}%",
+            "juros_nome":   juros_nome,
+            "juros":        taxa_juros_str,
         })
 
         mes += 1
@@ -375,10 +504,6 @@ def obter_detalhamento_indices(
     juros_tipo: str = "sem",
     data_inicio_juros: Optional[date] = None,
 ) -> List[dict]:
-    """
-    Retorna lista mês a mês com índice de correção e juros aplicados.
-    Usado pelo relatório para exibir a memória de índices.
-    """
     return _run_async(
         _obter_detalhamento_async(
             indice, data_inicio, data_final, juros_tipo, data_inicio_juros
@@ -387,36 +512,56 @@ def obter_detalhamento_indices(
 
 
 # ---------------------------------------------------------------------------
-# Utilitários de administração
+# Administração
 # ---------------------------------------------------------------------------
 
 async def atualizar_cache_indices() -> dict[str, str]:
+    """Força download de todos os índices e salva no banco + disco."""
     status: dict[str, str] = {}
     for serie in ("ipca", "inpc", "taxa_legal"):
         try:
             inicio = date(2024, 8, 1) if serie == "taxa_legal" else date(1990, 1, 1)
-            dados = await _buscar_bcb(serie, inicio, date.today())
+            dados  = await _buscar_bcb(serie, inicio, date.today())
+
+            # Salva no banco
+            ok_banco = _salvar_indices_no_banco(serie, dados)
+
+            # Salva no disco
             cache = _load_cache()
             cache[serie] = {k: str(v) for k, v in dados.items()}
             cache.setdefault("_meta", {})[serie] = datetime.now().isoformat()
             _save_cache(cache)
+
             ultimo = max(dados.keys()) if dados else "—"
-            status[serie] = f"OK — {len(dados)} meses — último: {ultimo}"
+            banco_str = "banco ✓" if ok_banco else "banco ✗"
+            status[serie] = f"OK — {len(dados)} meses — último: {ultimo} — {banco_str}"
+
         except Exception as e:
             status[serie] = f"ERRO: {e}"
     return status
 
 
 def status_cache() -> dict[str, str]:
-    cache = _load_cache()
+    """Retorna estado do cache em disco e banco."""
+    cache    = _load_cache()
     resultado: dict[str, str] = {}
     for serie in ("ipca", "inpc", "taxa_legal"):
-        dados = cache.get(serie, {})
-        meta = cache.get("_meta", {}).get(serie)
-        if dados and meta:
-            ultimo = max(dados.keys())
-            atualizado = datetime.fromisoformat(meta).strftime("%d/%m/%Y %H:%M")
-            resultado[serie] = f"Cache OK — último mês: {ultimo} — atualizado em: {atualizado}"
+        disco = cache.get(serie, {})
+        meta  = cache.get("_meta", {}).get(serie)
+        banco = _ler_indices_do_banco(serie)
+
+        partes = []
+        if disco and meta:
+            ultimo = max(disco.keys())
+            at     = datetime.fromisoformat(meta).strftime("%d/%m/%Y %H:%M")
+            partes.append(f"disco: último {ultimo} ({at})")
         else:
-            resultado[serie] = "Cache ausente — será buscado na próxima chamada"
+            partes.append("disco: ausente")
+
+        if banco:
+            partes.append(f"banco: {len(banco)} meses")
+        else:
+            partes.append("banco: ausente")
+
+        resultado[serie] = " | ".join(partes)
     return resultado

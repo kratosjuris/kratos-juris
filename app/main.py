@@ -98,6 +98,29 @@ from app.services.notification_jobs import job_07h, job_12h, job_20h
 # =========================================================
 from app.services.monitor_djen import job_monitorar_djen
 
+# =========================================================
+# ÍNDICES MONETÁRIOS — atualização automática
+# =========================================================
+def _job_atualizar_indices():
+    """Wrapper síncrono para o job assíncrono de índices.
+    Usado pelo BackgroundScheduler (roda em thread separada).
+    """
+    import asyncio
+    try:
+        from app.services.indices_monetarios import atualizar_cache_indices
+        # Cria um loop novo — seguro pois roda em thread do scheduler
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        resultado = loop.run_until_complete(atualizar_cache_indices())
+        for serie, status in resultado.items():
+            print(f"[INDICES] {serie.upper()}: {status}")
+    except Exception as e:
+        print(f"[INDICES] erro ao atualizar índices: {e}")
+    finally:
+        try:
+            loop.close()
+        except Exception:
+            pass
 
 # =========================================================
 # APP / PATHS
@@ -121,7 +144,6 @@ pwa_templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 # NOVO: PUSH — agendador (timezone Brasil)
 # =========================================================
 scheduler = BackgroundScheduler(timezone="America/Sao_Paulo")
-
 
 # =========================================================
 # HELPERS
@@ -157,7 +179,6 @@ def _is_public_path(path: str):
     )
 
     return path.startswith(public_prefixes)
-
 
 def _load_user_from_session(request: Request):
 
@@ -246,7 +267,6 @@ def _load_user_from_session(request: Request):
     finally:
         db.close()
 
-
 # =========================================================
 # MIGRAÇÕES SIMPLES DE COLUNAS
 # =========================================================
@@ -289,7 +309,6 @@ def _ensure_offices_finance_password_hash_column() -> None:
             f"offices.finance_password_hash: {e}"
         )
 
-
 # =========================================================
 # MIDDLEWARE CUSTOMIZADO DE AUTENTICAÇÃO
 # =========================================================
@@ -323,9 +342,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
 
         return await call_next(request)
 
-
 app = FastAPI(title="Sistema do Escritório")
-
 
 # =========================================================
 # STATIC
@@ -335,7 +352,6 @@ app.mount(
     StaticFiles(directory=str(STATIC_DIR)),
     name="static",
 )
-
 
 # =========================================================
 # MIDDLEWARES
@@ -350,7 +366,6 @@ app.add_middleware(
     same_site="lax",
     https_only=SECURE_COOKIES,
 )
-
 
 # =========================================================
 # STARTUP
@@ -388,7 +403,7 @@ def on_startup():
         db.close()
 
     # =========================================================
-    # PUSH + MONITOR DJEN — agenda todos os jobs (horário BR)
+    # PUSH + MONITOR DJEN + ÍNDICES — agenda todos os jobs (BR)
     # =========================================================
     try:
         if not scheduler.running:
@@ -408,12 +423,18 @@ def on_startup():
             )
 
             # MONITOR DJEN — consulta DJEN + enriquecimento DataJud
-            # Roda às 7h15, 15 min após as notificações push,
-            # para não disputar recursos com o job_07h.
             scheduler.add_job(
                 job_monitorar_djen,
                 CronTrigger(hour=7, minute=15),
                 id="job_monitor_djen",
+                replace_existing=True,
+            )
+
+            # ÍNDICES MONETÁRIOS — atualização diária às 06h
+            scheduler.add_job(
+                _job_atualizar_indices,
+                CronTrigger(hour=6, minute=0),
+                id="job_indices_monetarios",
                 replace_existing=True,
             )
 
@@ -422,14 +443,25 @@ def on_startup():
             print(
                 "[SCHEDULER] jobs agendados: "
                 "notificações (07h, 12h, 20h BRT) | "
-                "monitor DJEN (07h15 BRT)"
+                "monitor DJEN (07h15 BRT) | "
+                "índices monetários (06h BRT)"
             )
 
     except Exception as e:
         print(f"[SCHEDULER] erro ao agendar jobs: {e}")
 
-    print("=" * 70)
+    # =========================================================
+    # ÍNDICES MONETÁRIOS — atualiza ao iniciar em thread separada
+    # =========================================================
+    try:
+        import threading
+        print("[INDICES] Atualizando índices monetários ao iniciar...")
+        t = threading.Thread(target=_job_atualizar_indices, daemon=True)
+        t.start()
+    except Exception as e:
+        print(f"[INDICES] erro ao iniciar atualização: {e}")
 
+    print("=" * 70)
 
 # =========================================================
 # NOVO: PUSH — encerra o agendador ao desligar
@@ -442,7 +474,6 @@ def on_shutdown():
             print("[SCHEDULER] encerrado")
     except Exception as e:
         print(f"[SCHEDULER] erro ao encerrar: {e}")
-
 
 # =========================================================
 # ROUTERS
@@ -508,14 +539,12 @@ app.include_router(signup_router)
 # =========================================================
 app.include_router(web_push.router)
 
-
 # =========================================================
 # PING (KEEP ALIVE)
 # =========================================================
 @app.get("/ping", include_in_schema=False)
 def ping():
     return {"status": "ok"}
-
 
 # =========================================================
 # NOVO: PWA — SERVICE WORKER E PÁGINA OFFLINE
@@ -536,14 +565,12 @@ def service_worker():
 
     return Response(status_code=204)
 
-
 @app.get("/offline", include_in_schema=False)
 def offline(request: Request):
     return pwa_templates.TemplateResponse(
         "offline.html",
         {"request": request},
     )
-
 
 # =========================================================
 # REDIRECTS
@@ -552,11 +579,9 @@ def offline(request: Request):
 def root():
     return RedirectResponse(url="/dashboard")
 
-
 @app.get("/escritorio", include_in_schema=False)
 def escritorio():
     return RedirectResponse(url="/dashboard")
-
 
 # =========================================================
 # FAVICON

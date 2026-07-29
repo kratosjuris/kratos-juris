@@ -1,6 +1,7 @@
 import gc
 import os
 import re
+import logging
 import tempfile
 from datetime import datetime, date, timedelta
 from typing import List, Tuple, Optional, Iterable
@@ -27,6 +28,15 @@ from app.models.process_item import ProcessItem
 # ✅ NOVO: model de OABs monitoradas
 from app.models.oab_monitorada import OabMonitorada
 
+# ✅ AJUSTE: logger real para não engolir exceções silenciosamente
+logger = logging.getLogger(__name__)
+
+# ✅ AJUSTE: import opcional do model de auditoria (não quebra se ainda não existir)
+try:
+    from app.models.audit_log import AuditLog
+except Exception:
+    AuditLog = None
+
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -51,6 +61,37 @@ def _get_office_id(request: Request) -> int:
 def _safe_set(obj, field: str, value):
     if hasattr(obj, field):
         setattr(obj, field, value)
+
+
+# ✅ AJUSTE: helper de auditoria. Nunca deve quebrar o fluxo principal.
+def _log_audit(
+    db: Session,
+    request: Request,
+    action: str,
+    module: str,
+    description: str,
+):
+    """
+    Registra uma ação em audit_logs, se o model existir.
+    Falhas no log são silenciadas de propósito para não interromper
+    a operação principal, mas são reportadas via logger.
+    """
+    if AuditLog is None:
+        return
+
+    try:
+        log = AuditLog(
+            user_id=request.session.get("user_id") if request else None,
+            action=action,
+            module=module,
+            description=(description or "")[:10000],
+            ip_address=(request.client.host if (request and request.client) else None),
+            created_at=now_br(),
+        )
+        db.add(log)
+        db.flush()
+    except Exception as e:
+        logger.warning(f"Falha ao gravar audit_log (action={action}): {e}")
 
 
 def _set_batch_status(
@@ -1351,7 +1392,17 @@ def _migrar_row_para_process_item(
     rompe_em: int,
     dest: str,
     tipo_contagem: str = "uteis",
-):
+) -> ProcessItem:
+    """
+    ✅ AJUSTE PRINCIPAL (correção do bug de migração-fantasma):
+    - A função agora RETORNA o ProcessItem persistido.
+    - Removido o rollback interno silencioso que podia deixar a
+      migration_row marcada como enviada sem criar o ProcessItem.
+    - Só marcamos row.enviado_em DEPOIS de confirmar que o item
+      recebeu um ID válido no flush. Se algo falhar, a exceção sobe
+      para o chamador (que faz rollback da transação inteira),
+      garantindo atomicidade: ou grava tudo, ou não grava nada.
+    """
     aba_code = _normalize_status(dest)
 
     parte_autora = _default_parte_autora(cliente)
@@ -1375,30 +1426,30 @@ def _migrar_row_para_process_item(
     existing = _find_existing_process_item(db, office_id, row.numero_processo)
 
     if existing:
-        _safe_set(existing, "office_id", office_id)
-        _safe_set(existing, "aba", aba_code)
-        _safe_set(existing, "parte_autora", parte_autora)
-        _safe_set(existing, "vara", vara_value)
-        _safe_set(existing, "vara_tramitacao", vara_value)
-        _safe_set(existing, "cliente", (cliente or "").strip() or getattr(existing, "cliente", None))
-        _safe_set(existing, "data_intimacao", djen)
-        _safe_set(existing, "prazo_dias", prazo_int if prazo_int > 0 else getattr(existing, "prazo_dias", None))
-        _safe_set(existing, "tipo_contagem", tipo_contagem)
-        _safe_set(existing, "vencimento", venc)
+        item = existing
+        _safe_set(item, "office_id", office_id)
+        _safe_set(item, "aba", aba_code)
+        _safe_set(item, "parte_autora", parte_autora)
+        _safe_set(item, "vara", vara_value)
+        _safe_set(item, "vara_tramitacao", vara_value)
+        _safe_set(item, "cliente", (cliente or "").strip() or getattr(item, "cliente", None))
+        _safe_set(item, "data_intimacao", djen)
+        _safe_set(item, "prazo_dias", prazo_int if prazo_int > 0 else getattr(item, "prazo_dias", None))
+        _safe_set(item, "tipo_contagem", tipo_contagem)
+        _safe_set(item, "vencimento", venc)
 
         if (obs or "").strip():
-            old = (getattr(existing, "obs", None) or getattr(existing, "observacao", None) or "").strip()
+            old = (getattr(item, "obs", None) or getattr(item, "observacao", None) or "").strip()
             nova = (obs or "").strip()
             tag = f"[MIGRAÇÃO {now_br().date().strftime('%d/%m/%Y')}]"
             merged = (old + ("\n" if old else "") + f"{tag} {nova}").strip()
-            _set_obs_compat(existing, merged)
+            _set_obs_compat(item, merged)
 
-        if aba_code == "PRAZOS" and hasattr(existing, "cumprimento"):
-            _safe_set(existing, "cumprimento", "PENDENTE")
+        if aba_code == "PRAZOS" and hasattr(item, "cumprimento"):
+            _safe_set(item, "cumprimento", "PENDENTE")
 
-        _safe_set(existing, "atualizado_em", now_br())
-        db.add(existing)
-        db.flush()
+        _safe_set(item, "atualizado_em", now_br())
+        db.add(item)
 
     else:
         item = ProcessItem()
@@ -1427,40 +1478,58 @@ def _migrar_row_para_process_item(
 
         db.add(item)
 
-        try:
+    # ✅ AJUSTE: flush sem try/except que engole erro.
+    # Se houver IntegrityError (ex.: corrida de duplicidade), tentamos
+    # localizar o item já existente UMA vez; se não achar, a exceção
+    # sobe para o chamador em vez de seguir silenciosamente.
+    try:
+        db.flush()
+    except IntegrityError as e:
+        # NÃO fazemos rollback aqui dentro (isso desfaz a transação toda
+        # do chamador). Deixamos o savepoint/erro subir de forma controlada.
+        existing2 = _find_existing_process_item(db, office_id, row.numero_processo)
+        if existing2 is not None and existing2 is not item:
+            item = existing2
+            _safe_set(item, "office_id", office_id)
+            _safe_set(item, "aba", aba_code)
+            _safe_set(item, "parte_autora", parte_autora)
+            _safe_set(item, "vara", vara_value)
+            _safe_set(item, "data_intimacao", djen)
+            _safe_set(item, "prazo_dias", prazo_int if prazo_int > 0 else getattr(item, "prazo_dias", None))
+            _safe_set(item, "tipo_contagem", tipo_contagem)
+            _safe_set(item, "vencimento", venc)
+
+            if (obs or "").strip():
+                old = (getattr(item, "obs", None) or getattr(item, "observacao", None) or "").strip()
+                nova = (obs or "").strip()
+                tag = f"[MIGRAÇÃO {now_br().date().strftime('%d/%m/%Y')}]"
+                merged = (old + ("\n" if old else "") + f"{tag} {nova}").strip()
+                _set_obs_compat(item, merged)
+
+            if aba_code == "PRAZOS" and hasattr(item, "cumprimento"):
+                _safe_set(item, "cumprimento", "PENDENTE")
+
+            _safe_set(item, "atualizado_em", now_br())
+            db.add(item)
             db.flush()
-        except IntegrityError as e:
-            db.rollback()
+        else:
+            detail = str(e.orig) if getattr(e, "orig", None) else str(e)
+            raise HTTPException(
+                status_code=409,
+                detail=f"Falha ao salvar por constraint/duplicidade: {detail}",
+            )
 
-            existing2 = _find_existing_process_item(db, office_id, row.numero_processo)
+    # ✅ AJUSTE: verificação explícita — o item PRECISA ter ID.
+    # Se não tiver, algo falhou silenciosamente e abortamos ANTES de
+    # marcar a migration_row como enviada. É isso que impede o bug
+    # de "migração-fantasma" de acontecer de novo.
+    if getattr(item, "id", None) is None:
+        raise RuntimeError(
+            f"Falha ao persistir ProcessItem para numero_processo="
+            f"{row.numero_processo}: flush não gerou ID. Migração abortada."
+        )
 
-            if existing2:
-                _safe_set(existing2, "office_id", office_id)
-                _safe_set(existing2, "aba", aba_code)
-                _safe_set(existing2, "parte_autora", parte_autora)
-                _safe_set(existing2, "vara", vara_value)
-                _safe_set(existing2, "data_intimacao", djen)
-                _safe_set(existing2, "prazo_dias", prazo_int if prazo_int > 0 else getattr(existing2, "prazo_dias", None))
-                _safe_set(existing2, "tipo_contagem", tipo_contagem)
-                _safe_set(existing2, "vencimento", venc)
-
-                if (obs or "").strip():
-                    old = (getattr(existing2, "obs", None) or getattr(existing2, "observacao", None) or "").strip()
-                    nova = (obs or "").strip()
-                    tag = f"[MIGRAÇÃO {now_br().date().strftime('%d/%m/%Y')}]"
-                    merged = (old + ("\n" if old else "") + f"{tag} {nova}").strip()
-                    _set_obs_compat(existing2, merged)
-
-                if aba_code == "PRAZOS" and hasattr(existing2, "cumprimento"):
-                    _safe_set(existing2, "cumprimento", "PENDENTE")
-
-                _safe_set(existing2, "atualizado_em", now_br())
-                db.add(existing2)
-                db.flush()
-            else:
-                detail = str(e.orig) if getattr(e, "orig", None) else str(e)
-                raise HTTPException(status_code=409, detail=f"Falha ao salvar por constraint/duplicidade: {detail}")
-
+    # Só agora, com o item garantidamente persistido, marcamos a origem.
     row.cliente = cliente
     row.vara_tramitacao = vara
     row.observacao = obs
@@ -1470,6 +1539,8 @@ def _migrar_row_para_process_item(
     row.enviado_em = now_br()
     row.enviado_para_status = aba_code
     db.add(row)
+
+    return item
 
 
 @router.post("/migracoes/salvar/{row_id}")
@@ -1502,7 +1573,7 @@ def migracoes_salvar_individual(
         return _redirect_msg("Este item já foi migrado.")
 
     try:
-        _migrar_row_para_process_item(
+        item = _migrar_row_para_process_item(
             db,
             office_id,
             row,
@@ -1513,12 +1584,30 @@ def migracoes_salvar_individual(
             enviar_para,
             tipo_contagem,
         )
+        # ✅ AJUSTE: auditoria da migração individual
+        _log_audit(
+            db,
+            request,
+            action="MIGRAR",
+            module="migracoes",
+            description=(
+                f"Migração individual: processo={row.numero_processo} "
+                f"-> destino={row.enviar_para} (process_item_id={getattr(item, 'id', None)})"
+            ),
+        )
         db.commit()
     except HTTPException as e:
         db.rollback()
+        logger.error(
+            f"HTTPException ao migrar row {row_id} ({row.numero_processo}): {e.detail}"
+        )
         return _redirect_msg(e.detail)
     except Exception as e:
         db.rollback()
+        logger.error(
+            f"Erro ao migrar row {row_id} ({row.numero_processo}): {e}",
+            exc_info=True,
+        )
         return _redirect_msg(f"Erro ao migrar: {str(e)}")
 
     return _redirect_msg("Item migrado com sucesso.")
@@ -1549,6 +1638,7 @@ async def migracoes_salvar_lote(
 
     ok = 0
     fail = 0
+    erros_detalhe = []  # ✅ AJUSTE: acumula falhas para reportar ao usuário
 
     for row in rows:
         rid = row.id
@@ -1565,7 +1655,7 @@ async def migracoes_salvar_lote(
             rompe_int = 0
 
         try:
-            _migrar_row_para_process_item(
+            item = _migrar_row_para_process_item(
                 db,
                 office_id,
                 row,
@@ -1576,15 +1666,39 @@ async def migracoes_salvar_lote(
                 dest,
                 tipo_contagem,
             )
+            # ✅ AJUSTE: auditoria por item migrado no lote
+            _log_audit(
+                db,
+                request,
+                action="MIGRAR_LOTE",
+                module="migracoes",
+                description=(
+                    f"Migração em lote: processo={row.numero_processo} "
+                    f"-> destino={row.enviar_para} (process_item_id={getattr(item, 'id', None)})"
+                ),
+            )
             db.commit()
             ok += 1
-        except Exception:
+        except Exception as e:
             db.rollback()
             fail += 1
+            # ✅ AJUSTE CRÍTICO: não engolir mais a exceção silenciosamente.
+            # Loga com stacktrace e guarda o motivo para mostrar ao usuário.
+            logger.error(
+                f"Falha ao migrar migration_row id={rid} "
+                f"numero_processo={row.numero_processo}: {e}",
+                exc_info=True,
+            )
+            erros_detalhe.append(f"{row.numero_processo}: {str(e)[:100]}")
 
     gc.collect()
 
-    return _redirect_msg(f"Migração concluída. Sucesso: {ok}. Falhas: {fail}.")
+    msg = f"Migração concluída. Sucesso: {ok}. Falhas: {fail}."
+    if erros_detalhe:
+        # Mostra até 5 motivos para o usuário; o resto fica nos logs.
+        msg += " Detalhes: " + " | ".join(erros_detalhe[:5])
+
+    return _redirect_msg(msg)
 
 
 @router.post("/migracoes/pendente/{row_id}/excluir")
@@ -1610,7 +1724,21 @@ def migracoes_excluir_pendente(
     if row.enviado_em is not None:
         return _redirect_msg("Não é possível excluir: item já foi migrado.")
 
+    # ✅ AJUSTE: guarda o número antes de deletar, para a auditoria
+    numero_excluido = row.numero_processo
+
     db.delete(row)
+
+    # ✅ AJUSTE: registra QUEM excluiu e O QUE, resolvendo o buraco de
+    # rastreabilidade (antes a exclusão não deixava rastro nenhum).
+    _log_audit(
+        db,
+        request,
+        action="EXCLUIR",
+        module="migracoes",
+        description=f"Exclusão de pendente: row_id={row_id} processo={numero_excluido}",
+    )
+
     db.commit()
 
     return _redirect_msg("Item excluído.")
@@ -1647,8 +1775,22 @@ def migracoes_excluir_lote(
         .all()
     )
 
+    # ✅ AJUSTE: coleta os números antes de deletar, para a auditoria
+    numeros_excluidos = [(r.id, r.numero_processo) for r in rows]
+
     for r in rows:
         db.delete(r)
+
+    # ✅ AJUSTE: registra a exclusão em lote (IDs e processos afetados)
+    if numeros_excluidos:
+        resumo = ", ".join(f"{rid}:{num}" for rid, num in numeros_excluidos)
+        _log_audit(
+            db,
+            request,
+            action="EXCLUIR_LOTE",
+            module="migracoes",
+            description=f"Exclusão em lote de pendentes: [{resumo}]",
+        )
 
     db.commit()
     gc.collect()
