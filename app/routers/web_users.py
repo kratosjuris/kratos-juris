@@ -330,6 +330,101 @@ def users_edit_submit(
 
 
 # =========================================================
+# RESETAR SENHA (admin define manualmente)
+# =========================================================
+@router.get("/{user_id}/reset-senha", response_class=HTMLResponse)
+def user_reset_password_page(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    try:
+        actor = require_permission(request, "usuarios.edit")
+    except HTTPException:
+        return _redirect_denied()
+
+    office_id = get_session_office_id(request)
+    user_obj = _get_office_user_or_none(db, office_id, user_id)
+
+    if not user_obj:
+        return RedirectResponse(url="/usuarios", status_code=303)
+
+    return templates.TemplateResponse(
+        "users/reset_password.html",
+        {
+            "request": request,
+            "user_obj": user_obj,
+            "error": None,
+            "title": "Redefinir senha",
+            "current_user": actor,
+        },
+    )
+
+
+@router.post("/{user_id}/reset-senha")
+def user_reset_password_submit(
+    user_id: int,
+    request: Request,
+    password: str = Form(...),
+    confirm_password: str = Form(...),
+    must_change_password: str | None = Form(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        actor = require_permission(request, "usuarios.edit")
+    except HTTPException:
+        return _redirect_denied()
+
+    office_id = get_session_office_id(request)
+    user_obj = _get_office_user_or_none(db, office_id, user_id)
+
+    if not user_obj:
+        return RedirectResponse(url="/usuarios", status_code=303)
+
+    if password != confirm_password:
+        return templates.TemplateResponse(
+            "users/reset_password.html",
+            {
+                "request": request,
+                "user_obj": user_obj,
+                "error": "As senhas não conferem.",
+                "title": "Redefinir senha",
+                "current_user": actor,
+            },
+            status_code=400,
+        )
+
+    if len(password) < 8:
+        return templates.TemplateResponse(
+            "users/reset_password.html",
+            {
+                "request": request,
+                "user_obj": user_obj,
+                "error": "A senha deve ter pelo menos 8 caracteres.",
+                "title": "Redefinir senha",
+                "current_user": actor,
+            },
+            status_code=400,
+        )
+
+    user_obj.password_hash = hash_password(password)
+    user_obj.must_change_password = bool(must_change_password)
+
+    db.commit()
+
+    _log_action(
+        db=db,
+        actor=actor,
+        action="reset_password",
+        module="users",
+        description=f"Senha redefinida manualmente para o usuário: {user_obj.username}",
+        ip=request.client.host if request.client else None,
+    )
+
+    return RedirectResponse(url="/usuarios", status_code=303)
+
+
+# =========================================================
 # PERMISSÕES DO USUÁRIO
 # =========================================================
 @router.get("/{user_id}/permissoes", response_class=HTMLResponse)
