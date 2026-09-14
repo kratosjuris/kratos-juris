@@ -78,7 +78,7 @@ def tarefas_list(
         User.office_id == office_id, User.is_active.is_(True)
     ).order_by(User.nome).all()
 
-    if view == "kanban":
+    if view == "lista":
         colunas = {
             "pendente_aceite": [],
             "em_execucao": [],
