@@ -89,6 +89,11 @@ from app.routers.web_mp import router as mp_router
 from app.routers import web_push
 
 # =========================================================
+# NOVO: TAREFAS — router de delegação de tasks
+# =========================================================
+from app.routers import web_tarefas
+
+# =========================================================
 # NOVO: PUSH — jobs agendados
 # =========================================================
 from app.services.notification_jobs import job_07h, job_12h, job_20h
@@ -97,6 +102,11 @@ from app.services.notification_jobs import job_07h, job_12h, job_20h
 # NOVO: MONITOR DJEN — job diário de monitoramento por OAB
 # =========================================================
 from app.services.monitor_djen import job_monitorar_djen
+
+# =========================================================
+# NOVO: TAREFAS — job diário de verificação de prazos
+# =========================================================
+from app.services.jobs.verificar_prazos_tarefas_job import job_verificar_prazos_tarefas
 
 # =========================================================
 # ÍNDICES MONETÁRIOS — atualização automática
@@ -403,7 +413,7 @@ def on_startup():
         db.close()
 
     # =========================================================
-    # PUSH + MONITOR DJEN + ÍNDICES — agenda todos os jobs (BR)
+    # PUSH + MONITOR DJEN + ÍNDICES + TAREFAS — agenda todos os jobs (BR)
     # =========================================================
     try:
         if not scheduler.running:
@@ -438,13 +448,22 @@ def on_startup():
                 replace_existing=True,
             )
 
+            # NOVO: TAREFAS — verificação diária de prazos (07h10 BRT)
+            scheduler.add_job(
+                job_verificar_prazos_tarefas,
+                CronTrigger(hour=7, minute=10),
+                id="job_verificar_prazos_tarefas",
+                replace_existing=True,
+            )
+
             scheduler.start()
 
             print(
                 "[SCHEDULER] jobs agendados: "
                 "notificações (07h, 12h, 20h BRT) | "
                 "monitor DJEN (07h15 BRT) | "
-                "índices monetários (06h BRT)"
+                "índices monetários (06h BRT) | "
+                "prazos de tasks (07h10 BRT)"
             )
 
     except Exception as e:
@@ -538,6 +557,11 @@ app.include_router(signup_router)
 # NOVO: PUSH — rotas de inscrição/teste
 # =========================================================
 app.include_router(web_push.router)
+
+# =========================================================
+# NOVO: TAREFAS — delegação de serviços jurídicos
+# =========================================================
+app.include_router(web_tarefas.router)
 
 # =========================================================
 # PING (KEEP ALIVE)

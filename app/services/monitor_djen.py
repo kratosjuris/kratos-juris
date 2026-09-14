@@ -434,7 +434,7 @@ async def rodar_monitoramento(
 
 # ---------------------------------------------------------------------------
 # job_monitorar_djen — chamado pelo APScheduler às 7h15
-# ✅ NOVO: calcula período automático com feriados nacionais e cria tarefas
+# ✅ NOVO: calcula período automático com feriados nacionais e cria tasks
 # ---------------------------------------------------------------------------
 
 def job_monitorar_djen() -> None:

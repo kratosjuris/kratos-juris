@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block content %}
+<div id="kj-dashboard">
+
+  <div class="d-flex align-items-start justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+      <div class="section-title"><span>{{ tarefa.titulo }}</span></div>
+      <div class="section-sub">
+        {% if tarefa.processo %}Processo {{ tarefa.processo.numero_processo }} • {% endif %}
+        Criada por {{ tarefa.criado_por.nome if tarefa.criado_por else "—" }} em {{ tarefa.created_at.strftime("%d/%m/%Y") }}
+      </div>
+    </div>
+    <a class="btn btn-soft btn-sm" href="/tarefas">Voltar</a>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12 col-lg-8">
+
+      <div class="soft-card p-3 mb-3">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <span class="badge badge-soft-dark">{{ tarefa.rotulo_status() }}</span>
+          {% set sp = tarefa.status_prazo() %}
+          {% if sp == "atrasada" %}
+            <span class="badge badge-soft">Atrasada</span>
+          {% elif sp == "hoje" %}
+            <span class="badge badge-soft-warn">Vence hoje</span>
+          {% endif %}
+        </div>
+
+        <p class="mb-2">{{ tarefa.descricao or "Sem descrição." }}</p>
+
+        <div class="text-muted small d-flex flex-wrap gap-3">
+          <span>Prioridade: {{ tarefa.rotulo_prioridade() }}</span>
+          {% if tarefa.prazo %}<span>Prazo: {{ tarefa.prazo.strftime("%d/%m/%Y") }}</span>{% endif %}
+          <span>Responsável: {{ tarefa.responsavel.nome if tarefa.responsavel else "—" }}</span>
+          {% if tarefa.delegado_por %}<span>Delegado por: {{ tarefa.delegado_por.nome }}</span>{% endif %}
+        </div>
+      </div>
+
+      {# ---- Ações do fluxo ---- #}
+      <div class="soft-card p-3 mb-3">
+        <div class="fw-semibold mb-2">Ações</div>
+        <div class="d-flex flex-wrap gap-2">
+
+          {% if tarefa.status == "pendente_aceite" and tarefa.responsavel_id == request.state.current_user.id %}
+            <form method="post" action="/tarefas/{{ tarefa.id }}/responder">
+              <input type="hidden" name="resposta" value="aceitar">
+              <button class="btn btn-success btn-sm" type="submit">Aceitar tarefa</button>
+            </form>
+            <button class="btn btn-soft btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#recusarForm">
+              Recusar tarefa
+            </button>
+          {% endif %}
+
+          {% if tarefa.status == "em_execucao" and tarefa.responsavel_id == request.state.current_user.id %}
+            <form method="post" action="/tarefas/{{ tarefa.id }}/concluir">
+              <button class="btn btn-success btn-sm" type="submit">Marcar como concluída</button>
+            </form>
+          {% endif %}
+
+          {% if tarefa.status == "concluida" and tarefa.delegado_por_id == request.state.current_user.id %}
+            <form method="post" action="/tarefas/{{ tarefa.id }}/validar">
+              <input type="hidden" name="resultado" value="aprovar">
+              <button class="btn btn-success btn-sm" type="submit">Aprovar</button>
+            </form>
+            <button class="btn btn-soft btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#reprovarForm">
+              Reprovar
+            </button>
+          {% endif %}
+
+          {% if tarefa.status == "reprovada" and tarefa.responsavel_id == request.state.current_user.id %}
+            <form method="post" action="/tarefas/{{ tarefa.id }}/reabrir">
+              <button class="btn btn-soft btn-sm" type="submit">Reabrir para execução</button>
+            </form>
+          {% endif %}
+
+          <button class="btn btn-soft btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#delegarForm">
+            Delegar para outra pessoa
+          </button>
+          <a class="btn btn-soft btn-sm" href="/tarefas/{{ tarefa.id }}/editar">Editar</a>
+
+          <form method="post" action="/tarefas/{{ tarefa.id }}/excluir"
+                onsubmit="return confirm('Tem certeza que deseja excluir esta tarefa? Essa ação não pode ser desfeita.');">
+            <button class="btn btn-soft btn-sm text-danger" type="submit">Excluir tarefa</button>
+          </form>
+        </div>
+
+        <div class="collapse mt-3" id="recusarForm">
+          <form method="post" action="/tarefas/{{ tarefa.id }}/responder">
+            <input type="hidden" name="resposta" value="recusar">
+            <textarea name="justificativa" class="form-control form-control-sm mb-2" placeholder="Motivo da recusa" required></textarea>
+            <button class="btn btn-soft btn-sm" type="submit">Confirmar recusa</button>
+          </form>
+        </div>
+
+        <div class="collapse mt-3" id="reprovarForm">
+          <form method="post" action="/tarefas/{{ tarefa.id }}/validar">
+            <input type="hidden" name="resultado" value="reprovar">
+            <textarea name="observacao" class="form-control form-control-sm mb-2" placeholder="O que precisa ser ajustado?" required></textarea>
+            <button class="btn btn-soft btn-sm" type="submit">Confirmar reprovação</button>
+          </form>
+        </div>
+
+        <div class="collapse mt-3" id="delegarForm">
+          <form method="post" action="/tarefas/{{ tarefa.id }}/delegar" class="d-flex gap-2">
+            <select name="novo_responsavel_id" class="form-select form-select-sm" required>
+              <option value="">Selecione um usuário</option>
+              {% for u in usuarios %}
+                <option value="{{ u.id }}">{{ u.nome }}</option>
+              {% endfor %}
+            </select>
+            <button class="btn btn-success btn-sm" type="submit">Delegar</button>
+          </form>
+        </div>
+      </div>
+
+      {# ---- Comentários ---- #}
+      <div class="soft-card p-3">
+        <div class="fw-semibold mb-2">Comentários</div>
+
+        {% if tarefa.comentarios %}
+          <div class="list-group list-group-flush list-clean mb-3">
+            {% for c in tarefa.comentarios %}
+              <div class="list-group-item">
+                <div class="fw-semibold small">{{ c.autor.nome if c.autor else "—" }}
+                  <span class="text-muted fw-normal"> • {{ c.criado_em.strftime("%d/%m/%Y %H:%M") }}</span>
+                </div>
+                <div>{{ c.texto }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-muted small mb-3">Nenhum comentário ainda.</div>
+        {% endif %}
+
+        <form method="post" action="/tarefas/{{ tarefa.id }}/comentar">
+          <textarea name="texto" class="form-control form-control-sm mb-2" rows="2" placeholder="Escreva um comentário..." required></textarea>
+          <button class="btn btn-soft btn-sm" type="submit">Comentar</button>
+        </form>
+      </div>
+
+    </div>
+
+    {# ---- Coluna lateral: histórico e anexos ---- #}
+    <div class="col-12 col-lg-4">
+      <div class="soft-card p-3 mb-3">
+        <div class="fw-semibold mb-2">Histórico</div>
+        {% if tarefa.historico %}
+          <div class="list-group list-group-flush list-clean">
+            {% for h in tarefa.historico %}
+              <div class="list-group-item">
+                <div class="small">
+                  <strong>{{ h.alterado_por.nome if h.alterado_por else "—" }}</strong>
+                  alterou para <span class="badge badge-soft-dark">{{ h.status_novo }}</span>
+                </div>
+                <div class="text-muted small">{{ h.alterado_em.strftime("%d/%m/%Y %H:%M") }}</div>
+                {% if h.observacao %}<div class="small mt-1">{{ h.observacao }}</div>{% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-muted small">Sem histórico.</div>
+        {% endif %}
+      </div>
+
+      <div class="soft-card p-3">
+        <div class="fw-semibold mb-2">Anexos</div>
+        {% if tarefa.anexos %}
+          <div class="list-group list-group-flush list-clean">
+            {% for a in tarefa.anexos %}
+              <div class="list-group-item">
+                <a href="{{ a.caminho_arquivo }}" target="_blank">{{ a.nome_arquivo }}</a>
+                <div class="text-muted small">{{ a.enviado_por.nome if a.enviado_por else "—" }} • {{ a.enviado_em.strftime("%d/%m/%Y") }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-muted small">Nenhum anexo.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

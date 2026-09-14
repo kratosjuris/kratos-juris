@@ -627,6 +627,14 @@
       <path class="kj-stroke" d="M8 21h10" fill="none" stroke-width="1.8" stroke-linecap="round"/>
       <path class="kj-stroke" d="M12.5 12.5 6.4 18.6" fill="none" stroke-width="1.8" stroke-linecap="round"/>
     </svg>
+  {% elif kind == "checklist" %}
+    <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="kj-fill" d="M6 3.8h12a1.5 1.5 0 0 1 1.5 1.5V19a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 19V5.3A1.5 1.5 0 0 1 6 3.8Z"></path>
+      <path class="kj-stroke" d="M8 8.2l1.4 1.4L12 7" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="kj-stroke" d="M14 8.2h4" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="kj-stroke" d="M8 13.6l1.4 1.4L12 12.4" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="kj-stroke" d="M14 13.6h4" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
   {% else %}
     <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
       <circle class="kj-stroke" cx="12" cy="12" r="8" fill="none" stroke-width="1.8"/>
@@ -638,6 +646,7 @@
 {% set aud_hoje = audiencias_hoje if audiencias_hoje is defined and audiencias_hoje else [] %}
 {% set aud_prox = audiencias_proximo if audiencias_proximo is defined and audiencias_proximo else [] %}
 {% set is_superadmin = is_superadmin if is_superadmin is defined else false %}
+{% set lista_tarefas = tarefas_proximas if tarefas_proximas is defined and tarefas_proximas else [] %}
 
 <div id="kj-dashboard">
 
@@ -674,6 +683,7 @@
   {% set total_bday_mes = (bday_mes_total if bday_mes_total is defined and bday_mes_total is not none else 0) %}
   {% set total_rompendo_semana = (prazos_rompendo_semana_total if prazos_rompendo_semana_total is defined and prazos_rompendo_semana_total is not none else 0) %}
   {% set total_clientes = (clientes_total if clientes_total is defined and clientes_total is not none else 0) %}
+  {% set total_tarefas_pendentes = (tarefas_pendentes_total if tarefas_pendentes_total is defined and tarefas_pendentes_total is not none else 0) %}
 
   <div class="row g-3 mb-3">
     <div class="col-12 col-md-6 col-xl-3">
@@ -745,6 +755,84 @@
           </div>
           <span class="badge badge-soft-dark">Total</span>
         </div>
+      </div>
+    </div>
+
+    <!-- NOVO: KPI Tarefas pendentes -->
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="kpi p-3 h-100">
+        <div class="d-flex align-items-center gap-3">
+          <div class="kpi-icon">
+            {{ kj_icon("checklist", 20) }}
+          </div>
+          <div class="flex-grow-1">
+            <div class="kpi-value">{{ total_tarefas_pendentes }}</div>
+            <div class="kpi-label">Tarefas pendentes</div>
+          </div>
+          {% if total_tarefas_pendentes > 0 %}
+            <span class="badge badge-soft-warn">Pendente</span>
+          {% else %}
+            <span class="badge text-bg-light">OK</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOVO: MINHAS TAREFAS -->
+  <div class="row g-3 mb-3">
+    <div class="col-12">
+      <div class="soft-card p-3">
+        <div class="d-flex align-items-start justify-content-between">
+          <div>
+            <div class="section-title">
+              {{ kj_icon("checklist", 18) }}
+              <span>Minhas Tarefas</span>
+            </div>
+            <div class="section-sub">Delegadas para você e em andamento</div>
+          </div>
+          <a class="btn btn-soft btn-sm d-inline-flex align-items-center gap-2" href="/tarefas">
+            <span>Abrir</span>
+            <span class="kj-ico-box">{{ kj_icon("arrow_right", 18) }}</span>
+          </a>
+        </div>
+
+        {% if lista_tarefas and lista_tarefas|length > 0 %}
+          <div class="list-group list-group-flush list-clean mt-2">
+            {% for t in lista_tarefas[:8] %}
+              <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start">
+                  <div class="fw-semibold">
+                    {{ t.titulo }}
+                    {% if t.processo_numero %}
+                      <span class="text-muted fw-normal"> ({{ t.processo_numero }})</span>
+                    {% endif %}
+                  </div>
+
+                  {% if t.status == "atrasada" %}
+                    <span class="badge badge-soft">Atrasada</span>
+                  {% elif t.status == "hoje" %}
+                    <span class="badge badge-soft-warn">Vence hoje</span>
+                  {% else %}
+                    <span class="badge badge-soft-dark">Em dia</span>
+                  {% endif %}
+                </div>
+
+                <div class="text-muted small mt-1 d-flex justify-content-between flex-wrap gap-2">
+                  <div>
+                    {% if t.delegado_por %}<span>Delegado por: <strong>{{ t.delegado_por }}</strong></span>{% endif %}
+                    {% if t.prazo %}<span class="text-muted"> • Prazo: {{ t.prazo.strftime("%d/%m/%Y") }}</span>{% endif %}
+                  </div>
+                  <div class="text-muted">
+                    {% if t.prioridade %}Prioridade: {{ t.prioridade }}{% endif %}
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-muted small mt-2">Nenhuma tarefa pendente no momento.</div>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -1158,6 +1246,19 @@
         <div class="text-muted small">
           Atualização monetária, astreintes e cálculos
         </div>
+      </div>
+    </div>
+  </a>
+</div>
+
+<!-- NOVO: Tile Tarefas -->
+<div class="col-12 col-md-6 col-xl-4">
+  <a class="tile p-3 d-block h-100" href="/tarefas">
+    <div class="d-flex align-items-center gap-3">
+      <div class="tile-icon">{{ kj_icon("checklist", 22) }}</div>
+      <div>
+        <div class="fw-semibold">Tarefas</div>
+        <div class="text-muted small">Delegação e acompanhamento</div>
       </div>
     </div>
   </a>

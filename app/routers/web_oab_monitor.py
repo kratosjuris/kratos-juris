@@ -218,16 +218,16 @@ async def oabs_monitorar_agora(
 
 
 # ---------------------------------------------------------------------------
-# API JSON — tarefas pendentes (chamada pelo browser no login)
+# API JSON — tasks pendentes (chamada pelo browser no login)
 # ---------------------------------------------------------------------------
 
 from fastapi.responses import JSONResponse
 from app.models.oab_monitorada import MonitorTarefa
 
 
-@router.get("/api/monitor/tarefas-pendentes")
+@router.get("/api/monitor/tasks-pendentes")
 def tarefas_pendentes(request: Request, db: Session = Depends(get_db)):
-    """Retorna tarefas PENDENTES do office para execução pelo browser."""
+    """Retorna tasks PENDENTES do office para execução pelo browser."""
     office_id = _get_office_id(request)
 
     tarefas = (
@@ -249,7 +249,7 @@ def tarefas_pendentes(request: Request, db: Session = Depends(get_db)):
     } for t in tarefas])
 
 
-@router.post("/api/monitor/tarefas/{tarefa_id}/concluir")
+@router.post("/api/monitor/tasks/{tarefa_id}/concluir")
 async def concluir_tarefa(
     request: Request,
     tarefa_id: int,

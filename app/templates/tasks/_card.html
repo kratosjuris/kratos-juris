@@ -1,0 +1,41 @@
+{#
+  Espera a variável `t` (instância de Tarefa) e, opcionalmente, `kanban=true`
+  para desenhar como card arrastável.
+#}
+<div class="list-group-item{% if kanban is defined and kanban %} kanban-card{% endif %}"
+     {% if kanban is defined and kanban %}draggable="true" data-tarefa-id="{{ t.id }}"{% endif %}>
+
+  <div class="d-flex justify-content-between align-items-start">
+    <a class="fw-semibold text-decoration-none" href="/tarefas/{{ t.id }}">
+      {{ t.titulo }}
+    </a>
+
+    {% set sp = t.status_prazo() %}
+    {% if sp == "atrasada" %}
+      <span class="badge badge-soft">Atrasada</span>
+    {% elif sp == "hoje" %}
+      <span class="badge badge-soft-warn">Vence hoje</span>
+    {% else %}
+      <span class="badge badge-soft-dark">Em dia</span>
+    {% endif %}
+  </div>
+
+  <div class="text-muted small mt-1 d-flex justify-content-between flex-wrap gap-2">
+    <div>
+           {% if t.delegado_por %}<span>De: <strong>{{ t.delegado_por.nome }}</strong></span>{% endif %}
+      {% if t.responsavel %}<span> • Delegado para: <strong>{{ t.responsavel.nome }}</strong></span>{% endif %}
+    </div>
+    <div>
+      {% if t.prazo %}<span>Prazo: {{ t.prazo.strftime("%d/%m/%Y") }}</span>{% endif %}
+    </div>
+  </div>
+
+  <div class="text-muted small d-flex justify-content-between flex-wrap gap-2">
+    <div>
+      {% if t.processo %}<span>Processo: {{ t.processo.numero_processo }}</span>{% endif %}
+    </div>
+    <div>
+      Prioridade: {{ t.rotulo_prioridade() }}
+    </div>
+  </div>
+</div>

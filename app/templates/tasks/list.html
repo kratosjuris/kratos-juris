@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<div id="kj-dashboard">
+
+  <div class="d-flex align-items-start justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+      <div class="section-title"><span>Gerenciador de Tarefas</span></div>
+      <div class="section-sub">Visão em lista</div>
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-soft btn-sm" href="/tarefas?view=kanban">Kanban</a>
+      <a class="btn btn-soft btn-sm" href="/tarefas?view=calendario">Calendário</a>
+      <a class="btn btn-success btn-sm" href="/tarefas/nova">+ Nova tarefa</a>
+    </div>
+  </div>
+
+  <div class="soft-card p-3 mb-3">
+    <form class="row g-2 align-items-end" method="get">
+      <input type="hidden" name="view" value="lista">
+      <div class="col-auto">
+        <label class="form-label small text-muted mb-1">Status</label>
+        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todos</option>
+          <option value="pendente_aceite" {% if status == 'pendente_aceite' %}selected{% endif %}>Aguardando aceite</option>
+          <option value="em_execucao" {% if status == 'em_execucao' %}selected{% endif %}>Em execução</option>
+          <option value="concluida" {% if status == 'concluida' %}selected{% endif %}>Concluída</option>
+          <option value="validada" {% if status == 'validada' %}selected{% endif %}>Validada</option>
+          <option value="reprovada" {% if status == 'reprovada' %}selected{% endif %}>Reprovada</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <label class="form-label small text-muted mb-1">Prioridade</label>
+        <select name="prioridade" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todas</option>
+          <option value="baixa" {% if prioridade == 'baixa' %}selected{% endif %}>Baixa</option>
+          <option value="media" {% if prioridade == 'media' %}selected{% endif %}>Média</option>
+          <option value="alta" {% if prioridade == 'alta' %}selected{% endif %}>Alta</option>
+          <option value="urgente" {% if prioridade == 'urgente' %}selected{% endif %}>Urgente</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <label class="form-label small text-muted mb-1">Responsável</label>
+        <select name="responsavel" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todos os usuários</option>
+          {% for u in usuarios_escritorio %}
+            <option value="{{ u.id }}" {% if responsavel|string == u.id|string %}selected{% endif %}>{{ u.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </form>
+  </div>
+
+  <div class="soft-card p-3">
+    {% if tarefas and tarefas|length > 0 %}
+      <div class="list-group list-group-flush list-clean">
+        {% for t in tarefas %}
+          {% include "tasks/_card.html" %}
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-muted small">Nenhuma tarefa encontrada com esses filtros.</div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<div id="kj-dashboard">
+
+  <div class="d-flex align-items-start justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+      <div class="section-title"><span>Minhas Tarefas</span></div>
+      <div class="section-sub">Visão por prazo</div>
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-soft btn-sm" href="/tarefas?view=lista">Lista</a>
+      <a class="btn btn-soft btn-sm" href="/tarefas?view=kanban">Kanban</a>
+      <a class="btn btn-success btn-sm" href="/tarefas/nova">+ Nova tarefa</a>
+    </div>
+  </div>
+
+  {% set tarefas_com_prazo = tarefas | selectattr("prazo") | list %}
+  {% set tarefas_sem_prazo = tarefas | rejectattr("prazo") | list %}
+  {% set datas_ordenadas = tarefas_com_prazo | map(attribute="prazo") | unique | sort %}
+
+  {% if datas_ordenadas %}
+    {% for data in datas_ordenadas %}
+      <div class="soft-card p-3 mb-3">
+        <div class="fw-semibold mb-2 d-flex justify-content-between align-items-center">
+          <span>{{ data.strftime("%d/%m/%Y") }}</span>
+          {% if data < hoje %}
+            <span class="badge badge-soft">Vencido</span>
+          {% elif data == hoje %}
+            <span class="badge badge-soft-warn">Hoje</span>
+          {% endif %}
+        </div>
+        <div class="list-group list-group-flush list-clean">
+          {% for t in tarefas_com_prazo if t.prazo == data %}
+            {% include "tasks/_card.html" %}
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="soft-card p-3 mb-3">
+      <div class="text-muted small">Nenhuma tarefa com prazo definido.</div>
+    </div>
+  {% endif %}
+
+  {% if tarefas_sem_prazo %}
+    <div class="soft-card p-3">
+      <div class="fw-semibold mb-2">Sem prazo definido</div>
+      <div class="list-group list-group-flush list-clean">
+        {% for t in tarefas_sem_prazo %}
+          {% include "tasks/_card.html" %}
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

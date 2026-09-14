@@ -1,7 +1,7 @@
 """
 app/models/oab_monitorada.py
 
-Cadastro das OABs monitoradas + tarefas de monitoramento pendentes
+Cadastro das OABs monitoradas + tasks de monitoramento pendentes
 para execução pelo browser do advogado no login.
 """
 

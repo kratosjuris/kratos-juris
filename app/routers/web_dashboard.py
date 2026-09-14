@@ -16,6 +16,9 @@ from app.models.hearing import Hearing
 from app.models.user import User
 from app.services.whatsapp import build_message_by_tipo, build_wa_me_link
 
+# NOVO: TAREFAS — card "Minhas Tarefas" no dashboard
+from app.services.dashboard_service import get_tarefas_dashboard
+
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
@@ -222,6 +225,17 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     )
 
     # =========================
+    # NOVO: TAREFAS — card "Minhas Tarefas"
+    # =========================
+    tarefas_pendentes_total = 0
+    tarefas_proximas = []
+
+    if user_id:
+        tarefas_pendentes_total, tarefas_proximas = get_tarefas_dashboard(
+            db, office_id=office_id, usuario_id=user_id
+        )
+
+    # =========================
     # FINANCEIRO
     # ✅ SOMENTE SUPERADMINISTRADOR
     # =========================
@@ -313,5 +327,8 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             "clientes_total": clientes_total,
             "prazos_rompendo_semana_total": prazos_rompendo_semana_total,
             "is_superadmin": is_superadmin,
+            # NOVO: TAREFAS
+            "tarefas_pendentes_total": tarefas_pendentes_total,
+            "tarefas_proximas": tarefas_proximas,
         },
     )

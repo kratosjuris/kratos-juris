@@ -129,4 +129,16 @@ def create_tables():
     except Exception:
         pass
 
+    # NOVO: módulo de tasks (delegação de serviços jurídicos)
+    try:
+        from app.models.tarefa import (
+            Tarefa,
+            HistoricoStatusTarefa,
+            ComentarioTarefa,
+            AnexoTarefa,
+            Notificacao,
+        )
+    except Exception:
+        pass
+
     Base.metadata.create_all(bind=engine)

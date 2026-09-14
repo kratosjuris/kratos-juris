@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<div id="kj-dashboard">
+
+  <div class="d-flex align-items-start justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+      <div class="section-title"><span>Gerenciador de Tarefas</span></div>
+      <div class="section-sub">Visão kanban — arraste entre as colunas</div>
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-soft btn-sm" href="/tarefas?view=lista">Lista</a>
+      <a class="btn btn-soft btn-sm" href="/tarefas?view=calendario">Calendário</a>
+      <a class="btn btn-success btn-sm" href="/tarefas/nova">+ Nova tarefa</a>
+    </div>
+  </div>
+
+  <div class="soft-card p-3 mb-3">
+    <form class="row g-2 align-items-end" method="get">
+      <input type="hidden" name="view" value="kanban">
+      <div class="col-auto">
+        <label class="form-label small text-muted mb-1">Filtrar por responsável</label>
+        <select name="responsavel" class="form-select form-select-sm" onchange="this.form.submit()">
+          <option value="">Todos os usuários</option>
+          {% for u in usuarios_escritorio %}
+            <option value="{{ u.id }}" {% if responsavel|string == u.id|string %}selected{% endif %}>{{ u.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </form>
+  </div>
+
+  <div class="row g-3">
+    {% set titulos = {
+      "pendente_aceite": "Aguardando aceite",
+      "em_execucao": "Em execução",
+      "concluida": "Concluída",
+      "validada": "Validada",
+    } %}
+
+    {% for status_key, titulo in titulos.items() %}
+      <div class="col-12 col-md-6 col-xl-3">
+        <div class="soft-card p-3 h-100 kanban-col" data-status="{{ status_key }}">
+          <div class="fw-semibold mb-2 d-flex justify-content-between align-items-center">
+            <span>{{ titulo }}</span>
+            <span class="badge badge-soft-dark">{{ colunas[status_key]|length }}</span>
+          </div>
+
+          <div class="list-group list-group-flush list-clean kanban-dropzone" data-status="{{ status_key }}">
+            {% set kanban = true %}
+            {% for t in colunas[status_key] %}
+              {% include "tasks/_card.html" with context %}
+            {% else %}
+              <div class="text-muted small">Nenhuma tarefa.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+</div>
+
+<script src="/static/js/tasks.js"></script>
+{% endblock %}
