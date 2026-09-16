@@ -7,9 +7,12 @@
       <div class="section-title"><span>Gerenciador de Tarefas</span></div>
       <div class="section-sub">Visão kanban — arraste entre as colunas</div>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
       <a class="btn btn-soft btn-sm" href="/tarefas?view=lista">Lista</a>
       <a class="btn btn-soft btn-sm" href="/tarefas?view=calendario">Calendário</a>
+      <a class="btn btn-soft btn-sm {% if not status %}active{% endif %}" href="/tarefas?view=kanban">Ativas</a>
+      <a class="btn btn-soft btn-sm {% if status == 'concluida' %}active{% endif %}" href="/tarefas?view=kanban&status=concluida">Concluídas</a>
+      <a class="btn btn-soft btn-sm {% if status == 'validada' %}active{% endif %}" href="/tarefas?view=kanban&status=validada">Validadas</a>
       <a class="btn btn-success btn-sm" href="/tarefas/nova">+ Nova tarefa</a>
     </div>
   </div>
@@ -17,6 +20,7 @@
   <div class="soft-card p-3 mb-3">
     <form class="row g-2 align-items-end" method="get">
       <input type="hidden" name="view" value="kanban">
+      <input type="hidden" name="status" value="{{ status }}">
       <div class="col-auto">
         <label class="form-label small text-muted mb-1">Filtrar por responsável</label>
         <select name="responsavel" class="form-select form-select-sm" onchange="this.form.submit()">
@@ -35,27 +39,35 @@
       "em_execucao": "Em execução",
       "concluida": "Concluída",
       "validada": "Validada",
+      "reprovada": "Reprovada",
     } %}
 
     {% for status_key, titulo in titulos.items() %}
-      <div class="col-12 col-md-6 col-xl-3">
-        <div class="soft-card p-3 h-100 kanban-col" data-status="{{ status_key }}">
-          <div class="fw-semibold mb-2 d-flex justify-content-between align-items-center">
-            <span>{{ titulo }}</span>
-            <span class="badge badge-soft-dark">{{ colunas[status_key]|length }}</span>
-          </div>
+      {% if colunas[status_key] is defined and colunas[status_key]|length > 0 %}
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="soft-card p-3 h-100 kanban-col" data-status="{{ status_key }}">
+            <div class="fw-semibold mb-2 d-flex justify-content-between align-items-center">
+              <span>{{ titulo }}</span>
+              <span class="badge badge-soft-dark">{{ colunas[status_key]|length }}</span>
+            </div>
 
-          <div class="list-group list-group-flush list-clean kanban-dropzone" data-status="{{ status_key }}">
-            {% set kanban = true %}
-            {% for t in colunas[status_key] %}
-              {% include "tasks/_card.html" with context %}
-            {% else %}
-              <div class="text-muted small">Nenhuma tarefa.</div>
-            {% endfor %}
+            <div class="list-group list-group-flush list-clean kanban-dropzone" data-status="{{ status_key }}">
+              {% set kanban = true %}
+              {% for t in colunas[status_key] %}
+                {% include "tasks/_card.html" with context %}
+              {% endfor %}
+            </div>
           </div>
         </div>
-      </div>
+      {% endif %}
     {% endfor %}
+
+    {% set total = colunas.values() | map('length') | sum %}
+    {% if total == 0 %}
+      <div class="col-12">
+        <div class="soft-card p-3 text-muted small">Nenhuma tarefa encontrada.</div>
+      </div>
+    {% endif %}
   </div>
 
 </div>

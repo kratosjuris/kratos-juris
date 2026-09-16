@@ -16,6 +16,8 @@ from app.services import tarefa_service
 router = APIRouter(prefix="/tarefas")
 templates = Jinja2Templates(directory="app/templates")
 
+STATUS_ATIVOS = ["pendente_aceite", "em_execucao", "reprovada"]
+
 
 # =========================
 # HELPERS
@@ -42,17 +44,13 @@ def _parse_date(value: str) -> date | None:
     return date(int(y), int(m), int(d))
 
 
-def _redirect_denied():
-    return RedirectResponse(url="/acesso-negado", status_code=303)
-
-
 # =========================
 # LISTA (lista / kanban / calendario)
 # =========================
 @router.get("", response_class=HTMLResponse)
 def tarefas_list(
     request: Request,
-    view: str = "kanban",
+    view: str = "lista",
     status: str = "",
     prioridade: str = "",
     responsavel: str = "",
@@ -61,11 +59,14 @@ def tarefas_list(
     office_id = _get_office_id(request)
     current_user = _get_current_user(request)
 
-    query = db.query(Tarefa).filter(
-        Tarefa.office_id == office_id,
-    )
+    query = db.query(Tarefa).filter(Tarefa.office_id == office_id)
+
     if status:
         query = query.filter(Tarefa.status == status)
+    else:
+        # padrão: esconde concluídas e validadas
+        query = query.filter(Tarefa.status.in_(STATUS_ATIVOS))
+
     if prioridade:
         query = query.filter(Tarefa.prioridade == prioridade)
     if responsavel:
@@ -73,17 +74,17 @@ def tarefas_list(
 
     tarefas = query.order_by(Tarefa.prazo.asc().nulls_last()).all()
 
-    # lista de usuarios do escritorio para o filtro
     usuarios_escritorio = db.query(User).filter(
         User.office_id == office_id, User.is_active.is_(True)
     ).order_by(User.nome).all()
 
-    if view == "lista":
+    if view == "kanban":
         colunas = {
             "pendente_aceite": [],
             "em_execucao": [],
             "concluida": [],
             "validada": [],
+            "reprovada": [],
         }
         for t in tarefas:
             if t.status in colunas:
@@ -97,13 +98,21 @@ def tarefas_list(
                 "colunas": colunas,
                 "usuarios_escritorio": usuarios_escritorio,
                 "responsavel": responsavel,
+                "status": status,
+                "prioridade": prioridade,
             },
         )
 
     if view == "calendario":
         return templates.TemplateResponse(
             "tasks/calendar.html",
-            {"request": request, "title": "Gerenciador de Tarefas", "tarefas": tarefas, "hoje": date.today()},
+            {
+                "request": request,
+                "title": "Gerenciador de Tarefas",
+                "tarefas": tarefas,
+                "hoje": date.today(),
+                "status": status,
+            },
         )
 
     return templates.TemplateResponse(
@@ -316,7 +325,7 @@ def tarefas_concluir(tarefa_id: int, request: Request, db: Session = Depends(get
     except ValueError:
         raise HTTPException(status_code=404, detail="Tarefa nao encontrada")
 
-    return RedirectResponse(url=f"/tarefas/{tarefa_id}", status_code=303)
+    return RedirectResponse(url="/tarefas", status_code=303)
 
 
 @router.post("/{tarefa_id}/validar")
@@ -375,7 +384,7 @@ def tarefas_comentar(
 
 
 # =========================
-# API leve — kanban (drag-and-drop)
+# API leve — kanban drag-and-drop
 # =========================
 @router.patch("/api/{tarefa_id}/status")
 async def tarefas_atualizar_status_api(tarefa_id: int, request: Request, db: Session = Depends(get_db)):

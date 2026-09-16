@@ -7,9 +7,12 @@
       <div class="section-title"><span>Gerenciador de Tarefas</span></div>
       <div class="section-sub">Visão em lista</div>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
       <a class="btn btn-soft btn-sm" href="/tarefas?view=kanban">Kanban</a>
       <a class="btn btn-soft btn-sm" href="/tarefas?view=calendario">Calendário</a>
+      <a class="btn btn-soft btn-sm {% if not status %}active{% endif %}" href="/tarefas?view=lista">Ativas</a>
+      <a class="btn btn-soft btn-sm {% if status == 'concluida' %}active{% endif %}" href="/tarefas?view=lista&status=concluida">Concluídas</a>
+      <a class="btn btn-soft btn-sm {% if status == 'validada' %}active{% endif %}" href="/tarefas?view=lista&status=validada">Validadas</a>
       <a class="btn btn-success btn-sm" href="/tarefas/nova">+ Nova tarefa</a>
     </div>
   </div>
@@ -17,17 +20,7 @@
   <div class="soft-card p-3 mb-3">
     <form class="row g-2 align-items-end" method="get">
       <input type="hidden" name="view" value="lista">
-      <div class="col-auto">
-        <label class="form-label small text-muted mb-1">Status</label>
-        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
-          <option value="">Todos</option>
-          <option value="pendente_aceite" {% if status == 'pendente_aceite' %}selected{% endif %}>Aguardando aceite</option>
-          <option value="em_execucao" {% if status == 'em_execucao' %}selected{% endif %}>Em execução</option>
-          <option value="concluida" {% if status == 'concluida' %}selected{% endif %}>Concluída</option>
-          <option value="validada" {% if status == 'validada' %}selected{% endif %}>Validada</option>
-          <option value="reprovada" {% if status == 'reprovada' %}selected{% endif %}>Reprovada</option>
-        </select>
-      </div>
+      <input type="hidden" name="status" value="{{ status }}">
       <div class="col-auto">
         <label class="form-label small text-muted mb-1">Prioridade</label>
         <select name="prioridade" class="form-select form-select-sm" onchange="this.form.submit()">
@@ -58,7 +51,7 @@
         {% endfor %}
       </div>
     {% else %}
-      <div class="text-muted small">Nenhuma tarefa encontrada com esses filtros.</div>
+      <div class="text-muted small">Nenhuma tarefa encontrada.</div>
     {% endif %}
   </div>
 
