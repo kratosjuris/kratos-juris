@@ -35,84 +35,218 @@
 
   <style>
     /* =========================================================
-       TOPO APPLE / NOTION / LINEAR - NOITE
+       SIDEBAR — NOITE (substitui o antigo menu de topo)
        ========================================================= */
-    .navbar.navbar-dark.bg-dark{
-      background: rgba(9, 13, 22, .72) !important;
-      border-bottom: 1px solid rgba(255,255,255,.06);
-      box-shadow: 0 10px 30px rgba(0,0,0,.28);
+    .kj-shell{
+      display:flex;
+      align-items:stretch;
+      min-height:100vh;
+    }
+
+    .kj-sidebar{
+      width: 250px;
+      flex: 0 0 auto;
+      min-height: 100vh;
+      position: sticky;
+      top: 0;
+      align-self: flex-start;
+      box-sizing: border-box;
+      display:flex;
+      flex-direction:column;
+      gap: 18px;
+      padding: 20px 14px;
+      background: rgba(9, 13, 22, .82);
+      border-right: 1px solid rgba(255,255,255,.06);
+      box-shadow: 10px 0 30px rgba(0,0,0,.20);
       backdrop-filter: blur(18px) saturate(140%);
       -webkit-backdrop-filter: blur(18px) saturate(140%);
-      padding: .42rem 0;
-      min-height: 62px;
+      z-index: 20;
     }
 
-    .navbar .container{
-      max-width: 100%;
-      padding-left: 1.1rem;
-      padding-right: 1.1rem;
-      display: flex;
-      align-items: center;
-      gap: .8rem;
-    }
-
-    .navbar-brand{
-      font-weight: 800;
-      font-size: .92rem;
-      letter-spacing: -.02em;
-      color: rgba(255,255,255,.96) !important;
+    .kj-sidebar-brand{
       display:flex;
       align-items:center;
-      gap:.55rem;
-      margin-right: .15rem;
-      line-height: 1;
+      gap:.6rem;
+      padding: 4px 8px 8px;
+      text-decoration:none !important;
     }
-
-    .navbar-brand::before{
-      content:"";
-      width:8px;
-      height:8px;
+    .kj-sidebar-brand-dot{
+      width:8px; height:8px;
       border-radius:999px;
       background: rgba(231,198,106,.95);
       box-shadow: 0 0 0 4px rgba(231,198,106,.12);
-      display:inline-block;
       flex: 0 0 auto;
     }
-
-    .navbar-nav{
-      gap: .15rem;
-      align-items: center;
+    .kj-sidebar-brand-text{
+      font-weight: 800;
+      font-size: .96rem;
+      letter-spacing: -.02em;
+      color: rgba(255,255,255,.96);
     }
 
-    .kj-navbar-main{
+    .kj-sidebar-nav{
+      display:flex;
+      flex-direction:column;
+      gap: 2px;
+      overflow-y:auto;
+    }
+
+    .kj-sidebar-link{
       display:flex;
       align-items:center;
-      gap:.25rem;
-      margin-left: .35rem;
-    }
-
-    .navbar-dark .navbar-nav .nav-link{
-      color: rgba(242,244,247,.62)!important;
-      font-weight: 650;
-      font-size: .80rem;
-      letter-spacing: .01em;
-      padding: .38rem .72rem;
+      gap:.65rem;
+      padding: .56rem .68rem;
       border-radius: 10px;
-      transition: background .15s ease, color .15s ease, transform .12s ease;
-      line-height: 1;
+      border-left: 2px solid transparent;
+      color: rgba(242,244,247,.62) !important;
+      font-weight: 650;
+      font-size: .81rem;
+      letter-spacing: .01em;
+      text-decoration: none !important;
+      transition: background .15s ease, color .15s ease;
     }
-
-    .navbar-dark .navbar-nav .nav-link:hover{
+    .kj-sidebar-link .bi{
+      font-size: .95rem;
+      color: rgba(242,244,247,.42);
+      flex: 0 0 auto;
+    }
+    .kj-sidebar-link:hover{
       background: rgba(255,255,255,.055);
-      color: rgba(242,244,247,.94)!important;
-      transform: translateY(-1px);
+      color: rgba(242,244,247,.94) !important;
+    }
+    .kj-sidebar-link:hover .bi{ color: rgba(231,198,106,.85); }
+    .kj-sidebar-link.active{
+      color: rgba(255,255,255,.96) !important;
+      background: rgba(231,198,106,.10);
+      border-left-color: rgba(231,198,106,.85);
+      box-shadow: inset 0 0 0 1px rgba(231,198,106,.08);
+    }
+    .kj-sidebar-link.active .bi{ color: rgba(231,198,106,.92); }
+
+    /* ---- Grupo colapsável "Meu Painel" ---- */
+    .kj-sidebar-toggle{
+      appearance: none;
+      -webkit-appearance: none;
+      background: transparent;
+      border: 0;
+      border-left: 2px solid transparent;
+      text-align: left;
+      font-family: inherit;
+      display:flex;
+      align-items:center;
+      gap:.65rem;
+      padding: .56rem .68rem;
+      border-radius: 10px;
+      color: rgba(242,244,247,.62);
+      font-weight: 650;
+      font-size: .81rem;
+      letter-spacing: .01em;
+      cursor:pointer;
+      width:100%;
+    }
+    .kj-sidebar-toggle .bi:first-child{
+      font-size: .95rem;
+      color: rgba(242,244,247,.42);
+      flex: 0 0 auto;
+    }
+    .kj-sidebar-toggle:hover{
+      background: rgba(255,255,255,.055);
+      color: rgba(242,244,247,.94);
+    }
+    .kj-sidebar-toggle:hover .bi:first-child{ color: rgba(231,198,106,.85); }
+    .kj-sidebar-toggle.group-active{
+      color: rgba(255,255,255,.96);
+      background: rgba(231,198,106,.08);
+      border-left-color: rgba(231,198,106,.55);
+    }
+    .kj-sidebar-toggle.group-active .bi:first-child{ color: rgba(231,198,106,.85); }
+
+    .kj-sidebar-chevron{
+      margin-left:auto;
+      font-size:.78rem !important;
+      color: rgba(242,244,247,.35) !important;
+      transition: transform .18s ease;
+    }
+    .kj-sidebar-toggle[aria-expanded="true"] .kj-sidebar-chevron{ transform: rotate(180deg); }
+
+    .kj-sidebar-submenu{
+      display:flex;
+      flex-direction:column;
+      gap:1px;
+      padding-left: 8px;
+      margin: 2px 0 4px;
+      border-left: 1px solid rgba(255,255,255,.08);
+    }
+    .kj-sidebar-sublink{
+      display:flex;
+      align-items:center;
+      gap:.55rem;
+      padding: .46rem .6rem .46rem .5rem;
+      margin-left:6px;
+      border-radius:8px;
+      color: rgba(242,244,247,.55) !important;
+      font-weight: 600;
+      font-size: .77rem;
+      text-decoration:none !important;
+    }
+    .kj-sidebar-sublink .bi{ font-size:.85rem; color: rgba(242,244,247,.38); flex:0 0 auto; }
+    .kj-sidebar-sublink:hover{ background: rgba(255,255,255,.05); color: rgba(242,244,247,.92) !important; }
+    .kj-sidebar-sublink:hover .bi{ color: rgba(231,198,106,.8); }
+    .kj-sidebar-sublink.active{
+      color: rgba(255,255,255,.94) !important;
+      background: rgba(231,198,106,.10);
+    }
+    .kj-sidebar-sublink.active .bi{ color: rgba(231,198,106,.9); }
+
+    .kj-sidebar-section-label{
+      font-size:.66rem;
+      font-weight:800;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color: rgba(242,244,247,.32);
+      padding: 10px 10px 2px;
     }
 
-    .navbar-dark .navbar-nav .nav-link.active,
-    .navbar-dark .navbar-nav .nav-link[aria-current="page"]{
-      color: rgba(255,255,255,.96) !important;
-      background: rgba(255,255,255,.08);
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+    .kj-sidebar-footer{
+      margin-top:auto;
+      display:flex;
+      flex-direction:column;
+      gap: 8px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255,255,255,.06);
+    }
+
+    .kj-sidebar-actions{
+      display:flex;
+      flex-direction:column;
+      gap: 6px;
+    }
+    .kj-sidebar-actions .kj-theme-toggle,
+    .kj-sidebar-actions .kj-top-action{
+      width: 100%;
+      justify-content:flex-start;
+    }
+
+    .kj-main{
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    @media (max-width: 900px){
+      .kj-shell{ flex-direction:column; }
+      .kj-sidebar{
+        width:100%;
+        min-height:auto;
+        position:static;
+        flex-direction:row;
+        align-items:center;
+        gap:10px;
+        overflow-x:auto;
+      }
+      .kj-sidebar-nav{ flex-direction:row; overflow-x:auto; }
+      .kj-sidebar-link{ white-space:nowrap; }
+      .kj-sidebar-footer{ margin-top:0; border-top:0; flex-direction:row; padding-top:0; }
+      .kj-sidebar-actions{ flex-direction:row; }
     }
 
     .img-soft-shadow{
@@ -136,6 +270,8 @@
       line-height:1;
       white-space:nowrap;
       min-height: 38px;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .kj-user-pill .bi{
@@ -144,11 +280,18 @@
       flex: 0 0 auto;
     }
 
+    .kj-user-pill > div{
+      min-width: 0;
+    }
+
     .kj-user-pill > div > div{
       font-size: .78rem;
       font-weight: 700;
       color: rgba(242,244,247,.94);
       line-height: 1.05;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .kj-user-pill small{
@@ -161,7 +304,7 @@
     }
 
     /* =========================================================
-       BOTÕES DE AÇÃO DO TOPO
+       BOTÕES DE AÇÃO (tema / sair)
        ========================================================= */
     .kj-theme-toggle,
     .kj-top-action{
@@ -532,35 +675,99 @@
       text-shadow: none !important;
     }
 
-    body.kj-day .navbar.navbar-dark.bg-dark{
-      background: rgba(255,255,255,.78) !important;
-      border-bottom: 1px solid rgba(37,99,235,.12) !important;
-      box-shadow: 0 8px 24px rgba(2,6,23,.05) !important;
+    body.kj-day .kj-sidebar{
+      background: rgba(255,255,255,.86) !important;
+      border-right: 1px solid rgba(37,99,235,.12) !important;
+      box-shadow: 8px 0 24px rgba(2,6,23,.05) !important;
       backdrop-filter: blur(18px) saturate(140%);
       -webkit-backdrop-filter: blur(18px) saturate(140%);
     }
 
-    body.kj-day .navbar-brand{
+    body.kj-day .kj-sidebar-brand-text{
       color: var(--kj-day-ink) !important;
     }
-    body.kj-day .navbar-brand::before{
+    body.kj-day .kj-sidebar-brand-dot{
       background: var(--kj-blue-1) !important;
       box-shadow: 0 0 0 4px rgba(37,99,235,.10) !important;
     }
 
-    body.kj-day .navbar-dark .navbar-nav .nav-link{
+    body.kj-day .kj-sidebar-link{
       color: rgba(11,27,51,.74) !important;
       font-weight: 700 !important;
     }
-    body.kj-day .navbar-dark .navbar-nav .nav-link:hover{
+    body.kj-day .kj-sidebar-link .bi{
+      color: rgba(11,27,51,.45) !important;
+    }
+    body.kj-day .kj-sidebar-link:hover{
       background: rgba(37,99,235,.06) !important;
       color: rgba(11,27,51,.96) !important;
     }
-    body.kj-day .navbar-dark .navbar-nav .nav-link.active,
-    body.kj-day .navbar-dark .navbar-nav .nav-link[aria-current="page"]{
+    body.kj-day .kj-sidebar-link:hover .bi{
+      color: var(--kj-blue-1) !important;
+    }
+    body.kj-day .kj-sidebar-link.active{
       color: rgba(11,27,51,.98) !important;
       background: rgba(37,99,235,.10) !important;
+      border-left-color: var(--kj-blue-1) !important;
       box-shadow: inset 0 0 0 1px rgba(37,99,235,.14) !important;
+    }
+    body.kj-day .kj-sidebar-link.active .bi{
+      color: var(--kj-blue-1) !important;
+    }
+
+    body.kj-day .kj-sidebar-footer{
+      border-top: 1px solid rgba(37,99,235,.12) !important;
+    }
+
+    body.kj-day .kj-sidebar-toggle{
+      color: rgba(11,27,51,.74) !important;
+    }
+    body.kj-day .kj-sidebar-toggle .bi:first-child{
+      color: rgba(11,27,51,.45) !important;
+    }
+    body.kj-day .kj-sidebar-toggle:hover{
+      background: rgba(37,99,235,.06) !important;
+      color: rgba(11,27,51,.96) !important;
+    }
+    body.kj-day .kj-sidebar-toggle:hover .bi:first-child{
+      color: var(--kj-blue-1) !important;
+    }
+    body.kj-day .kj-sidebar-toggle.group-active{
+      background: rgba(37,99,235,.08) !important;
+      border-left-color: var(--kj-blue-1) !important;
+      color: rgba(11,27,51,.96) !important;
+    }
+    body.kj-day .kj-sidebar-toggle.group-active .bi:first-child{
+      color: var(--kj-blue-1) !important;
+    }
+    body.kj-day .kj-sidebar-chevron{
+      color: rgba(11,27,51,.35) !important;
+    }
+    body.kj-day .kj-sidebar-submenu{
+      border-left-color: rgba(37,99,235,.14) !important;
+    }
+    body.kj-day .kj-sidebar-sublink{
+      color: rgba(11,27,51,.68) !important;
+    }
+    body.kj-day .kj-sidebar-sublink .bi{
+      color: rgba(11,27,51,.40) !important;
+    }
+    body.kj-day .kj-sidebar-sublink:hover{
+      background: rgba(37,99,235,.06) !important;
+      color: rgba(11,27,51,.96) !important;
+    }
+    body.kj-day .kj-sidebar-sublink:hover .bi{
+      color: var(--kj-blue-1) !important;
+    }
+    body.kj-day .kj-sidebar-sublink.active{
+      background: rgba(37,99,235,.10) !important;
+      color: rgba(11,27,51,.98) !important;
+    }
+    body.kj-day .kj-sidebar-sublink.active .bi{
+      color: var(--kj-blue-1) !important;
+    }
+    body.kj-day .kj-sidebar-section-label{
+      color: rgba(11,27,51,.30) !important;
     }
 
     body.kj-day .kj-user-pill{
@@ -840,68 +1047,208 @@
   {% endfor %}
 {% endif %}
 
+{% set _query = request.url.query if request is defined and request.url is defined and request.url.query is defined else '' %}
+
 {% set nav_active = {
   "dashboard": (_path == "/" or _path.startswith("/dashboard") or _path.startswith("/escritorio")),
   "usuarios":  (_path.startswith("/usuarios")),
   "offices":   (_path.startswith("/offices")),
   "whatsapp":  (_path.startswith("/configuracoes/whatsapp")),
-  "doc_templates": (_path.startswith("/doc-templates"))
+  "doc_templates": (_path.startswith("/doc-templates")),
+  "clientes": (_path.startswith("/clientes")),
+  "prazos": (_path.startswith("/processos") and "status=PRAZOS" in _query),
+  "procedentes": (_path.startswith("/processos") and "status=PROCEDENTE" in _query),
+  "execucao": (_path.startswith("/processos") and "status=EXECUCAO" in _query),
+  "pericias": (_path.startswith("/pericias")),
+  "intimacoes": (_path.startswith("/migracoes")),
+  "audiencias": (_path.startswith("/audiencias")),
+  "aniversarios": (_path.startswith("/aniversarios")),
+  "financeiro": (_path.startswith("/financeiro") and not _path.startswith("/financeiro/alterar-senha")),
+  "relatorios": (_path.startswith("/relatorios")),
+  "calculadora": (_path.startswith("/calculadora-juridica")),
+  "tarefas": (_path.startswith("/tarefas"))
 } %}
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-  <div class="container">
-    <a class="navbar-brand" href="/dashboard">Kratos Juris</a>
+{% set config_group_active = (
+  nav_active.usuarios or nav_active.offices or _path.startswith('/superadmin/assinantes')
+  or nav_active.doc_templates or nav_active.whatsapp
+  or _path.startswith('/minha-conta') or _path.startswith('/financeiro/alterar-senha')
+) %}
 
-    <div class="navbar-nav kj-navbar-main">
-      {% if current_user and (current_user.is_superuser or 'usuarios.view' in user_permission_codes) %}
-        <a class="nav-link {% if nav_active.usuarios %}active{% endif %}" href="/usuarios">Usuários</a>
-      {% endif %}
+{% set painel_group_active = (
+  nav_active.clientes or nav_active.prazos or nav_active.procedentes or nav_active.execucao
+  or nav_active.pericias or nav_active.intimacoes or nav_active.audiencias or nav_active.aniversarios
+  or nav_active.financeiro or nav_active.relatorios or nav_active.calculadora or nav_active.tarefas
+) %}
 
-      {% if current_user and current_user.is_superuser %}
-  <a class="nav-link {% if nav_active.offices %}active{% endif %}" href="/offices">
-    Escritórios
-  </a>
+<div class="kj-shell">
+  <aside class="kj-sidebar">
+    <a class="kj-sidebar-brand" href="/dashboard">
+      <span class="kj-sidebar-brand-dot"></span>
+      <span class="kj-sidebar-brand-text">Kratos Juris</span>
+    </a>
 
-  <a
-    class="nav-link {% if _path.startswith('/superadmin/assinantes') %}active{% endif %}"
-    href="/superadmin/assinantes"
-  >
-    Assinantes
-  </a>
-{% endif %}
+    <nav class="kj-sidebar-nav" aria-label="Navegação principal">
+      <a class="kj-sidebar-link {% if nav_active.dashboard %}active{% endif %}" href="/dashboard" {% if nav_active.dashboard %}aria-current="page"{% endif %}>
+        <i class="bi bi-house-door"></i>
+        <span>Tela Inicial</span>
+      </a>
+
+      <button
+        type="button"
+        class="kj-sidebar-toggle {% if config_group_active %}group-active{% endif %}"
+        data-bs-toggle="collapse"
+        data-bs-target="#kjConfiguracoesMenu"
+        aria-expanded="{% if config_group_active %}true{% else %}false{% endif %}"
+        aria-controls="kjConfiguracoesMenu"
+      >
+        <i class="bi bi-gear"></i>
+        <span>Configurações</span>
+        <i class="bi bi-chevron-down kj-sidebar-chevron"></i>
+      </button>
+      <div class="collapse {% if config_group_active %}show{% endif %}" id="kjConfiguracoesMenu">
+        <div class="kj-sidebar-submenu">
+          {% if current_user and (current_user.is_superuser or 'usuarios.view' in user_permission_codes) %}
+            <a class="kj-sidebar-sublink {% if nav_active.usuarios %}active{% endif %}" href="/usuarios" {% if nav_active.usuarios %}aria-current="page"{% endif %}>
+              <i class="bi bi-people"></i>
+              <span>Usuários</span>
+            </a>
+          {% endif %}
+
+          {% if current_user and current_user.is_superuser %}
+            <a class="kj-sidebar-sublink {% if nav_active.offices %}active{% endif %}" href="/offices" {% if nav_active.offices %}aria-current="page"{% endif %}>
+              <i class="bi bi-building"></i>
+              <span>Escritórios</span>
+            </a>
+
+            <a
+              class="kj-sidebar-sublink {% if _path.startswith('/superadmin/assinantes') %}active{% endif %}"
+              href="/superadmin/assinantes"
+              {% if _path.startswith('/superadmin/assinantes') %}aria-current="page"{% endif %}
+            >
+              <i class="bi bi-person-badge"></i>
+              <span>Assinantes</span>
+            </a>
+          {% endif %}
+
+          {% if current_user %}
+            <a class="kj-sidebar-sublink {% if nav_active.doc_templates %}active{% endif %}" href="/doc-templates" {% if nav_active.doc_templates %}aria-current="page"{% endif %}>
+              <i class="bi bi-file-earmark-text"></i>
+              <span>Modelos de documentos</span>
+            </a>
+          {% endif %}
+
+          {% if current_user %}
+            <a class="kj-sidebar-sublink {% if nav_active.whatsapp %}active{% endif %}" href="/configuracoes/whatsapp" {% if nav_active.whatsapp %}aria-current="page"{% endif %}>
+              <i class="bi bi-whatsapp"></i>
+              <span>WhatsApp</span>
+            </a>
+          {% endif %}
+
+          {% if current_user %}
+            <a
+              class="kj-sidebar-sublink {% if _path.startswith('/minha-conta') %}active{% endif %}"
+              href="/minha-conta/alterar-senha"
+              {% if _path.startswith('/minha-conta') %}aria-current="page"{% endif %}
+            >
+              <i class="bi bi-shield-lock"></i>
+              <span>Alterar senha</span>
+            </a>
+          {% endif %}
+
+          {% if current_user %}
+            <a
+              class="kj-sidebar-sublink {% if _path.startswith('/financeiro/alterar-senha') %}active{% endif %}"
+              href="/financeiro/alterar-senha"
+              {% if _path.startswith('/financeiro/alterar-senha') %}aria-current="page"{% endif %}
+            >
+              <i class="bi bi-key"></i>
+              <span>Senha Financeiro</span>
+            </a>
+          {% endif %}
+        </div>
+      </div>
 
       {% if current_user %}
-  <a class="nav-link {% if nav_active.doc_templates %}active{% endif %}" href="/doc-templates">
-    Modelos de documentos
-  </a>
-{% endif %}
+        <button
+          type="button"
+          class="kj-sidebar-toggle {% if painel_group_active %}group-active{% endif %}"
+          data-bs-toggle="collapse"
+          data-bs-target="#kjMeuPainelMenu"
+          aria-expanded="{% if painel_group_active %}true{% else %}false{% endif %}"
+          aria-controls="kjMeuPainelMenu"
+        >
+          <i class="bi bi-speedometer2"></i>
+          <span>Meu Painel</span>
+          <i class="bi bi-chevron-down kj-sidebar-chevron"></i>
+        </button>
+        <div class="collapse {% if painel_group_active %}show{% endif %}" id="kjMeuPainelMenu">
+          <div class="kj-sidebar-submenu">
+            <a class="kj-sidebar-sublink {% if nav_active.clientes %}active{% endif %}" href="/clientes" {% if nav_active.clientes %}aria-current="page"{% endif %}>
+              <i class="bi bi-person-vcard"></i>
+              <span>Clientes</span>
+            </a>
 
-{% if current_user %}
-  <a class="nav-link {% if nav_active.whatsapp %}active{% endif %}" href="/configuracoes/whatsapp">
-    WhatsApp
-  </a>
-{% endif %}
+            <a class="kj-sidebar-sublink {% if nav_active.prazos %}active{% endif %}" href="/processos?status=PRAZOS&filtro=PENDENTES" {% if nav_active.prazos %}aria-current="page"{% endif %}>
+              <i class="bi bi-hourglass-split"></i>
+              <span>Controle de Prazos</span>
+            </a>
 
-{% if current_user %}
-  <a
-    class="nav-link {% if _path.startswith('/minha-conta') %}active{% endif %}"
-    href="/minha-conta/alterar-senha"
-  >
-    Alterar senha
-  </a>
-{% endif %}
+            <a class="kj-sidebar-sublink {% if nav_active.procedentes %}active{% endif %}" href="/processos?status=PROCEDENTE" {% if nav_active.procedentes %}aria-current="page"{% endif %}>
+              <i class="bi bi-briefcase"></i>
+              <span>Ações Procedentes</span>
+            </a>
 
-{% if current_user %}
-  <a
-    class="nav-link {% if _path.startswith('/financeiro/alterar-senha') %}active{% endif %}"
-    href="/financeiro/alterar-senha"
-  >
-    Senha Financeiro
-  </a>
-{% endif %}
-    </div>
+            <a class="kj-sidebar-sublink {% if nav_active.execucao %}active{% endif %}" href="/processos?status=EXECUCAO" {% if nav_active.execucao %}aria-current="page"{% endif %}>
+              <i class="bi bi-lightning-charge"></i>
+              <span>Ações em Execução</span>
+            </a>
 
-    <div class="ms-auto d-flex align-items-center gap-2">
+            <a class="kj-sidebar-sublink {% if nav_active.pericias %}active{% endif %}" href="/pericias" {% if nav_active.pericias %}aria-current="page"{% endif %}>
+              <i class="bi bi-bell"></i>
+              <span>Perícias &amp; Diligências</span>
+            </a>
+
+            <a class="kj-sidebar-sublink {% if nav_active.intimacoes %}active{% endif %}" href="/migracoes" {% if nav_active.intimacoes %}aria-current="page"{% endif %}>
+              <i class="bi bi-arrow-repeat"></i>
+              <span>Intimações</span>
+            </a>
+
+            <a class="kj-sidebar-sublink {% if nav_active.audiencias %}active{% endif %}" href="/audiencias" {% if nav_active.audiencias %}aria-current="page"{% endif %}>
+              <i class="bi bi-calendar2-week"></i>
+              <span>Audiências</span>
+            </a>
+
+            <a class="kj-sidebar-sublink {% if nav_active.aniversarios %}active{% endif %}" href="/aniversarios" {% if nav_active.aniversarios %}aria-current="page"{% endif %}>
+              <i class="bi bi-gift"></i>
+              <span>Aniversários</span>
+            </a>
+
+            <a class="kj-sidebar-sublink {% if nav_active.financeiro %}active{% endif %}" href="/financeiro" {% if nav_active.financeiro %}aria-current="page"{% endif %}>
+              <i class="bi bi-cash-coin"></i>
+              <span>Financeiro</span>
+            </a>
+
+            <a class="kj-sidebar-sublink {% if nav_active.relatorios %}active{% endif %}" href="/relatorios" {% if nav_active.relatorios %}aria-current="page"{% endif %}>
+              <i class="bi bi-file-earmark-bar-graph"></i>
+              <span>Relatórios</span>
+            </a>
+
+            <a class="kj-sidebar-sublink {% if nav_active.calculadora %}active{% endif %}" href="/calculadora-juridica" {% if nav_active.calculadora %}aria-current="page"{% endif %}>
+              <i class="bi bi-calculator"></i>
+              <span>Calculadora Jurídica</span>
+            </a>
+
+            <a class="kj-sidebar-sublink {% if nav_active.tarefas %}active{% endif %}" href="/tarefas" {% if nav_active.tarefas %}aria-current="page"{% endif %}>
+              <i class="bi bi-check2-square"></i>
+              <span>Tarefas</span>
+            </a>
+          </div>
+        </div>
+      {% endif %}
+    </nav>
+
+    <div class="kj-sidebar-footer">
       {% if current_user %}
         <div class="kj-user-pill">
           <i class="bi bi-person-circle"></i>
@@ -920,22 +1267,24 @@
         </div>
       {% endif %}
 
-      <button type="button" class="kj-theme-toggle" data-kj-theme-toggle aria-label="Alternar tema">
-        <i class="bi bi-moon-stars-fill" data-kj-theme-icon></i>
-        <span class="d-none d-lg-inline" data-kj-theme-label>Modo Noite</span>
-      </button>
+      <div class="kj-sidebar-actions">
+        <button type="button" class="kj-theme-toggle" data-kj-theme-toggle aria-label="Alternar tema">
+          <i class="bi bi-moon-stars-fill" data-kj-theme-icon></i>
+          <span data-kj-theme-label>Modo Noite</span>
+        </button>
 
-      <a class="kj-top-action kj-logout" href="/logout">
-        <i class="bi bi-box-arrow-right"></i>
-        <span class="d-none d-lg-inline">Sair</span>
-      </a>
+        <a class="kj-top-action kj-logout" href="/logout">
+          <i class="bi bi-box-arrow-right"></i>
+          <span>Sair</span>
+        </a>
+      </div>
     </div>
-  </div>
-</nav>
+  </aside>
 
-<main class="container-fluid py-4 px-4">
-  {% block content %}{% endblock %}
-</main>
+  <main class="kj-main container-fluid py-4 px-4">
+    {% block content %}{% endblock %}
+  </main>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 

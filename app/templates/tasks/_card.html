@@ -1,41 +1,53 @@
 {#
-  Espera a variável `t` (instância de Tarefa) e, opcionalmente, `kanban=true`
-  para desenhar como card arrastável.
+  Partial de uma tarefa. Espera a variável `t` (instância de Tarefa).
 #}
-<div class="list-group-item{% if kanban is defined and kanban %} kanban-card{% endif %}"
-     {% if kanban is defined and kanban %}draggable="true" data-tarefa-id="{{ t.id }}"{% endif %}>
-
-  <div class="d-flex justify-content-between align-items-start">
-    <a class="fw-semibold text-decoration-none" href="/tarefas/{{ t.id }}">
-      {{ t.titulo }}
-    </a>
-
-    {% set sp = t.status_prazo() %}
-    {% if sp == "atrasada" %}
-      <span class="badge badge-soft">Atrasada</span>
-    {% elif sp == "hoje" %}
-      <span class="badge badge-soft-warn">Vence hoje</span>
-    {% else %}
-      <span class="badge badge-soft-dark">Em dia</span>
+<tr>
+  <td>
+    <a href="/tarefas/{{ t.id }}" class="text-decoration-none fw-semibold">{{ t.titulo }}</a>
+    {% if t.processo %}
+      <div class="small text-muted">Processo: {{ t.processo.numero_processo }}</div>
     {% endif %}
-  </div>
-
-  <div class="text-muted small mt-1 d-flex justify-content-between flex-wrap gap-2">
-    <div>
-           {% if t.delegado_por %}<span>De: <strong>{{ t.delegado_por.nome }}</strong></span>{% endif %}
-      {% if t.responsavel %}<span> • Delegado para: <strong>{{ t.responsavel.nome }}</strong></span>{% endif %}
-    </div>
-    <div>
-      {% if t.prazo %}<span>Prazo: {{ t.prazo.strftime("%d/%m/%Y") }}</span>{% endif %}
-    </div>
-  </div>
-
-  <div class="text-muted small d-flex justify-content-between flex-wrap gap-2">
-    <div>
-      {% if t.processo %}<span>Processo: {{ t.processo.numero_processo }}</span>{% endif %}
-    </div>
-    <div>
-      Prioridade: {{ t.rotulo_prioridade() }}
-    </div>
-  </div>
-</div>
+  </td>
+  <td>
+    {% if t.delegado_por %}<div class="small">De: <strong>{{ t.delegado_por.nome }}</strong></div>{% endif %}
+    {% if t.responsavel %}<div class="small">Para: <strong>{{ t.responsavel.nome }}</strong></div>{% endif %}
+  </td>
+  <td>
+    {% if t.prazo %}
+      <span class="small {% if t.esta_atrasada() %}text-danger fw-bold{% elif t.vence_hoje() %}text-warning fw-bold{% endif %}">
+        {{ t.prazo.strftime("%d/%m/%Y") }}
+      </span>
+    {% else %}
+      <span class="text-muted small">—</span>
+    {% endif %}
+  </td>
+  <td>
+    {% if t.prioridade == "urgente" %}
+      <span class="badge bg-danger">Urgente</span>
+    {% elif t.prioridade == "alta" %}
+      <span class="badge bg-warning text-dark">Alta</span>
+    {% elif t.prioridade == "media" %}
+      <span class="badge bg-secondary">Média</span>
+    {% else %}
+      <span class="badge bg-light text-dark border">Baixa</span>
+    {% endif %}
+  </td>
+  <td>
+    {% if t.status == "pendente_aceite" %}
+      <span class="badge bg-warning text-dark">Aguardando aceite</span>
+    {% elif t.status == "em_execucao" %}
+      <span class="badge bg-primary">Em execução</span>
+    {% elif t.status == "concluida" %}
+      <span class="badge bg-success">Concluída</span>
+    {% elif t.status == "validada" %}
+      <span class="badge bg-success">Validada</span>
+    {% elif t.status == "reprovada" %}
+      <span class="badge bg-danger">Reprovada</span>
+    {% elif t.status == "recusada" %}
+      <span class="badge bg-secondary">Recusada</span>
+    {% endif %}
+  </td>
+  <td>
+    <a href="/tarefas/{{ t.id }}" class="btn btn-sm btn-outline-secondary">Ver</a>
+  </td>
+</tr>

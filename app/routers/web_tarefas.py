@@ -5,7 +5,7 @@ from datetime import date, datetime
 from fastapi import APIRouter, Request, Form, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, lazyload
 
 from app.core.database import get_db
 from app.models.tarefa import Tarefa
@@ -59,7 +59,22 @@ def tarefas_list(
     office_id = _get_office_id(request)
     current_user = _get_current_user(request)
 
-    query = db.query(Tarefa).filter(Tarefa.office_id == office_id)
+    # ✅ CORREÇÃO: o modelo Tarefa carrega processo/criado_por/responsavel/
+    # delegado_por automaticamente (lazy="joined"). Isso por si só é ok —
+    # o problema é que o modelo User TAMBÉM carrega automaticamente o seu
+    # escritório e TODAS as suas permissões (lazy="joined" em cascata).
+    # Como uma tarefa tem 3 usuários ligados a ela (criado_por, responsavel,
+    # delegado_por), isso multiplicava as permissões de cada um entre si
+    # (uma "explosão" de linhas: dezenas × dezenas × dezenas por tarefa).
+    #
+    # Aqui pedimos explicitamente pra carregar cada usuário (nome, etc.)
+    # sem puxar junto o escritório/permissões dele — que esta tela nem usa.
+    query = db.query(Tarefa).options(
+        joinedload(Tarefa.processo),
+        joinedload(Tarefa.criado_por).lazyload("*"),
+        joinedload(Tarefa.responsavel).lazyload("*"),
+        joinedload(Tarefa.delegado_por).lazyload("*"),
+    ).filter(Tarefa.office_id == office_id)
 
     if status:
         query = query.filter(Tarefa.status == status)

@@ -2,7 +2,7 @@
 {% block content %}
 
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
   :root{
     --kj-obsidian: #070a10;
@@ -16,6 +16,12 @@
     --kj-silver-1: #f2f4f7;
     --kj-silver-2: #d7dde6;
 
+    --kj-cyan-1: #c8f7ef;
+    --kj-cyan-2: #5eead4;
+    --kj-cyan-3: #14b8a6;
+
+    --kj-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
     --kj-radius: 18px;
   }
 
@@ -25,8 +31,10 @@
      ========================================================= */
   body:not(.kj-day){
     background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0px, rgba(255,255,255,.025) 1px, transparent 1px, transparent 46px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.025) 0px, rgba(255,255,255,.025) 1px, transparent 1px, transparent 46px),
       radial-gradient(1200px 800px at 12% 8%, rgba(231,198,106,.10), transparent 55%),
-      radial-gradient(900px 700px at 85% 0%, rgba(155,171,205,.08), transparent 55%),
+      radial-gradient(900px 700px at 85% 0%, rgba(94,234,212,.07), transparent 55%),
       radial-gradient(1100px 900px at 55% 92%, rgba(231,198,106,.07), transparent 55%),
       linear-gradient(180deg, var(--kj-obsidian), var(--kj-obsidian-2) 55%, #070a12);
     min-height: 100vh;
@@ -106,6 +114,49 @@
   }
   #kj-dashboard .kj-stroke{ stroke: url(#kjGoldStroke); }
   #kj-dashboard .kj-fill{ fill: url(#kjGoldFill); }
+  #kj-dashboard .kj-stroke-cyan{ stroke: var(--kj-cyan-2); }
+  #kj-dashboard .kj-fill-cyan{ fill: rgba(94,234,212,.20); }
+
+  #kj-dashboard .kj-mono{
+    font-family: var(--kj-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  #kj-dashboard .live-pill{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding: 6px 13px;
+    border-radius: 999px;
+    border: 1px solid rgba(94,234,212,.30);
+    background: rgba(94,234,212,.07);
+    font-family: var(--kj-mono);
+    font-size: .72rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--kj-cyan-2);
+    line-height: 1;
+  }
+  #kj-dashboard .live-dot{
+    width: 7px; height: 7px;
+    border-radius: 999px;
+    background: var(--kj-cyan-2);
+    box-shadow: 0 0 9px rgba(94,234,212,.7);
+    animation: kj-pulse 2.2s ease-in-out infinite;
+  }
+  @keyframes kj-pulse{
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: .45; transform: scale(.75); }
+  }
+  body.kj-day #kj-dashboard .live-pill{
+    border: 1px solid rgba(37,99,235,.22) !important;
+    background: rgba(37,99,235,.06) !important;
+    color: rgba(11,27,51,.85) !important;
+  }
+  body.kj-day #kj-dashboard .live-dot{
+    background: #2563eb;
+    box-shadow: 0 0 9px rgba(37,99,235,.5);
+  }
 
   /* =========================================================
      NIGHT (padrão) — seus cards originais
@@ -150,6 +201,36 @@
       radial-gradient(900px 900px at 92% 10%, rgba(155,171,205,.10), transparent 45%);
     opacity:.70;
   }
+  #kj-dashboard .kpi .kpi-accent{
+    position:absolute;
+    top:0; left:0; right:0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--kj-gold-2), transparent);
+    pointer-events:none;
+  }
+  #kj-dashboard .kpi.tone-cyan .kpi-accent{
+    background: linear-gradient(90deg, transparent, var(--kj-cyan-2), transparent);
+  }
+  #kj-dashboard .kpi .kpi-corner{
+    position:absolute;
+    bottom:10px; right:10px;
+    width:12px; height:12px;
+    border-bottom: 1.5px solid rgba(231,198,106,.32);
+    border-right: 1.5px solid rgba(231,198,106,.32);
+    border-radius: 0 0 4px 0;
+    pointer-events:none;
+  }
+  #kj-dashboard .kpi.tone-cyan .kpi-corner{
+    border-bottom-color: rgba(94,234,212,.34);
+    border-right-color: rgba(94,234,212,.34);
+  }
+  #kj-dashboard .kpi.tone-cyan .kpi-icon{
+    background: linear-gradient(180deg, rgba(94,234,212,.18), rgba(20,184,166,.10)) !important;
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,.10),
+      0 16px 26px rgba(0,0,0,.45),
+      0 0 18px rgba(94,234,212,.16);
+  }
   #kj-dashboard .kpi:hover{
     transform: translateY(-1px);
     border-color: rgba(231,198,106,.20);
@@ -171,10 +252,12 @@
   }
 
   #kj-dashboard .kpi .kpi-value{
+    font-family: var(--kj-mono);
+    font-variant-numeric: tabular-nums;
     font-size: 1.42rem;
-    font-weight: 900;
+    font-weight: 700;
     line-height: 1.05;
-    letter-spacing: -0.03em;
+    letter-spacing: -0.02em;
     color: var(--kj-silver-1);
     text-shadow: 0 10px 22px rgba(0,0,0,.55);
   }
@@ -197,10 +280,12 @@
     font-weight: 850;
   }
   #kj-dashboard .badge-soft-dark{
-    background: rgba(155,171,205,.10);
-    color: rgba(242,244,247,.88);
-    border: 1px solid rgba(155,171,205,.22);
+    background: rgba(94,234,212,.10);
+    color: var(--kj-cyan-1);
+    border: 1px solid rgba(94,234,212,.24);
     font-weight: 800;
+    font-family: var(--kj-mono);
+    letter-spacing: .04em;
   }
 
   #kj-dashboard .section-title { font-weight: 850; font-size: 1.05rem; color: var(--kj-silver-1); display:flex; align-items:center; gap:.5rem; }
@@ -339,10 +424,12 @@
   }
 
   /* ✅ (1) ÍCONES dos TÍTULOS DAS SEÇÕES no dia: deixam de ser dourados */
-  body.kj-day #kj-dashboard .section-title .kj-stroke{
+  body.kj-day #kj-dashboard .section-title .kj-stroke,
+  body.kj-day #kj-dashboard .section-title .kj-stroke-cyan{
     stroke: rgba(37,99,235,.95) !important;
   }
-  body.kj-day #kj-dashboard .section-title .kj-fill{
+  body.kj-day #kj-dashboard .section-title .kj-fill,
+  body.kj-day #kj-dashboard .section-title .kj-fill-cyan{
     fill: rgba(37,99,235,.14) !important;
   }
   body.kj-day #kj-dashboard .section-title .kj-svg{
@@ -402,13 +489,26 @@
   /* Recolorir os SVGs para branco DENTRO das caixinhas */
   body.kj-day #kj-dashboard .kpi-icon .kj-stroke,
   body.kj-day #kj-dashboard .tile-icon .kj-stroke,
-  body.kj-day #kj-dashboard .kj-ico-box .kj-stroke{
+  body.kj-day #kj-dashboard .kj-ico-box .kj-stroke,
+  body.kj-day #kj-dashboard .kpi-icon .kj-stroke-cyan,
+  body.kj-day #kj-dashboard .tile-icon .kj-stroke-cyan,
+  body.kj-day #kj-dashboard .kj-ico-box .kj-stroke-cyan{
     stroke: rgba(255,255,255,.98) !important;
   }
   body.kj-day #kj-dashboard .kpi-icon .kj-fill,
   body.kj-day #kj-dashboard .tile-icon .kj-fill,
-  body.kj-day #kj-dashboard .kj-ico-box .kj-fill{
+  body.kj-day #kj-dashboard .kj-ico-box .kj-fill,
+  body.kj-day #kj-dashboard .kpi-icon .kj-fill-cyan,
+  body.kj-day #kj-dashboard .tile-icon .kj-fill-cyan,
+  body.kj-day #kj-dashboard .kj-ico-box .kj-fill-cyan{
     fill: rgba(255,255,255,.16) !important;
+  }
+  body.kj-day #kj-dashboard .kpi .kpi-accent{
+    background: linear-gradient(90deg, transparent, rgba(37,99,235,.55), transparent) !important;
+  }
+  body.kj-day #kj-dashboard .kpi .kpi-corner{
+    border-bottom-color: rgba(37,99,235,.30) !important;
+    border-right-color: rgba(37,99,235,.30) !important;
   }
 
   /* KPI valores */
@@ -481,15 +581,15 @@
     gap:8px;
     padding: 6px 10px;
     border-radius: 999px;
-    border: 1px solid rgba(231,198,106,.38);
-    background: linear-gradient(180deg, rgba(247,231,168,.28), rgba(202,162,74,.18));
+    border: 1px solid rgba(94,234,212,.36);
+    background: linear-gradient(180deg, rgba(94,234,212,.20), rgba(20,184,166,.12));
     text-decoration:none;
     font-weight: 850;
     line-height: 1;
     box-shadow:
       0 14px 26px rgba(0,0,0,.40),
       0 1px 0 rgba(255,255,255,.10) inset,
-      0 0 18px rgba(231,198,106,.10);
+      0 0 18px rgba(94,234,212,.10);
     color: rgba(242,244,247,.95);
   }
   #kj-dashboard .wa-btn{
@@ -501,12 +601,12 @@
   }
   #kj-dashboard .wa-btn:hover{
     transform: translateY(-1px);
-    border-color: rgba(231,198,106,.60);
-    background: linear-gradient(180deg, rgba(247,231,168,.34), rgba(202,162,74,.24));
+    border-color: rgba(94,234,212,.60);
+    background: linear-gradient(180deg, rgba(94,234,212,.26), rgba(20,184,166,.18));
     box-shadow:
       0 18px 34px rgba(0,0,0,.50),
       0 1px 0 rgba(255,255,255,.12) inset,
-      0 0 22px rgba(231,198,106,.14);
+      0 0 22px rgba(94,234,212,.16);
   }
   #kj-dashboard .wa-ico{
     width: 16px;
@@ -550,94 +650,96 @@
 </svg>
 
 {# Macro de ícones SVG #}
-{% macro kj_icon(kind, size=18) %}
+{% macro kj_icon(kind, size=18, tone='gold') %}
+  {% set sc = 'kj-stroke' if tone == 'gold' else 'kj-stroke-cyan' %}
+  {% set fc = 'kj-fill' if tone == 'gold' else 'kj-fill-cyan' %}
   {% if kind == "briefcase" %}
     <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
-      <rect class="kj-fill" x="3.5" y="7" width="17" height="12.5" rx="2"></rect>
-      <path class="kj-stroke" d="M9 7V5.8A1.8 1.8 0 0 1 10.8 4h2.4A1.8 1.8 0 0 1 15 5.8V7" fill="none" stroke-width="1.8" stroke-linecap="round"/>
-      <path class="kj-stroke" d="M3.5 12h17" fill="none" stroke-width="1.8" stroke-linecap="round"/>
-      <path class="kj-stroke" d="M10.5 12.2h3" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <rect class="{{ fc }}" x="3.5" y="7" width="17" height="12.5" rx="2"></rect>
+      <path class="{{ sc }}" d="M9 7V5.8A1.8 1.8 0 0 1 10.8 4h2.4A1.8 1.8 0 0 1 15 5.8V7" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="{{ sc }}" d="M3.5 12h17" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="{{ sc }}" d="M10.5 12.2h3" fill="none" stroke-width="1.8" stroke-linecap="round"/>
     </svg>
   {% elif kind == "bolt" %}
     <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
-      <path class="kj-fill" d="M13 2 4 14h7l-1 8 10-14h-7l0-6Z"></path>
-      <path class="kj-stroke" d="M13 2 4 14h7l-1 8 10-14h-7l0-6Z" fill="none" stroke-width="1.2" stroke-linejoin="round"/>
+      <path class="{{ fc }}" d="M13 2 4 14h7l-1 8 10-14h-7l0-6Z"></path>
+      <path class="{{ sc }}" d="M13 2 4 14h7l-1 8 10-14h-7l0-6Z" fill="none" stroke-width="1.2" stroke-linejoin="round"/>
     </svg>
   {% elif kind == "cash" %}
     <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
-      <rect class="kj-fill" x="3.5" y="6.5" width="17" height="11" rx="2"></rect>
-      <path class="kj-stroke" d="M3.5 9c2.2 0 2.6-2.5 4-2.5h9c1.4 0 1.8 2.5 4 2.5" fill="none" stroke-width="1.6" stroke-linecap="round"/>
-      <path class="kj-stroke" d="M3.5 15c2.2 0 2.6 2.5 4 2.5h9c1.4 0 1.8-2.5 4-2.5" fill="none" stroke-width="1.6" stroke-linecap="round"/>
-      <circle class="kj-stroke" cx="12" cy="12" r="2.2" fill="none" stroke-width="1.6"/>
+      <rect class="{{ fc }}" x="3.5" y="6.5" width="17" height="11" rx="2"></rect>
+      <path class="{{ sc }}" d="M3.5 9c2.2 0 2.6-2.5 4-2.5h9c1.4 0 1.8 2.5 4 2.5" fill="none" stroke-width="1.6" stroke-linecap="round"/>
+      <path class="{{ sc }}" d="M3.5 15c2.2 0 2.6 2.5 4 2.5h9c1.4 0 1.8-2.5 4-2.5" fill="none" stroke-width="1.6" stroke-linecap="round"/>
+      <circle class="{{ sc }}" cx="12" cy="12" r="2.2" fill="none" stroke-width="1.6"/>
     </svg>
   {% elif kind == "bell" %}
     <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
-      <path class="kj-stroke" d="M12 21a2.2 2.2 0 0 0 2.2-2.2H9.8A2.2 2.2 0 0 0 12 21Z" fill="none" stroke-width="1.8" stroke-linecap="round"/>
-      <path class="kj-stroke" d="M18 9a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7Z" fill="none" stroke-width="1.8" stroke-linejoin="round"/>
+      <path class="{{ sc }}" d="M12 21a2.2 2.2 0 0 0 2.2-2.2H9.8A2.2 2.2 0 0 0 12 21Z" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="{{ sc }}" d="M18 9a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7Z" fill="none" stroke-width="1.8" stroke-linejoin="round"/>
     </svg>
   {% elif kind == "gift" %}
     <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
-      <rect class="kj-fill" x="4" y="10" width="16" height="10" rx="2"></rect>
-      <path class="kj-stroke" d="M4 10h16" fill="none" stroke-width="1.8"/>
-      <path class="kj-stroke" d="M12 10v10" fill="none" stroke-width="1.8" stroke-linecap="round"/>
-      <path class="kj-stroke" d="M12 10c-1.8 0-3.5-1-3.5-2.5S10 5 12 7c2-2 3.5-.5 3.5.5S13.8 10 12 10Z" fill="none" stroke-width="1.8" stroke-linejoin="round"/>
+      <rect class="{{ fc }}" x="4" y="10" width="16" height="10" rx="2"></rect>
+      <path class="{{ sc }}" d="M4 10h16" fill="none" stroke-width="1.8"/>
+      <path class="{{ sc }}" d="M12 10v10" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="{{ sc }}" d="M12 10c-1.8 0-3.5-1-3.5-2.5S10 5 12 7c2-2 3.5-.5 3.5.5S13.8 10 12 10Z" fill="none" stroke-width="1.8" stroke-linejoin="round"/>
     </svg>
   {% elif kind == "calendar_x" %}
     <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
-      <rect class="kj-fill" x="4" y="5" width="16" height="15" rx="2"></rect>
-      <path class="kj-stroke" d="M8 3v4M16 3v4M4 9h16" fill="none" stroke-width="1.8" stroke-linecap="round"/>
-      <path class="kj-stroke" d="M9.2 12.2l5.6 5.6M14.8 12.2l-5.6 5.6" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <rect class="{{ fc }}" x="4" y="5" width="16" height="15" rx="2"></rect>
+      <path class="{{ sc }}" d="M8 3v4M16 3v4M4 9h16" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="{{ sc }}" d="M9.2 12.2l5.6 5.6M14.8 12.2l-5.6 5.6" fill="none" stroke-width="1.8" stroke-linecap="round"/>
     </svg>
   {% elif kind == "users" %}
     <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
-      <path class="kj-stroke" d="M16 11a3.2 3.2 0 1 0-3.2-3.2A3.2 3.2 0 0 0 16 11Z" fill="none" stroke-width="1.8"/>
-      <path class="kj-stroke" d="M8.5 11a2.8 2.8 0 1 0-2.8-2.8A2.8 2.8 0 0 0 8.5 11Z" fill="none" stroke-width="1.8"/>
-      <path class="kj-stroke" d="M12.5 20c.3-3 2.5-5 6-5 1.3 0 2.4.2 3.2.6" fill="none" stroke-width="1.8" stroke-linecap="round"/>
-      <path class="kj-stroke" d="M2.8 19.6c.4-2.9 2.4-4.6 5.7-4.6 2.8 0 4.8 1.1 5.6 3.2" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="{{ sc }}" d="M16 11a3.2 3.2 0 1 0-3.2-3.2A3.2 3.2 0 0 0 16 11Z" fill="none" stroke-width="1.8"/>
+      <path class="{{ sc }}" d="M8.5 11a2.8 2.8 0 1 0-2.8-2.8A2.8 2.8 0 0 0 8.5 11Z" fill="none" stroke-width="1.8"/>
+      <path class="{{ sc }}" d="M12.5 20c.3-3 2.5-5 6-5 1.3 0 2.4.2 3.2.6" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="{{ sc }}" d="M2.8 19.6c.4-2.9 2.4-4.6 5.7-4.6 2.8 0 4.8 1.1 5.6 3.2" fill="none" stroke-width="1.8" stroke-linecap="round"/>
     </svg>
   {% elif kind == "triangle" %}
     <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
-      <path class="kj-fill" d="M12 3.6 2.8 20.2a1.5 1.5 0 0 0 1.3 2.2h15.8a1.5 1.5 0 0 0 1.3-2.2L12 3.6Z"></path>
-      <path class="kj-stroke" d="M12 9v5" fill="none" stroke-width="1.8" stroke-linecap="round"/>
-      <path class="kj-stroke" d="M12 17.5h.01" fill="none" stroke-width="2.2" stroke-linecap="round"/>
-      <path class="kj-stroke" d="M12 3.6 2.8 20.2a1.5 1.5 0 0 0 1.3 2.2h15.8a1.5 1.5 0 0 0 1.3-2.2L12 3.6Z" fill="none" stroke-width="1.2" stroke-linejoin="round"/>
+      <path class="{{ fc }}" d="M12 3.6 2.8 20.2a1.5 1.5 0 0 0 1.3 2.2h15.8a1.5 1.5 0 0 0 1.3-2.2L12 3.6Z"></path>
+      <path class="{{ sc }}" d="M12 9v5" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="{{ sc }}" d="M12 17.5h.01" fill="none" stroke-width="2.2" stroke-linecap="round"/>
+      <path class="{{ sc }}" d="M12 3.6 2.8 20.2a1.5 1.5 0 0 0 1.3 2.2h15.8a1.5 1.5 0 0 0 1.3-2.2L12 3.6Z" fill="none" stroke-width="1.2" stroke-linejoin="round"/>
     </svg>
   {% elif kind == "arrow_right" %}
     <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
-      <path class="kj-stroke" d="M10 6l6 6-6 6" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="{{ sc }}" d="M10 6l6 6-6 6" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
   {% elif kind == "repeat" %}
     <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
-      <path class="kj-stroke" d="M7 7h10a3 3 0 0 1 3 3v1" fill="none" stroke-width="1.8" stroke-linecap="round"/>
-      <path class="kj-stroke" d="M17 17H7a3 3 0 0 1-3-3v-1" fill="none" stroke-width="1.8" stroke-linecap="round"/>
-      <path class="kj-stroke" d="M20 8l-2-2-2 2" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-      <path class="kj-stroke" d="M4 16l2 2 2-2" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="{{ sc }}" d="M7 7h10a3 3 0 0 1 3 3v1" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="{{ sc }}" d="M17 17H7a3 3 0 0 1-3-3v-1" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="{{ sc }}" d="M20 8l-2-2-2 2" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="{{ sc }}" d="M4 16l2 2 2-2" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
   {% elif kind == "file" %}
     <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
-      <path class="kj-fill" d="M7 3.8h7l3 3V20a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5.8a2 2 0 0 1 2-2Z"></path>
-      <path class="kj-stroke" d="M14 3.8V7h3" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-      <path class="kj-stroke" d="M8 12h8M8 15h8M8 18h6" fill="none" stroke-width="1.8" stroke-linecap="round"/>
-      <path class="kj-stroke" d="M7 3.8h7l3 3V20a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5.8a2 2 0 0 1 2-2Z" fill="none" stroke-width="1.2" stroke-linejoin="round"/>
+      <path class="{{ fc }}" d="M7 3.8h7l3 3V20a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5.8a2 2 0 0 1 2-2Z"></path>
+      <path class="{{ sc }}" d="M14 3.8V7h3" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="{{ sc }}" d="M8 12h8M8 15h8M8 18h6" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="{{ sc }}" d="M7 3.8h7l3 3V20a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5.8a2 2 0 0 1 2-2Z" fill="none" stroke-width="1.2" stroke-linejoin="round"/>
     </svg>
   {% elif kind == "audi" %}
     <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
-      <path class="kj-fill" d="M14.5 3.8h4.2a1.2 1.2 0 0 1 1.2 1.2v4.2a1.2 1.2 0 0 1-1.2 1.2h-4.2a1.2 1.2 0 0 1-1.2-1.2V5a1.2 1.2 0 0 1 1.2-1.2Z"></path>
-      <path class="kj-stroke" d="M13.3 5l6.6 6.6" fill="none" stroke-width="1.8" stroke-linecap="round"/>
-      <path class="kj-stroke" d="M8 21h10" fill="none" stroke-width="1.8" stroke-linecap="round"/>
-      <path class="kj-stroke" d="M12.5 12.5 6.4 18.6" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="{{ fc }}" d="M14.5 3.8h4.2a1.2 1.2 0 0 1 1.2 1.2v4.2a1.2 1.2 0 0 1-1.2 1.2h-4.2a1.2 1.2 0 0 1-1.2-1.2V5a1.2 1.2 0 0 1 1.2-1.2Z"></path>
+      <path class="{{ sc }}" d="M13.3 5l6.6 6.6" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="{{ sc }}" d="M8 21h10" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="{{ sc }}" d="M12.5 12.5 6.4 18.6" fill="none" stroke-width="1.8" stroke-linecap="round"/>
     </svg>
   {% elif kind == "checklist" %}
     <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
-      <path class="kj-fill" d="M6 3.8h12a1.5 1.5 0 0 1 1.5 1.5V19a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 19V5.3A1.5 1.5 0 0 1 6 3.8Z"></path>
-      <path class="kj-stroke" d="M8 8.2l1.4 1.4L12 7" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-      <path class="kj-stroke" d="M14 8.2h4" fill="none" stroke-width="1.8" stroke-linecap="round"/>
-      <path class="kj-stroke" d="M8 13.6l1.4 1.4L12 12.4" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-      <path class="kj-stroke" d="M14 13.6h4" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="{{ fc }}" d="M6 3.8h12a1.5 1.5 0 0 1 1.5 1.5V19a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 19V5.3A1.5 1.5 0 0 1 6 3.8Z"></path>
+      <path class="{{ sc }}" d="M8 8.2l1.4 1.4L12 7" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="{{ sc }}" d="M14 8.2h4" fill="none" stroke-width="1.8" stroke-linecap="round"/>
+      <path class="{{ sc }}" d="M8 13.6l1.4 1.4L12 12.4" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="{{ sc }}" d="M14 13.6h4" fill="none" stroke-width="1.8" stroke-linecap="round"/>
     </svg>
   {% else %}
     <svg class="kj-svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" aria-hidden="true">
-      <circle class="kj-stroke" cx="12" cy="12" r="8" fill="none" stroke-width="1.8"/>
+      <circle class="{{ sc }}" cx="12" cy="12" r="8" fill="none" stroke-width="1.8"/>
     </svg>
   {% endif %}
 {% endmacro %}
@@ -657,9 +759,12 @@
         <div class="brand-name">Kratos Juris</div>
       </div>
 
-      <div class="dash-sub mt-2">
-        {% if hoje %}{{ hoje.strftime("%d/%m/%Y") }} • {% endif %}
-        Visão geral do escritório
+      <div class="d-flex align-items-center flex-wrap gap-3 mt-2">
+        <div class="dash-sub mb-0">
+          {% if hoje %}<span class="kj-mono">{{ hoje.strftime("%d/%m/%Y") }}</span> • {% endif %}
+          Visão geral do escritório
+        </div>
+        <span class="live-pill"><span class="live-dot"></span>Painel ativo</span>
       </div>
     </div>
 
@@ -687,10 +792,11 @@
 
   <div class="row g-3 mb-3">
     <div class="col-12 col-md-6 col-xl-3">
-      <div class="kpi p-3 h-100">
+      <div class="kpi tone-cyan p-3 h-100">
+        <div class="kpi-accent"></div>
         <div class="d-flex align-items-center gap-3">
           <div class="kpi-icon">
-            {{ kj_icon("bell", 20) }}
+            {{ kj_icon("bell", 20, tone='cyan') }}
           </div>
           <div class="flex-grow-1">
             <div class="kpi-value">{{ total_pericias_7d }}</div>
@@ -702,11 +808,13 @@
             <span class="badge text-bg-light">OK</span>
           {% endif %}
         </div>
+        <div class="kpi-corner"></div>
       </div>
     </div>
 
     <div class="col-12 col-md-6 col-xl-3">
       <div class="kpi p-3 h-100">
+        <div class="kpi-accent"></div>
         <div class="d-flex align-items-center gap-3">
           <div class="kpi-icon">
             {{ kj_icon("gift", 20) }}
@@ -721,14 +829,16 @@
             <span class="badge text-bg-light">—</span>
           {% endif %}
         </div>
+        <div class="kpi-corner"></div>
       </div>
     </div>
 
     <div class="col-12 col-md-6 col-xl-3">
-      <div class="kpi p-3 h-100">
+      <div class="kpi tone-cyan p-3 h-100">
+        <div class="kpi-accent"></div>
         <div class="d-flex align-items-center gap-3">
           <div class="kpi-icon">
-            {{ kj_icon("calendar_x", 20) }}
+            {{ kj_icon("calendar_x", 20, tone='cyan') }}
           </div>
           <div class="flex-grow-1">
             <div class="kpi-value">{{ total_rompendo_semana }}</div>
@@ -740,11 +850,13 @@
             <span class="badge text-bg-light">OK</span>
           {% endif %}
         </div>
+        <div class="kpi-corner"></div>
       </div>
     </div>
 
     <div class="col-12 col-md-6 col-xl-3">
       <div class="kpi p-3 h-100">
+        <div class="kpi-accent"></div>
         <div class="d-flex align-items-center gap-3">
           <div class="kpi-icon">
             {{ kj_icon("users", 20) }}
@@ -755,15 +867,17 @@
           </div>
           <span class="badge badge-soft-dark">Total</span>
         </div>
+        <div class="kpi-corner"></div>
       </div>
     </div>
 
     <!-- NOVO: KPI Tarefas pendentes -->
     <div class="col-12 col-md-6 col-xl-3">
-      <div class="kpi p-3 h-100">
+      <div class="kpi tone-cyan p-3 h-100">
+        <div class="kpi-accent"></div>
         <div class="d-flex align-items-center gap-3">
           <div class="kpi-icon">
-            {{ kj_icon("checklist", 20) }}
+            {{ kj_icon("checklist", 20, tone='cyan') }}
           </div>
           <div class="flex-grow-1">
             <div class="kpi-value">{{ total_tarefas_pendentes }}</div>
@@ -775,6 +889,7 @@
             <span class="badge text-bg-light">OK</span>
           {% endif %}
         </div>
+        <div class="kpi-corner"></div>
       </div>
     </div>
   </div>
@@ -805,7 +920,7 @@
                   <div class="fw-semibold">
                     {{ t.titulo }}
                     {% if t.processo_numero %}
-                      <span class="text-muted fw-normal"> ({{ t.processo_numero }})</span>
+                      <span class="text-muted fw-normal kj-mono"> ({{ t.processo_numero }})</span>
                     {% endif %}
                   </div>
 
@@ -821,7 +936,7 @@
                 <div class="text-muted small mt-1 d-flex justify-content-between flex-wrap gap-2">
                   <div>
                     {% if t.delegado_por %}<span>Delegado por: <strong>{{ t.delegado_por }}</strong></span>{% endif %}
-                    {% if t.prazo %}<span class="text-muted"> • Prazo: {{ t.prazo.strftime("%d/%m/%Y") }}</span>{% endif %}
+                    {% if t.prazo %}<span class="text-muted"> • Prazo: <span class="kj-mono">{{ t.prazo.strftime("%d/%m/%Y") }}</span></span>{% endif %}
                   </div>
                   <div class="text-muted">
                     {% if t.prioridade %}Prioridade: {{ t.prioridade }}{% endif %}
@@ -870,15 +985,15 @@
                 <div class="list-group-item">
                   <div class="d-flex justify-content-between align-items-start">
                     <div class="fw-semibold">
-                      {{ h.starts_at.strftime("%d/%m/%Y") }}
-                      <span class="text-muted fw-normal">— {{ h.starts_at.strftime("%H:%M") }}</span>
+                      <span class="kj-mono">{{ h.starts_at.strftime("%d/%m/%Y") }}</span>
+                      <span class="text-muted fw-normal kj-mono">— {{ h.starts_at.strftime("%H:%M") }}</span>
                       {% if h.client %}
                         <span class="text-muted"> • {{ h.client.nome }}</span>
                       {% elif h.client_name_guess %}
                         <span class="text-muted"> • {{ h.client_name_guess }}</span>
                       {% endif %}
                       {% if h.process_number %}
-                        <span class="text-muted"> ({{ h.process_number }})</span>
+                        <span class="text-muted kj-mono"> ({{ h.process_number }})</span>
                       {% endif %}
                     </div>
                     <span class="badge badge-soft-warn">Hoje</span>
@@ -918,15 +1033,15 @@
                 <div class="list-group-item">
                   <div class="d-flex justify-content-between align-items-start">
                     <div class="fw-semibold">
-                      {{ h.starts_at.strftime("%d/%m/%Y") }}
-                      <span class="text-muted fw-normal">— {{ h.starts_at.strftime("%H:%M") }}</span>
+                      <span class="kj-mono">{{ h.starts_at.strftime("%d/%m/%Y") }}</span>
+                      <span class="text-muted fw-normal kj-mono">— {{ h.starts_at.strftime("%H:%M") }}</span>
                       {% if h.client %}
                         <span class="text-muted"> • {{ h.client.nome }}</span>
                       {% elif h.client_name_guess %}
                         <span class="text-muted"> • {{ h.client_name_guess }}</span>
                       {% endif %}
                       {% if h.process_number %}
-                        <span class="text-muted"> ({{ h.process_number }})</span>
+                        <span class="text-muted kj-mono"> ({{ h.process_number }})</span>
                       {% endif %}
                     </div>
                     <span class="badge badge-soft-dark">Agenda</span>
@@ -978,9 +1093,9 @@
               <div class="list-group-item">
                 <div class="d-flex justify-content-between align-items-start">
                   <div class="fw-semibold">
-                    {{ p.data_evento.strftime("%d/%m/%Y") }}
+                    <span class="kj-mono">{{ p.data_evento.strftime("%d/%m/%Y") }}</span>
                     <span class="text-muted fw-normal">— {{ p.cliente }}</span>
-                    {% if p.processo_numero %}<span class="text-muted"> ({{ p.processo_numero }})</span>{% endif %}
+                    {% if p.processo_numero %}<span class="text-muted kj-mono"> ({{ p.processo_numero }})</span>{% endif %}
                   </div>
                   <span class="badge badge-soft">Alerta</span>
                 </div>
@@ -1023,7 +1138,7 @@
               <div class="list-group-item">
                 <div class="d-flex justify-content-between align-items-start">
                   <div class="fw-semibold">
-                    {{ c.nascimento.strftime("%d/%m") }}
+                    <span class="kj-mono">{{ c.nascimento.strftime("%d/%m") }}</span>
                     <span class="text-muted fw-normal">— {{ c.nome }}</span>
                   </div>
                   <span class="badge badge-soft-warn">Hoje</span>
@@ -1031,7 +1146,7 @@
 
                 <div class="d-flex gap-2 mt-1 align-items-center">
                   {% if c.telefone %}
-                    <span class="text-muted small">Telefone: {{ c.telefone }}</span>
+                    <span class="text-muted small kj-mono">Telefone: {{ c.telefone }}</span>
                   {% endif %}
 
                   {% if item.wa %}
@@ -1081,7 +1196,7 @@
               <div class="list-group-item">
                 <div class="d-flex justify-content-between align-items-start">
                   <div class="fw-semibold">
-                    {% if p.vencimento %}{{ p.vencimento.strftime("%d/%m/%Y") }}{% else %}—{% endif %}
+                    <span class="kj-mono">{% if p.vencimento %}{{ p.vencimento.strftime("%d/%m/%Y") }}{% else %}—{% endif %}</span>
                     <span class="text-muted fw-normal">— {{ p.descricao }}</span>
                     {% if p.tipo %}<span class="text-muted"> ({{ p.tipo }})</span>{% endif %}
                   </div>
@@ -1095,9 +1210,9 @@
 
                 <div class="text-muted small mt-1 d-flex justify-content-between">
                   <div>
-                    Valor: <strong>{{ p.valor|money_br }}</strong>
+                    Valor: <strong class="kj-mono">{{ p.valor|money_br }}</strong>
                   </div>
-                  <div class="text-muted">
+                  <div class="text-muted kj-mono">
                     {% if p.ym %}Competência: {{ p.ym }}{% endif %}
                   </div>
                 </div>

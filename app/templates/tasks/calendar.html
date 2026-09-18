@@ -1,16 +1,15 @@
 {% extends "base.html" %}
+{% block title %}Gerenciador de Tarefas — Calendário{% endblock %}
 {% block content %}
-<div id="kj-dashboard">
 
-  <div class="d-flex align-items-start justify-content-between mb-3 flex-wrap gap-2">
-    <div>
-      <div class="section-title"><span>Minhas Tarefas</span></div>
-      <div class="section-sub">Visão por prazo</div>
-    </div>
-    <div class="d-flex gap-2">
-      <a class="btn btn-soft btn-sm" href="/tarefas?view=lista">Lista</a>
-      <a class="btn btn-soft btn-sm" href="/tarefas?view=kanban">Kanban</a>
-      <a class="btn btn-success btn-sm" href="/tarefas/nova">+ Nova tarefa</a>
+<div class="container-fluid py-3">
+
+  <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h5 class="mb-0 fw-bold">Gerenciador de Tarefas</h5>
+    <div class="d-flex gap-2 flex-wrap">
+      <a class="btn btn-sm btn-outline-secondary" href="/tarefas?view=lista">Lista</a>
+      <a class="btn btn-sm btn-outline-secondary" href="/tarefas?view=kanban">Kanban</a>
+      <a class="btn btn-sm btn-primary" href="/tarefas/nova">+ Nova tarefa</a>
     </div>
   </div>
 
@@ -20,35 +19,49 @@
 
   {% if datas_ordenadas %}
     {% for data in datas_ordenadas %}
-      <div class="soft-card p-3 mb-3">
-        <div class="fw-semibold mb-2 d-flex justify-content-between align-items-center">
-          <span>{{ data.strftime("%d/%m/%Y") }}</span>
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center py-2">
+          <span class="fw-semibold">{{ data.strftime("%d/%m/%Y") }}</span>
           {% if data < hoje %}
-            <span class="badge badge-soft">Vencido</span>
+            <span class="badge bg-danger">Vencido</span>
           {% elif data == hoje %}
-            <span class="badge badge-soft-warn">Hoje</span>
+            <span class="badge bg-warning text-dark">Hoje</span>
           {% endif %}
         </div>
-        <div class="list-group list-group-flush list-clean">
-          {% for t in tarefas_com_prazo if t.prazo == data %}
-            {% include "tasks/_card.html" %}
-          {% endfor %}
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <tbody>
+                {% for t in tarefas_com_prazo if t.prazo == data %}
+                  {% include "tasks/_card.html" %}
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     {% endfor %}
   {% else %}
-    <div class="soft-card p-3 mb-3">
-      <div class="text-muted small">Nenhuma tarefa com prazo definido.</div>
+    <div class="card">
+      <div class="card-body text-muted text-center">Nenhuma tarefa com prazo definido.</div>
     </div>
   {% endif %}
 
   {% if tarefas_sem_prazo %}
-    <div class="soft-card p-3">
-      <div class="fw-semibold mb-2">Sem prazo definido</div>
-      <div class="list-group list-group-flush list-clean">
-        {% for t in tarefas_sem_prazo %}
-          {% include "tasks/_card.html" %}
-        {% endfor %}
+    <div class="card mt-3">
+      <div class="card-header py-2">
+        <span class="fw-semibold">Sem prazo definido</span>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <tbody>
+              {% for t in tarefas_sem_prazo %}
+                {% include "tasks/_card.html" %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   {% endif %}

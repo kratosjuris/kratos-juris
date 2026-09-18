@@ -1,58 +1,75 @@
 {% extends "base.html" %}
+{% block title %}Gerenciador de Tarefas{% endblock %}
 {% block content %}
-<div id="kj-dashboard">
 
-  <div class="d-flex align-items-start justify-content-between mb-3 flex-wrap gap-2">
-    <div>
-      <div class="section-title"><span>Gerenciador de Tarefas</span></div>
-      <div class="section-sub">Visão em lista</div>
-    </div>
+<div class="container-fluid py-3">
+
+  <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h5 class="mb-0 fw-bold">Gerenciador de Tarefas</h5>
     <div class="d-flex gap-2 flex-wrap">
-      <a class="btn btn-soft btn-sm" href="/tarefas?view=kanban">Kanban</a>
-      <a class="btn btn-soft btn-sm" href="/tarefas?view=calendario">Calendário</a>
-      <a class="btn btn-soft btn-sm {% if not status %}active{% endif %}" href="/tarefas?view=lista">Ativas</a>
-      <a class="btn btn-soft btn-sm {% if status == 'concluida' %}active{% endif %}" href="/tarefas?view=lista&status=concluida">Concluídas</a>
-      <a class="btn btn-soft btn-sm {% if status == 'validada' %}active{% endif %}" href="/tarefas?view=lista&status=validada">Validadas</a>
-      <a class="btn btn-success btn-sm" href="/tarefas/nova">+ Nova tarefa</a>
+      <a class="btn btn-sm btn-outline-secondary" href="/tarefas?view=kanban">Kanban</a>
+      <a class="btn btn-sm btn-outline-secondary" href="/tarefas?view=calendario">Calendário</a>
+      <a class="btn btn-sm {% if not status %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/tarefas?view=lista">Ativas</a>
+      <a class="btn btn-sm {% if status == 'concluida' %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/tarefas?view=lista&status=concluida">Concluídas</a>
+      <a class="btn btn-sm {% if status == 'validada' %}btn-secondary{% else %}btn-outline-secondary{% endif %}" href="/tarefas?view=lista&status=validada">Validadas</a>
+      <a class="btn btn-sm btn-primary" href="/tarefas/nova">+ Nova tarefa</a>
     </div>
   </div>
 
-  <div class="soft-card p-3 mb-3">
-    <form class="row g-2 align-items-end" method="get">
-      <input type="hidden" name="view" value="lista">
-      <input type="hidden" name="status" value="{{ status }}">
-      <div class="col-auto">
-        <label class="form-label small text-muted mb-1">Prioridade</label>
-        <select name="prioridade" class="form-select form-select-sm" onchange="this.form.submit()">
-          <option value="">Todas</option>
-          <option value="baixa" {% if prioridade == 'baixa' %}selected{% endif %}>Baixa</option>
-          <option value="media" {% if prioridade == 'media' %}selected{% endif %}>Média</option>
-          <option value="alta" {% if prioridade == 'alta' %}selected{% endif %}>Alta</option>
-          <option value="urgente" {% if prioridade == 'urgente' %}selected{% endif %}>Urgente</option>
-        </select>
-      </div>
-      <div class="col-auto">
-        <label class="form-label small text-muted mb-1">Responsável</label>
-        <select name="responsavel" class="form-select form-select-sm" onchange="this.form.submit()">
-          <option value="">Todos os usuários</option>
-          {% for u in usuarios_escritorio %}
-            <option value="{{ u.id }}" {% if responsavel|string == u.id|string %}selected{% endif %}>{{ u.nome }}</option>
-          {% endfor %}
-        </select>
-      </div>
-    </form>
+  <div class="card mb-3">
+    <div class="card-body py-2">
+      <form class="row g-2 align-items-end" method="get">
+        <input type="hidden" name="view" value="lista">
+        <input type="hidden" name="status" value="{{ status }}">
+        <div class="col-auto">
+          <label class="form-label small mb-1">Prioridade</label>
+          <select name="prioridade" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="">Todas</option>
+            <option value="baixa" {% if prioridade == 'baixa' %}selected{% endif %}>Baixa</option>
+            <option value="media" {% if prioridade == 'media' %}selected{% endif %}>Média</option>
+            <option value="alta" {% if prioridade == 'alta' %}selected{% endif %}>Alta</option>
+            <option value="urgente" {% if prioridade == 'urgente' %}selected{% endif %}>Urgente</option>
+          </select>
+        </div>
+        <div class="col-auto">
+          <label class="form-label small mb-1">Responsável</label>
+          <select name="responsavel" class="form-select form-select-sm" onchange="this.form.submit()">
+            <option value="">Todos os usuários</option>
+            {% for u in usuarios_escritorio %}
+              <option value="{{ u.id }}" {% if responsavel|string == u.id|string %}selected{% endif %}>{{ u.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </form>
+    </div>
   </div>
 
-  <div class="soft-card p-3">
-    {% if tarefas and tarefas|length > 0 %}
-      <div class="list-group list-group-flush list-clean">
-        {% for t in tarefas %}
-          {% include "tasks/_card.html" %}
-        {% endfor %}
-      </div>
-    {% else %}
-      <div class="text-muted small">Nenhuma tarefa encontrada.</div>
-    {% endif %}
+  <div class="card">
+    <div class="card-body p-0">
+      {% if tarefas and tarefas|length > 0 %}
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Tarefa</th>
+                <th>Delegação</th>
+                <th>Prazo</th>
+                <th>Prioridade</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for t in tarefas %}
+                {% include "tasks/_card.html" %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="p-4 text-muted text-center">Nenhuma tarefa encontrada.</div>
+      {% endif %}
+    </div>
   </div>
 
 </div>

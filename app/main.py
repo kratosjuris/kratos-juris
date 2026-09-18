@@ -22,6 +22,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.concurrency import run_in_threadpool
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import joinedload
 
@@ -331,7 +332,13 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         if _is_public_path(path):
             return await call_next(request)
 
-        current_user = _load_user_from_session(request)
+        # ✅ CORREÇÃO: roda a checagem (que fala com o banco) numa thread
+        # separada, em vez de travar o event loop inteiro do servidor
+        # enquanto espera o banco responder. Sem isso, toda checagem de
+        # login "congela" o atendimento de TODAS as outras requisições
+        # simultâneas até terminar — o que, com vários usuários clicando
+        # ao mesmo tempo, empilha atrasos e pode levar minutos.
+        current_user = await run_in_threadpool(_load_user_from_session, request)
 
         if not current_user:
 

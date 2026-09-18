@@ -1,4 +1,6 @@
 from datetime import date, timedelta
+import time  # ⬅️ NOVO: para cronometrar
+
 from fastapi import APIRouter, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -196,6 +198,9 @@ def _inicio_da_semana(d: date) -> date:
     return d - timedelta(days=d.weekday())
 
 
+# =========================================================
+# ⬇️ INSTRUMENTADA: cada uma das 6 consultas agora é cronometrada
+# =========================================================
 def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | None:
     hoje = now_br().date()
 
@@ -205,6 +210,7 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
 
     aba_values = _aba_values_for_filter(aba_norm)
 
+    t0 = time.time()
     total = (
         db.query(func.count(ProcessItem.id))
         .filter(
@@ -214,8 +220,10 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
         .scalar()
         or 0
     )
+    print(f"[CRONO]   contador 'total': {time.time() - t0:.3f}s  (valor={total})")
 
     if aba_norm == "PRAZOS":
+        t0 = time.time()
         concluidos = (
             db.query(func.count(ProcessItem.id))
             .filter(
@@ -226,9 +234,11 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
             .scalar()
             or 0
         )
+        print(f"[CRONO]   contador 'concluidos': {time.time() - t0:.3f}s  (valor={concluidos})")
 
         pendentes = max(total - concluidos, 0)
 
+        t0 = time.time()
         vence_hoje = (
             db.query(func.count(ProcessItem.id))
             .filter(
@@ -240,7 +250,9 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
             .scalar()
             or 0
         )
+        print(f"[CRONO]   contador 'vence_hoje': {time.time() - t0:.3f}s  (valor={vence_hoje})")
 
+        t0 = time.time()
         vence_semana = (
             db.query(func.count(ProcessItem.id))
             .filter(
@@ -254,7 +266,9 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
             .scalar()
             or 0
         )
+        print(f"[CRONO]   contador 'vence_semana': {time.time() - t0:.3f}s  (valor={vence_semana})")
 
+        t0 = time.time()
         vence_proxima_semana = (
             db.query(func.count(ProcessItem.id))
             .filter(
@@ -268,7 +282,9 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
             .scalar()
             or 0
         )
+        print(f"[CRONO]   contador 'vence_proxima_semana': {time.time() - t0:.3f}s  (valor={vence_proxima_semana})")
 
+        t0 = time.time()
         atrasados = (
             db.query(func.count(ProcessItem.id))
             .filter(
@@ -281,6 +297,7 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
             .scalar()
             or 0
         )
+        print(f"[CRONO]   contador 'atrasados': {time.time() - t0:.3f}s  (valor={atrasados})")
 
         return {
             "total": total,
@@ -292,6 +309,7 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
             "atrasados": atrasados,
         }
 
+    t0 = time.time()
     vence_hoje = (
         db.query(func.count(ProcessItem.id))
         .filter(
@@ -303,7 +321,9 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
         .scalar()
         or 0
     )
+    print(f"[CRONO]   contador 'vence_hoje': {time.time() - t0:.3f}s  (valor={vence_hoje})")
 
+    t0 = time.time()
     vence_semana = (
         db.query(func.count(ProcessItem.id))
         .filter(
@@ -316,7 +336,9 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
         .scalar()
         or 0
     )
+    print(f"[CRONO]   contador 'vence_semana': {time.time() - t0:.3f}s  (valor={vence_semana})")
 
+    t0 = time.time()
     vence_proxima_semana = (
         db.query(func.count(ProcessItem.id))
         .filter(
@@ -329,7 +351,9 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
         .scalar()
         or 0
     )
+    print(f"[CRONO]   contador 'vence_proxima_semana': {time.time() - t0:.3f}s  (valor={vence_proxima_semana})")
 
+    t0 = time.time()
     atrasados = (
         db.query(func.count(ProcessItem.id))
         .filter(
@@ -341,6 +365,7 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
         .scalar()
         or 0
     )
+    print(f"[CRONO]   contador 'atrasados': {time.time() - t0:.3f}s  (valor={atrasados})")
 
     return {
         "total": total,
@@ -351,6 +376,9 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
     }
 
 
+# =========================================================
+# ⬇️ INSTRUMENTADA: rota principal com cronômetro geral
+# =========================================================
 @router.get("/processos", response_class=HTMLResponse)
 def processos_list(
     request: Request,
@@ -358,6 +386,9 @@ def processos_list(
     filtro: str = "PENDENTES",
     db: Session = Depends(get_db),
 ):
+    t_inicio = time.time()
+    print(f"\n[CRONO] ===== /processos (status={status}) iniciou =====")
+
     office_id = _get_office_id(request)
 
     aba_norm = _normalize_aba(status)
@@ -376,6 +407,7 @@ def processos_list(
         elif filtro_prazos == "CUMPRIDOS":
             q = q.filter(ProcessItem.cumprimento == "CUMPRIDO")
 
+    t0 = time.time()
     rows = (
         q.order_by(
             ProcessItem.vencimento.asc().nulls_last(),
@@ -383,7 +415,9 @@ def processos_list(
         )
         .all()
     )
+    print(f"[CRONO] consulta principal .all() ({len(rows)} linhas): {time.time() - t0:.3f}s")
 
+    t0 = time.time()
     itens = []
     for p in rows:
         itens.append(
@@ -393,10 +427,14 @@ def processos_list(
                 "dias_restantes": dias_restantes(p.vencimento),
             }
         )
+    print(f"[CRONO] montar 'itens' em Python (sem tocar no banco): {time.time() - t0:.3f}s")
 
+    t0 = time.time()
     counters = _contadores_por_aba(db, office_id, aba_norm)
+    print(f"[CRONO] _contadores_por_aba() no total: {time.time() - t0:.3f}s")
 
-    return templates.TemplateResponse(
+    t0 = time.time()
+    response = templates.TemplateResponse(
         "processes/list.html",
         {
             "request": request,
@@ -408,6 +446,11 @@ def processos_list(
             "msg": None,
         },
     )
+    print(f"[CRONO] montar TemplateResponse (renderizar HTML): {time.time() - t0:.3f}s")
+
+    print(f"[CRONO] ===== TOTAL /processos: {time.time() - t_inicio:.3f}s =====\n")
+
+    return response
 
 
 @router.get("/prazos", response_class=HTMLResponse)

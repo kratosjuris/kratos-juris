@@ -7,7 +7,13 @@ from sqlalchemy import extract
 
 from app.core.database import get_db
 from app.models.client import Client
-from app.services.whatsapp import build_message_by_tipo, build_wa_me_link
+from app.services.whatsapp import (
+    build_wa_me_link,
+    build_client_message,
+    build_client_message_from_template_text,
+    ensure_default_whatsapp_templates,
+    get_active_template,
+)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -70,23 +76,44 @@ def aniversarios_mes(request: Request, db: Session = Depends(get_db)):
         .all()
     )
 
+    # ✅ CORREÇÃO: o template de mensagem é o mesmo para todo mundo nesta
+    # lista (mesmo office_id, mesmo tipo="aniversario_cliente"). Antes,
+    # essa busca rodava uma vez POR CLIENTE dentro do loop abaixo — com
+    # muitos aniversariantes, isso virava dezenas de idas ao banco
+    # repetindo a mesma pergunta. Agora busca uma única vez, aqui fora.
+    ensure_default_whatsapp_templates(db, office_id=office_id, user_id=user_id)
+    tpl = get_active_template(db, office_id=office_id, tipo="aniversario_cliente")
+
     itens = []
     for c in clientes:
         fone = _normalize_phone_br(getattr(c, "telefone", None) or getattr(c, "phone", None))
+        nome_cliente = getattr(c, "nome", None) or getattr(c, "name", None) or "Cliente"
 
-        msg = build_message_by_tipo(
-            db=db,
-            office_id=office_id,
-            tipo="aniversario_cliente",
-            client_name=getattr(c, "nome", None) or getattr(c, "name", None) or "Cliente",
-            process_number="",
-            promovido="",
-            starts_at=None,
-            modalidade="",
-            extension_code=None,
-            office_name=office_name,
-            user_id=user_id,
-        )
+        # Mesma lógica que build_client_message_from_template já fazia,
+        # só que sem consultar o banco a cada iteração: usa o template
+        # já carregado, ou cai no texto padrão se não houver template ativo.
+        if tpl:
+            msg = build_client_message_from_template_text(
+                template_text=tpl.conteudo,
+                client_name=nome_cliente,
+                process_number="",
+                promovido="",
+                starts_at=None,
+                modalidade="",
+                extension_code=None,
+                office_name=office_name,
+            )
+        else:
+            msg = build_client_message(
+                client_name=nome_cliente,
+                process_number="",
+                promovido="",
+                starts_at=None,
+                modalidade="",
+                extension_code=None,
+                public_base_url="",
+                office_name=office_name,
+            )
 
         wa = None
         if fone:

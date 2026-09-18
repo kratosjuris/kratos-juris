@@ -1,86 +1,88 @@
 {% extends "base.html" %}
+{% block title %}{{ "Nova tarefa" if modo == "criar" else "Editar tarefa" }}{% endblock %}
 {% block content %}
-<div id="kj-dashboard">
 
-  <div class="d-flex align-items-start justify-content-between mb-3">
-    <div class="section-title">
-      <span>{{ "Nova tarefa" if modo == "criar" else "Editar tarefa" }}</span>
-    </div>
-    <a class="btn btn-soft btn-sm" href="/tarefas">Cancelar</a>
+<div class="container-fluid py-3">
+
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="mb-0 fw-bold">{{ "Nova tarefa" if modo == "criar" else "Editar tarefa" }}</h5>
+    <a class="btn btn-sm btn-outline-secondary" href="/tarefas">Cancelar</a>
   </div>
 
   {% if erro %}
-    <div class="soft-card p-3 mb-3 text-danger">{{ erro }}</div>
+    <div class="alert alert-danger">{{ erro }}</div>
   {% endif %}
 
-  <div class="soft-card p-3">
-    <form method="post" action="{{ '/tarefas/nova' if modo == 'criar' else '/tarefas/' ~ tarefa.id ~ '/editar' }}">
+  <div class="card">
+    <div class="card-body">
+      <form method="post" action="{{ '/tarefas/nova' if modo == 'criar' else '/tarefas/' ~ tarefa.id ~ '/editar' }}">
 
-      <div class="mb-3">
-        <label class="form-label small text-muted">Título</label>
-        <input type="text" name="titulo" class="form-control" required
-               value="{{ tarefa.titulo if tarefa else '' }}">
-      </div>
-
-      <div class="mb-3">
-        <label class="form-label small text-muted">Descrição</label>
-        <textarea name="descricao" class="form-control" rows="4">{{ tarefa.descricao if tarefa else '' }}</textarea>
-      </div>
-
-      <div class="row g-3 mb-3">
-        <div class="col-12 col-md-4">
-          <label class="form-label small text-muted">Tipo</label>
-          <select name="tipo" class="form-select">
-            <option value="juridica" {% if tarefa and tarefa.tipo == 'juridica' %}selected{% endif %}>Jurídica</option>
-            <option value="administrativa" {% if tarefa and tarefa.tipo == 'administrativa' %}selected{% endif %}>Administrativa</option>
-          </select>
-        </div>
-        <div class="col-12 col-md-4">
-          <label class="form-label small text-muted">Prioridade</label>
-          <select name="prioridade" class="form-select">
-            <option value="baixa" {% if tarefa and tarefa.prioridade == 'baixa' %}selected{% endif %}>Baixa</option>
-            <option value="media" {% if not tarefa or tarefa.prioridade == 'media' %}selected{% endif %}>Média</option>
-            <option value="alta" {% if tarefa and tarefa.prioridade == 'alta' %}selected{% endif %}>Alta</option>
-            <option value="urgente" {% if tarefa and tarefa.prioridade == 'urgente' %}selected{% endif %}>Urgente</option>
-          </select>
-        </div>
-        <div class="col-12 col-md-4">
-          <label class="form-label small text-muted">Prazo</label>
-          <input type="date" name="prazo" class="form-control"
-                 value="{{ tarefa.prazo.strftime('%Y-%m-%d') if tarefa and tarefa.prazo else '' }}">
-        </div>
-      </div>
-
-      <div class="row g-3 mb-3">
-        <div class="col-12 col-md-6">
-          <label class="form-label small text-muted">Processo (opcional)</label>
-          <select name="processo_id" class="form-select">
-            <option value="">— Nenhum —</option>
-            {% for p in processos %}
-              <option value="{{ p.id }}" {% if tarefa and tarefa.processo_id == p.id %}selected{% endif %}>
-                {{ p.numero_processo }}
-              </option>
-            {% endfor %}
-          </select>
+        <div class="mb-3">
+          <label class="form-label">Título <span class="text-danger">*</span></label>
+          <input type="text" name="titulo" class="form-control" required
+                 value="{{ tarefa.titulo if tarefa else '' }}">
         </div>
 
-        {% if modo == "criar" %}
-        <div class="col-12 col-md-6">
-          <label class="form-label small text-muted">Delegar para</label>
-          <select name="responsavel_id" class="form-select">
-            <option value="">— Eu mesmo —</option>
-            {% for u in usuarios %}
-              <option value="{{ u.id }}">{{ u.nome }}</option>
-            {% endfor %}
-          </select>
+        <div class="mb-3">
+          <label class="form-label">Descrição</label>
+          <textarea name="descricao" class="form-control" rows="4">{{ tarefa.descricao if tarefa else '' }}</textarea>
         </div>
-        {% endif %}
-      </div>
 
-      <button class="btn btn-success" type="submit">
-        {{ "Criar tarefa" if modo == "criar" else "Salvar alterações" }}
-      </button>
-    </form>
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-md-4">
+            <label class="form-label">Tipo</label>
+            <select name="tipo" class="form-select">
+              <option value="juridica" {% if not tarefa or tarefa.tipo == 'juridica' %}selected{% endif %}>Jurídica</option>
+              <option value="administrativa" {% if tarefa and tarefa.tipo == 'administrativa' %}selected{% endif %}>Administrativa</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label">Prioridade</label>
+            <select name="prioridade" class="form-select">
+              <option value="baixa" {% if tarefa and tarefa.prioridade == 'baixa' %}selected{% endif %}>Baixa</option>
+              <option value="media" {% if not tarefa or tarefa.prioridade == 'media' %}selected{% endif %}>Média</option>
+              <option value="alta" {% if tarefa and tarefa.prioridade == 'alta' %}selected{% endif %}>Alta</option>
+              <option value="urgente" {% if tarefa and tarefa.prioridade == 'urgente' %}selected{% endif %}>Urgente</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label">Prazo</label>
+            <input type="date" name="prazo" class="form-control"
+                   value="{{ tarefa.prazo.strftime('%Y-%m-%d') if tarefa and tarefa.prazo else '' }}">
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+          <div class="col-12 col-md-6">
+            <label class="form-label">Processo (opcional)</label>
+            <select name="processo_id" class="form-select">
+              <option value="">— Nenhum —</option>
+              {% for p in processos %}
+                <option value="{{ p.id }}" {% if tarefa and tarefa.processo_id == p.id %}selected{% endif %}>
+                  {{ p.numero_processo }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          {% if modo == "criar" %}
+          <div class="col-12 col-md-6">
+            <label class="form-label">Delegar para</label>
+            <select name="responsavel_id" class="form-select">
+              <option value="">— Eu mesmo —</option>
+              {% for u in usuarios %}
+                <option value="{{ u.id }}">{{ u.nome }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
+        </div>
+
+        <button class="btn btn-primary" type="submit">
+          {{ "Criar tarefa" if modo == "criar" else "Salvar alterações" }}
+        </button>
+      </form>
+    </div>
   </div>
 
 </div>

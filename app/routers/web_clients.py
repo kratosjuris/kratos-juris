@@ -2,6 +2,7 @@ from datetime import date, datetime
 from zoneinfo import ZoneInfo
 import re
 import secrets
+import time  # ⬅️ NOVO: para cronometrar
 
 from fastapi import APIRouter, Request, Form, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -121,28 +122,44 @@ def _get_invite_by_token(db: Session, token: str) -> ClientInvite | None:
 
 
 # =========================
-# LISTAR CLIENTES
+# LISTAR CLIENTES  (⬅️ INSTRUMENTADA COM CRONÔMETRO)
 # =========================
 @router.get("/clientes", response_class=HTMLResponse)
 def clientes_list(request: Request, q: str = "", db: Session = Depends(get_db)):
+    t_inicio = time.time()
+    print(f"\n[CRONO] ===== /clientes iniciou =====")
+
     try:
         require_permission(request, "clientes.view")
     except HTTPException:
         return _redirect_denied()
 
+    t_permissao = time.time()
+    print(f"[CRONO] depois de require_permission: {t_permissao - t_inicio:.3f}s")
+
     office_id = _get_office_id(request)
+
+    t_office = time.time()
+    print(f"[CRONO] depois de _get_office_id: {t_office - t_permissao:.3f}s")
 
     query = db.query(Client).filter(Client.office_id == office_id)
 
     if q.strip():
         query = query.filter(Client.nome.ilike(f"%{q.strip()}%"))
 
+    t_antes_query = time.time()
     clientes = query.order_by(Client.nome.asc()).all()
+    t_depois_query = time.time()
+    print(f"[CRONO] consulta .all() ({len(clientes)} linhas): {t_depois_query - t_antes_query:.3f}s")
 
     msg = _pop_flash(request, "clientes_msg")
     invite_link = _pop_flash(request, "clientes_invite_link")
 
-    return templates.TemplateResponse(
+    t_antes_flash = time.time()
+    print(f"[CRONO] depois dos flashes de sessão: {t_antes_flash - t_depois_query:.3f}s")
+
+    t_antes_template = time.time()
+    response = templates.TemplateResponse(
         "clients/list.html",
         {
             "request": request,
@@ -153,6 +170,12 @@ def clientes_list(request: Request, q: str = "", db: Session = Depends(get_db)):
             "invite_link": invite_link,
         },
     )
+    t_depois_template = time.time()
+    print(f"[CRONO] montar TemplateResponse (renderizar HTML): {t_depois_template - t_antes_template:.3f}s")
+
+    print(f"[CRONO] ===== TOTAL /clientes: {t_depois_template - t_inicio:.3f}s =====\n")
+
+    return response
 
 
 # =========================
