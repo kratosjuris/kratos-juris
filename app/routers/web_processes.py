@@ -1,5 +1,5 @@
 from datetime import date, timedelta
-import time  # ⬅️ NOVO: para cronometrar
+import logging  # ⬅️ NOVO: substitui os print() de cronômetro
 
 from fastapi import APIRouter, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -13,6 +13,10 @@ from app.models.process_item import ProcessItem
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+
+# ⬅️ NOVO: mesmo logger usado em clientes.py — fica em silêncio por
+# padrão; veja instruções de como ligar no final deste arquivo.
+log_timing = logging.getLogger("kratos.timing")
 
 
 def _get_office_id(request: Request) -> int:
@@ -198,10 +202,26 @@ def _inicio_da_semana(d: date) -> date:
     return d - timedelta(days=d.weekday())
 
 
+def _set_flash(request: Request, key: str, message: str) -> None:
+    try:
+        request.session[key] = message
+    except Exception:
+        pass
+
+
+def _pop_flash(request: Request, key: str) -> str | None:
+    try:
+        return request.session.pop(key, None)
+    except Exception:
+        return None
+
+
 # =========================================================
-# ⬇️ INSTRUMENTADA: cada uma das 6 consultas agora é cronometrada
+# contadores por aba (com cronômetro via logging)
 # =========================================================
 def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | None:
+    import time
+
     hoje = now_br().date()
 
     fim_semana = _fim_da_semana(hoje)
@@ -220,7 +240,7 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
         .scalar()
         or 0
     )
-    print(f"[CRONO]   contador 'total': {time.time() - t0:.3f}s  (valor={total})")
+    log_timing.debug("contador 'total': %.3fs (valor=%s)", time.time() - t0, total)
 
     if aba_norm == "PRAZOS":
         t0 = time.time()
@@ -234,7 +254,7 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
             .scalar()
             or 0
         )
-        print(f"[CRONO]   contador 'concluidos': {time.time() - t0:.3f}s  (valor={concluidos})")
+        log_timing.debug("contador 'concluidos': %.3fs (valor=%s)", time.time() - t0, concluidos)
 
         pendentes = max(total - concluidos, 0)
 
@@ -250,7 +270,7 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
             .scalar()
             or 0
         )
-        print(f"[CRONO]   contador 'vence_hoje': {time.time() - t0:.3f}s  (valor={vence_hoje})")
+        log_timing.debug("contador 'vence_hoje': %.3fs (valor=%s)", time.time() - t0, vence_hoje)
 
         t0 = time.time()
         vence_semana = (
@@ -266,7 +286,7 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
             .scalar()
             or 0
         )
-        print(f"[CRONO]   contador 'vence_semana': {time.time() - t0:.3f}s  (valor={vence_semana})")
+        log_timing.debug("contador 'vence_semana': %.3fs (valor=%s)", time.time() - t0, vence_semana)
 
         t0 = time.time()
         vence_proxima_semana = (
@@ -282,7 +302,10 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
             .scalar()
             or 0
         )
-        print(f"[CRONO]   contador 'vence_proxima_semana': {time.time() - t0:.3f}s  (valor={vence_proxima_semana})")
+        log_timing.debug(
+            "contador 'vence_proxima_semana': %.3fs (valor=%s)",
+            time.time() - t0, vence_proxima_semana,
+        )
 
         t0 = time.time()
         atrasados = (
@@ -297,7 +320,7 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
             .scalar()
             or 0
         )
-        print(f"[CRONO]   contador 'atrasados': {time.time() - t0:.3f}s  (valor={atrasados})")
+        log_timing.debug("contador 'atrasados': %.3fs (valor=%s)", time.time() - t0, atrasados)
 
         return {
             "total": total,
@@ -321,7 +344,7 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
         .scalar()
         or 0
     )
-    print(f"[CRONO]   contador 'vence_hoje': {time.time() - t0:.3f}s  (valor={vence_hoje})")
+    log_timing.debug("contador 'vence_hoje': %.3fs (valor=%s)", time.time() - t0, vence_hoje)
 
     t0 = time.time()
     vence_semana = (
@@ -336,7 +359,7 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
         .scalar()
         or 0
     )
-    print(f"[CRONO]   contador 'vence_semana': {time.time() - t0:.3f}s  (valor={vence_semana})")
+    log_timing.debug("contador 'vence_semana': %.3fs (valor=%s)", time.time() - t0, vence_semana)
 
     t0 = time.time()
     vence_proxima_semana = (
@@ -351,7 +374,10 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
         .scalar()
         or 0
     )
-    print(f"[CRONO]   contador 'vence_proxima_semana': {time.time() - t0:.3f}s  (valor={vence_proxima_semana})")
+    log_timing.debug(
+        "contador 'vence_proxima_semana': %.3fs (valor=%s)",
+        time.time() - t0, vence_proxima_semana,
+    )
 
     t0 = time.time()
     atrasados = (
@@ -365,7 +391,7 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
         .scalar()
         or 0
     )
-    print(f"[CRONO]   contador 'atrasados': {time.time() - t0:.3f}s  (valor={atrasados})")
+    log_timing.debug("contador 'atrasados': %.3fs (valor=%s)", time.time() - t0, atrasados)
 
     return {
         "total": total,
@@ -377,7 +403,7 @@ def _contadores_por_aba(db: Session, office_id: int, aba_norm: str) -> dict | No
 
 
 # =========================================================
-# ⬇️ INSTRUMENTADA: rota principal com cronômetro geral
+# rota principal (com cronômetro via logging)
 # =========================================================
 @router.get("/processos", response_class=HTMLResponse)
 def processos_list(
@@ -386,8 +412,9 @@ def processos_list(
     filtro: str = "PENDENTES",
     db: Session = Depends(get_db),
 ):
+    import time
     t_inicio = time.time()
-    print(f"\n[CRONO] ===== /processos (status={status}) iniciou =====")
+    log_timing.debug("===== /processos (status=%s) iniciou =====", status)
 
     office_id = _get_office_id(request)
 
@@ -415,7 +442,7 @@ def processos_list(
         )
         .all()
     )
-    print(f"[CRONO] consulta principal .all() ({len(rows)} linhas): {time.time() - t0:.3f}s")
+    log_timing.debug("consulta principal .all() (%d linhas): %.3fs", len(rows), time.time() - t0)
 
     t0 = time.time()
     itens = []
@@ -427,11 +454,11 @@ def processos_list(
                 "dias_restantes": dias_restantes(p.vencimento),
             }
         )
-    print(f"[CRONO] montar 'itens' em Python (sem tocar no banco): {time.time() - t0:.3f}s")
+    log_timing.debug("montar 'itens' em Python (sem tocar no banco): %.3fs", time.time() - t0)
 
     t0 = time.time()
     counters = _contadores_por_aba(db, office_id, aba_norm)
-    print(f"[CRONO] _contadores_por_aba() no total: {time.time() - t0:.3f}s")
+    log_timing.debug("_contadores_por_aba() no total: %.3fs", time.time() - t0)
 
     t0 = time.time()
     response = templates.TemplateResponse(
@@ -446,9 +473,9 @@ def processos_list(
             "msg": None,
         },
     )
-    print(f"[CRONO] montar TemplateResponse (renderizar HTML): {time.time() - t0:.3f}s")
+    log_timing.debug("montar TemplateResponse (renderizar HTML): %.3fs", time.time() - t0)
 
-    print(f"[CRONO] ===== TOTAL /processos: {time.time() - t_inicio:.3f}s =====\n")
+    log_timing.debug("===== TOTAL /processos: %.3fs =====", time.time() - t_inicio)
 
     return response
 
@@ -567,9 +594,10 @@ def processos_editar_form(pid: int, request: Request, db: Session = Depends(get_
         return RedirectResponse(url="/processos?status=PROCEDENTE", status_code=303)
 
     aba_norm = _normalize_aba(getattr(p, "aba", None))
+    msg = _pop_flash(request, "processos_msg")
     return templates.TemplateResponse(
         "processes/form.html",
-        {"request": request, "title": "Editar Processo", "p": p, "status": aba_norm, "erro": None},
+        {"request": request, "title": "Editar Processo", "p": p, "status": aba_norm, "erro": None, "msg": msg},
     )
 
 
@@ -724,6 +752,7 @@ def processos_atualizar_status(
     status: str = Form(...),
     cumprimento: str = Form(...),
     filtro: str = Form(""),
+    voltar_edicao: str = Form(""),
 ):
     office_id = _get_office_id(request)
 
@@ -758,6 +787,13 @@ def processos_atualizar_status(
 
     db.add(p)
     db.commit()
+
+    # ✅ Veio do botão "Atualizar status" dentro da tela de edição:
+    # volta pra lá com uma mensagem de confirmação, em vez de ir
+    # pra listagem (que é o que acontece quando a ação vem da tabela).
+    if voltar_edicao:
+        _set_flash(request, "processos_msg", "Status atualizado com sucesso.")
+        return RedirectResponse(url=f"/processos/{pid}/editar", status_code=303)
 
     if aba_redirect == "PRAZOS":
         f = _normalize_filtro_prazos(filtro) if filtro else "PENDENTES"

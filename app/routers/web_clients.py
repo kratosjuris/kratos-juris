@@ -2,7 +2,7 @@ from datetime import date, datetime
 from zoneinfo import ZoneInfo
 import re
 import secrets
-import time  # ⬅️ NOVO: para cronometrar
+import logging  # ⬅️ NOVO: substitui os print() de cronômetro
 
 from fastapi import APIRouter, Request, Form, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -19,6 +19,11 @@ router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
 TZ_BR = ZoneInfo("America/Sao_Paulo")
+
+# ⬅️ NOVO: logger dedicado ao cronômetro de performance.
+# Fica em silêncio por padrão (nível DEBUG); só aparece quando você
+# ligar esse nível explicitamente — veja instruções no final do arquivo.
+log_timing = logging.getLogger("kratos.timing")
 
 
 def now_br():
@@ -122,12 +127,13 @@ def _get_invite_by_token(db: Session, token: str) -> ClientInvite | None:
 
 
 # =========================
-# LISTAR CLIENTES  (⬅️ INSTRUMENTADA COM CRONÔMETRO)
+# LISTAR CLIENTES  (com cronômetro via logging)
 # =========================
 @router.get("/clientes", response_class=HTMLResponse)
 def clientes_list(request: Request, q: str = "", db: Session = Depends(get_db)):
+    import time
     t_inicio = time.time()
-    print(f"\n[CRONO] ===== /clientes iniciou =====")
+    log_timing.debug("===== /clientes iniciou =====")
 
     try:
         require_permission(request, "clientes.view")
@@ -135,12 +141,12 @@ def clientes_list(request: Request, q: str = "", db: Session = Depends(get_db)):
         return _redirect_denied()
 
     t_permissao = time.time()
-    print(f"[CRONO] depois de require_permission: {t_permissao - t_inicio:.3f}s")
+    log_timing.debug("depois de require_permission: %.3fs", t_permissao - t_inicio)
 
     office_id = _get_office_id(request)
 
     t_office = time.time()
-    print(f"[CRONO] depois de _get_office_id: {t_office - t_permissao:.3f}s")
+    log_timing.debug("depois de _get_office_id: %.3fs", t_office - t_permissao)
 
     query = db.query(Client).filter(Client.office_id == office_id)
 
@@ -150,13 +156,16 @@ def clientes_list(request: Request, q: str = "", db: Session = Depends(get_db)):
     t_antes_query = time.time()
     clientes = query.order_by(Client.nome.asc()).all()
     t_depois_query = time.time()
-    print(f"[CRONO] consulta .all() ({len(clientes)} linhas): {t_depois_query - t_antes_query:.3f}s")
+    log_timing.debug(
+        "consulta .all() (%d linhas): %.3fs",
+        len(clientes), t_depois_query - t_antes_query,
+    )
 
     msg = _pop_flash(request, "clientes_msg")
     invite_link = _pop_flash(request, "clientes_invite_link")
 
     t_antes_flash = time.time()
-    print(f"[CRONO] depois dos flashes de sessão: {t_antes_flash - t_depois_query:.3f}s")
+    log_timing.debug("depois dos flashes de sessão: %.3fs", t_antes_flash - t_depois_query)
 
     t_antes_template = time.time()
     response = templates.TemplateResponse(
@@ -171,9 +180,12 @@ def clientes_list(request: Request, q: str = "", db: Session = Depends(get_db)):
         },
     )
     t_depois_template = time.time()
-    print(f"[CRONO] montar TemplateResponse (renderizar HTML): {t_depois_template - t_antes_template:.3f}s")
+    log_timing.debug(
+        "montar TemplateResponse (renderizar HTML): %.3fs",
+        t_depois_template - t_antes_template,
+    )
 
-    print(f"[CRONO] ===== TOTAL /clientes: {t_depois_template - t_inicio:.3f}s =====\n")
+    log_timing.debug("===== TOTAL /clientes: %.3fs =====", t_depois_template - t_inicio)
 
     return response
 
@@ -375,7 +387,11 @@ def clientes_editar(
         )
         return RedirectResponse(url=f"/clientes/{client_id}/editar", status_code=303)
 
-    return RedirectResponse(url="/clientes", status_code=303)
+    # ✅ Fica na própria tela de edição do cliente (em vez de voltar pra
+    # lista), pra dar pra baixar procuração, declaração de hipossuficiência
+    # etc. logo em seguida, sem precisar entrar de novo no cadastro.
+    _set_flash(request, "clientes_msg", "Dados do cliente atualizados com sucesso.")
+    return RedirectResponse(url=f"/clientes/{client_id}/editar", status_code=303)
 
 
 # =========================

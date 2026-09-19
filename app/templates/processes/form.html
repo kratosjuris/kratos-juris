@@ -108,6 +108,16 @@
     border: 1px solid rgba(37,99,235,.22) !important;
     font-weight: 900 !important;
   }
+
+  /* =========================================================
+     ✅ NOVO: card de status rápido (dentro da edição)
+     ========================================================= */
+  .processos-form-page .kj-status-card .form-label{
+    margin-bottom: .15rem;
+  }
+  .processos-form-page .kj-status-card select{
+    max-width: 280px;
+  }
 </style>
 
 <div class="processos-form-page">
@@ -116,6 +126,58 @@
 
   {% if erro %}
     <div class="alert alert-danger">{{ erro }}</div>
+  {% endif %}
+
+  {% if msg %}
+    <div class="alert alert-warning">{{ msg }}</div>
+  {% endif %}
+
+  {% if p %}
+    <div class="kj-card kj-status-card p-3 mb-3">
+      <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-2">
+        <div>
+          <div class="form-label">Status deste processo</div>
+          <div class="kj-help">
+            Situação atual:
+            {% if p.cumprimento == "CUMPRIDO" %}
+              <span class="badge bg-success">Cumprido</span>
+            {% elif p.cumprimento == "TRANSITADO" %}
+              <span class="badge bg-primary">Transitado em julgado</span>
+            {% elif p.cumprimento == "RECURSO" %}
+              <span class="badge bg-warning text-dark">Interposição de recurso</span>
+            {% else %}
+              <span class="badge bg-secondary">Pendente</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <form method="post" action="/processos/{{ p.id }}/atualizar-status"
+            class="d-flex flex-wrap gap-2 align-items-center">
+        <input type="hidden" name="status" value="{{ status }}">
+        <input type="hidden" name="voltar_edicao" value="1">
+
+        {% if status == "PROCEDENTE" %}
+          <select name="cumprimento" class="form-select form-select-sm">
+            <option value="PENDENTE" {% if p.cumprimento == "PENDENTE" %}selected{% endif %}>Pendente</option>
+            <option value="TRANSITADO" {% if p.cumprimento == "TRANSITADO" %}selected{% endif %}>Transitado em julgado</option>
+            <option value="RECURSO" {% if p.cumprimento == "RECURSO" %}selected{% endif %}>Interposição de recurso</option>
+          </select>
+        {% elif status == "PRAZOS" %}
+          <select name="cumprimento" class="form-select form-select-sm">
+            <option value="PENDENTE" {% if p.cumprimento == "PENDENTE" %}selected{% endif %}>Pendente</option>
+            <option value="CUMPRIDO" {% if p.cumprimento == "CUMPRIDO" %}selected{% endif %}>Cumprido</option>
+          </select>
+        {% else %}
+          <select name="cumprimento" class="form-select form-select-sm">
+            <option value="PENDENTE" {% if p.cumprimento == "PENDENTE" %}selected{% endif %}>Pendente</option>
+            <option value="TRANSITADO" {% if p.cumprimento == "TRANSITADO" %}selected{% endif %}>Transitado (marcado)</option>
+          </select>
+        {% endif %}
+
+        <button class="btn btn-sm btn-outline-secondary" type="submit">Atualizar status</button>
+      </form>
+    </div>
   {% endif %}
 
   <form method="post"

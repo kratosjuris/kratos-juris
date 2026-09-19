@@ -339,6 +339,52 @@ body:not(.kj-day) .processos-page tr.table-info > *{
   box-shadow: none !important;
   filter: none !important;
 }
+
+/* =========================================================
+   ✅ NOVO: botão de copiar número do processo
+   ========================================================= */
+.processos-page .kj-numero-wrap{
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+}
+.processos-page .kj-copy-btn{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(242,244,247,.45);
+  border-radius: 8px;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: background .12s ease, color .12s ease, transform .12s ease;
+}
+.processos-page .kj-copy-btn:hover{
+  background: rgba(255,255,255,.08);
+  color: rgba(231,198,106,.95);
+}
+.processos-page .kj-copy-btn.kj-copied{
+  color: #22c55e;
+}
+.processos-page .kj-copy-btn svg{
+  width: 19px;
+  height: 19px;
+}
+
+body.kj-day .processos-page .kj-copy-btn{
+  color: rgba(11,27,51,.45);
+}
+body.kj-day .processos-page .kj-copy-btn:hover{
+  background: rgba(37,99,235,.08);
+  color: rgba(37,99,235,.95);
+}
+body.kj-day .processos-page .kj-copy-btn.kj-copied{
+  color: #16a34a;
+}
 </style>
 
 <div class="processos-page">
@@ -503,7 +549,24 @@ body:not(.kj-day) .processos-page tr.table-info > *{
                 <input class="form-check-input checkItem" type="checkbox" value="{{ p.id }}">
               </td>
 
-              <td>{{ p.numero_processo }}</td>
+              <td>
+                <span class="kj-numero-wrap">
+                  <span class="kj-numero-texto">{{ p.numero_processo }}</span>
+                  <button
+                    type="button"
+                    class="kj-copy-btn"
+                    data-copy="{{ p.numero_processo }}"
+                    title="Copiar número do processo"
+                    aria-label="Copiar número do processo"
+                  >
+                    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                      <rect x="5.5" y="5.5" width="8.5" height="9" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+                      <path d="M3.5 10V3.5A1.5 1.5 0 0 1 5 2h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                    </svg>
+                  </button>
+                </span>
+              </td>
+
               <td>{{ p.parte_autora }}</td>
               <td>{{ p.vara }}</td>
               <td>{{ p.data_intimacao.strftime("%d/%m/%Y") if p.data_intimacao else "" }}</td>
@@ -595,6 +658,45 @@ body:not(.kj-day) .processos-page tr.table-info > *{
     });
 
     checks().forEach(c => c.addEventListener("change", atualizarIds));
+
+    // ✅ NOVO: copiar número do processo
+    async function copiarTexto(texto) {
+      try {
+        await navigator.clipboard.writeText(texto);
+        return true;
+      } catch (e) {
+        try {
+          const ta = document.createElement("textarea");
+          ta.value = texto;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+          return true;
+        } catch (e2) {
+          return false;
+        }
+      }
+    }
+
+    document.querySelectorAll(".kj-copy-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const texto = btn.getAttribute("data-copy") || "";
+        const ok = await copiarTexto(texto);
+        if (!ok) return;
+
+        const tituloOriginal = btn.getAttribute("title");
+        btn.classList.add("kj-copied");
+        btn.setAttribute("title", "Copiado!");
+
+        setTimeout(() => {
+          btn.classList.remove("kj-copied");
+          btn.setAttribute("title", tituloOriginal);
+        }, 1500);
+      });
+    });
   </script>
 
 </div>

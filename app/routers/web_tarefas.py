@@ -6,6 +6,7 @@ from fastapi import APIRouter, Request, Form, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload, lazyload
+from sqlalchemy import func
 
 from app.core.database import get_db
 from app.models.tarefa import Tarefa
@@ -17,6 +18,7 @@ router = APIRouter(prefix="/tarefas")
 templates = Jinja2Templates(directory="app/templates")
 
 STATUS_ATIVOS = ["pendente_aceite", "em_execucao", "reprovada"]
+STATUS_CONCLUIDOS = ["concluida", "validada"]
 
 
 # =========================
@@ -45,6 +47,77 @@ def _parse_date(value: str) -> date | None:
 
 
 # =========================
+# CONTADORES (mesmo padrão de /processos)
+# =========================
+def _contadores_tarefas(db: Session, office_id: int) -> dict:
+    """
+    Contadores gerais do escritório — independem dos filtros da tela
+    (status/prioridade/responsável), igual ao comportamento em /processos.
+    """
+    hoje = date.today()
+
+    total = (
+        db.query(func.count(Tarefa.id))
+        .filter(Tarefa.office_id == office_id)
+        .scalar()
+        or 0
+    )
+
+    aguardando_aceite = (
+        db.query(func.count(Tarefa.id))
+        .filter(Tarefa.office_id == office_id, Tarefa.status == "pendente_aceite")
+        .scalar()
+        or 0
+    )
+
+    em_execucao = (
+        db.query(func.count(Tarefa.id))
+        .filter(Tarefa.office_id == office_id, Tarefa.status == "em_execucao")
+        .scalar()
+        or 0
+    )
+
+    concluidas = (
+        db.query(func.count(Tarefa.id))
+        .filter(Tarefa.office_id == office_id, Tarefa.status.in_(STATUS_CONCLUIDOS))
+        .scalar()
+        or 0
+    )
+
+    vence_hoje = (
+        db.query(func.count(Tarefa.id))
+        .filter(
+            Tarefa.office_id == office_id,
+            Tarefa.status.notin_(STATUS_CONCLUIDOS),
+            Tarefa.prazo == hoje,
+        )
+        .scalar()
+        or 0
+    )
+
+    atrasadas = (
+        db.query(func.count(Tarefa.id))
+        .filter(
+            Tarefa.office_id == office_id,
+            Tarefa.status.notin_(STATUS_CONCLUIDOS),
+            Tarefa.prazo.isnot(None),
+            Tarefa.prazo < hoje,
+        )
+        .scalar()
+        or 0
+    )
+
+    return {
+        "total": total,
+        "aguardando_aceite": aguardando_aceite,
+        "em_execucao": em_execucao,
+        "concluidas": concluidas,
+        "vence_hoje": vence_hoje,
+        "atrasadas": atrasadas,
+    }
+
+
+# =========================
 # LISTA (lista / kanban / calendario)
 # =========================
 @router.get("", response_class=HTMLResponse)
@@ -59,16 +132,9 @@ def tarefas_list(
     office_id = _get_office_id(request)
     current_user = _get_current_user(request)
 
-    # ✅ CORREÇÃO: o modelo Tarefa carrega processo/criado_por/responsavel/
-    # delegado_por automaticamente (lazy="joined"). Isso por si só é ok —
-    # o problema é que o modelo User TAMBÉM carrega automaticamente o seu
-    # escritório e TODAS as suas permissões (lazy="joined" em cascata).
-    # Como uma tarefa tem 3 usuários ligados a ela (criado_por, responsavel,
-    # delegado_por), isso multiplicava as permissões de cada um entre si
-    # (uma "explosão" de linhas: dezenas × dezenas × dezenas por tarefa).
-    #
-    # Aqui pedimos explicitamente pra carregar cada usuário (nome, etc.)
-    # sem puxar junto o escritório/permissões dele — que esta tela nem usa.
+    # o modelo Tarefa carrega processo/criado_por/responsavel/delegado_por
+    # automaticamente (lazy="joined"). Evitamos que carregar cada usuário
+    # puxe junto o escritório/permissões dele (o que causava lentidão).
     query = db.query(Tarefa).options(
         joinedload(Tarefa.processo),
         joinedload(Tarefa.criado_por).lazyload("*"),
@@ -93,6 +159,8 @@ def tarefas_list(
         User.office_id == office_id, User.is_active.is_(True)
     ).order_by(User.nome).all()
 
+    counters = _contadores_tarefas(db, office_id)
+
     if view == "kanban":
         colunas = {
             "pendente_aceite": [],
@@ -115,6 +183,7 @@ def tarefas_list(
                 "responsavel": responsavel,
                 "status": status,
                 "prioridade": prioridade,
+                "counters": counters,
             },
         )
 
@@ -127,6 +196,7 @@ def tarefas_list(
                 "tarefas": tarefas,
                 "hoje": date.today(),
                 "status": status,
+                "counters": counters,
             },
         )
 
@@ -140,6 +210,7 @@ def tarefas_list(
             "prioridade": prioridade,
             "usuarios_escritorio": usuarios_escritorio,
             "responsavel": responsavel,
+            "counters": counters,
         },
     )
 

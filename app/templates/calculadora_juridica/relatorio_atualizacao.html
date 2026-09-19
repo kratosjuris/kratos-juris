@@ -2,11 +2,17 @@
 {% block content %}
 
 <style>
+  /* =========================================================
+     PADRÃO = NOITE (igual ao resto do sistema: noite é o
+     estado default, dia é a exceção via body.kj-day)
+     ========================================================= */
   .calc-report {
     font-family: Arial, Helvetica, sans-serif;
     font-size: 11px;
-    color: #333;
-    background: #fff;
+    color: rgba(242,244,247,.92);
+    background:
+      radial-gradient(900px 700px at 12% 0%, rgba(255,255,255,.08), transparent 45%),
+      linear-gradient(180deg, rgba(18,24,38,.94), rgba(10,14,24,.94));
   }
 
   .calc-report .no-print {
@@ -17,7 +23,7 @@
     display: flex;
     align-items: center;
     gap: 18px;
-    border-bottom: 1px solid #eeeeee;
+    border-bottom: 1px solid rgba(255,255,255,.10);
     padding-bottom: 16px;
     margin-bottom: 18px;
   }
@@ -26,20 +32,20 @@
     font-size: 34px;
     font-weight: 800;
     letter-spacing: -1px;
-    color: #111;
+    color: rgba(242,244,247,.96);
     line-height: 1;
   }
 
   .calc-report .tj-subtitle {
     font-size: 12px;
-    color: #333;
+    color: rgba(242,244,247,.92);
     line-height: 1.25;
   }
 
   .calc-report .process-box {
     border-left: 3px solid #48c7dc;
-    border-top: 1px solid #eeeeee;
-    border-bottom: 1px solid #eeeeee;
+    border-top: 1px solid rgba(255,255,255,.10);
+    border-bottom: 1px solid rgba(255,255,255,.10);
     padding: 11px 16px;
     margin-bottom: 10px;
   }
@@ -51,49 +57,41 @@
   }
 
   .calc-report .label-muted {
-    color: #777;
+    color: rgba(242,244,247,.62);
     font-weight: 400;
   }
 
   .calc-report .info-grid {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
-    border-top: 1px solid #eeeeee;
-    border-bottom: 1px solid #eeeeee;
+    border-top: 1px solid rgba(255,255,255,.10);
+    border-bottom: 1px solid rgba(255,255,255,.10);
     margin-bottom: 6px;
   }
 
   .calc-report .info-card {
     min-height: 105px;
     padding: 10px 12px;
-    border-right: 1px solid #eeeeee;
+    border-right: 1px solid rgba(255,255,255,.10);
   }
 
   .calc-report .info-card:last-child {
     border-right: none;
   }
 
-  .calc-report .info-card.moeda {
-    border-left: 3px solid #37b24d;
-  }
-
-  .calc-report .info-card.atualizacao {
-    border-left: 3px solid #228be6;
-  }
-
-  .calc-report .info-card.juros {
-    border-left: 3px solid #f0ad4e;
-  }
+  .calc-report .info-card.moeda { border-left: 3px solid #37b24d; }
+  .calc-report .info-card.atualizacao { border-left: 3px solid #228be6; }
+  .calc-report .info-card.juros { border-left: 3px solid #f0ad4e; }
 
   .calc-report .info-title {
     font-size: 15px;
-    color: #555;
+    color: rgba(242,244,247,.85);
     margin-bottom: 4px;
   }
 
   .calc-report .info-text {
     font-size: 10px;
-    color: #555;
+    color: rgba(242,244,247,.68);
     line-height: 1.45;
   }
 
@@ -101,12 +99,12 @@
     text-align: center;
     font-size: 15px;
     font-weight: 700;
-    color: #111;
+    color: rgba(242,244,247,.96);
     padding: 6px 8px;
-    border: 1px solid #dddddd;
+    border: 1px solid rgba(255,255,255,.12);
     border-bottom: none;
     margin: 14px 0 0;
-    background: #fff;
+    background: transparent;
   }
 
   .calc-report table.report-table {
@@ -114,63 +112,139 @@
     border-collapse: collapse;
     font-size: 10px;
     margin-bottom: 12px;
+    color: rgba(242,244,247,.90);
   }
 
   .calc-report table.report-table th {
-    background: #fafafa;
-    color: #111;
+    background: rgba(255,255,255,.06);
+    color: rgba(242,244,247,.94);
     font-weight: 700;
     text-align: center;
-    border: 1px solid #dddddd;
+    border: 1px solid rgba(255,255,255,.12);
     padding: 6px 5px;
     vertical-align: middle;
   }
 
   .calc-report table.report-table td {
-    border: 1px solid #dddddd;
+    border: 1px solid rgba(255,255,255,.10);
     padding: 6px 5px;
     vertical-align: middle;
   }
 
   .calc-report table.report-table tbody tr:nth-child(odd) {
-    background: #f3f3f3;
+    background: rgba(255,255,255,.035);
   }
 
   .calc-report table.report-table tfoot td {
-    background: #f8f8f8;
+    background: rgba(255,255,255,.05);
   }
 
-  .calc-report .text-end {
-    text-align: right;
-  }
-
-  .calc-report .text-center {
-    text-align: center;
-  }
-
-  .calc-report .font-monospace {
-    font-family: Consolas, "Courier New", monospace;
-  }
+  .calc-report .text-end { text-align: right; }
+  .calc-report .text-center { text-align: center; }
+  .calc-report .font-monospace { font-family: Consolas, "Courier New", monospace; }
 
   .calc-report .total-final td {
-    background: #fff !important;
+    background: transparent !important;
     font-size: 15px;
     font-weight: 700;
+    color: rgba(242,244,247,.98);
   }
 
   .calc-report .small-note {
     font-size: 10px;
-    color: #666;
-    border: 1px solid #e5e5e5;
+    color: rgba(242,244,247,.62);
+    border: 1px solid rgba(255,255,255,.10);
     padding: 8px 10px;
     margin-top: 12px;
   }
 
   .calc-report .docs-card {
-    border: 1px solid #dddddd;
+    border: 1px solid rgba(255,255,255,.10);
     padding: 14px;
     margin-top: 18px;
+    background: rgba(255,255,255,.03);
+    border-radius: 14px;
+  }
+
+  .calc-report .docs-card h5 {
+    color: rgba(242,244,247,.94);
+  }
+
+  /* =========================================================
+     MODO DIA (body.kj-day) — volta pras cores claras originais
+     ========================================================= */
+  body.kj-day .calc-report {
+    color: #333;
     background: #fff;
+  }
+
+  body.kj-day .calc-report .tj-logo,
+  body.kj-day .calc-report .section-title {
+    color: #111;
+  }
+
+  body.kj-day .calc-report .tj-subtitle {
+    color: #333;
+  }
+
+  body.kj-day .calc-report .tj-header,
+  body.kj-day .calc-report .process-box,
+  body.kj-day .calc-report .process-box + .info-grid,
+  body.kj-day .calc-report .info-grid,
+  body.kj-day .calc-report .info-card {
+    border-color: #eeeeee;
+  }
+
+  body.kj-day .calc-report .label-muted,
+  body.kj-day .calc-report .info-title,
+  body.kj-day .calc-report .info-text {
+    color: #555;
+  }
+
+  body.kj-day .calc-report .section-title {
+    border-color: #dddddd;
+    background: #fff;
+  }
+
+  body.kj-day .calc-report table.report-table {
+    color: #333;
+  }
+
+  body.kj-day .calc-report table.report-table th {
+    background: #fafafa;
+    color: #111;
+    border-color: #dddddd;
+  }
+
+  body.kj-day .calc-report table.report-table td {
+    border-color: #dddddd;
+  }
+
+  body.kj-day .calc-report table.report-table tbody tr:nth-child(odd) {
+    background: #f3f3f3;
+  }
+
+  body.kj-day .calc-report table.report-table tfoot td {
+    background: #f8f8f8;
+  }
+
+  body.kj-day .calc-report .total-final td {
+    background: #fff !important;
+    color: #111;
+  }
+
+  body.kj-day .calc-report .small-note {
+    color: #666;
+    border-color: #e5e5e5;
+  }
+
+  body.kj-day .calc-report .docs-card {
+    border-color: #dddddd;
+    background: #fff;
+  }
+
+  body.kj-day .calc-report .docs-card h5 {
+    color: #111;
   }
 
   @media print {
@@ -191,6 +265,8 @@
 
     .calc-report {
       font-size: 10px;
+      color: #333 !important;
+      background: #fff !important;
     }
 
     .calc-report .section-title {
