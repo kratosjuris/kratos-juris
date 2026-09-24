@@ -385,6 +385,43 @@ body.kj-day .processos-page .kj-copy-btn:hover{
 body.kj-day .processos-page .kj-copy-btn.kj-copied{
   color: #16a34a;
 }
+
+/* =========================================================
+   ✅ NOVO: edição inline da observação (view ⇄ edit)
+   ========================================================= */
+.kj-obs-view{
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.kj-obs-chip{
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #2563eb;
+  cursor: pointer;
+  background: rgba(37,99,235,.08);
+  border: 1px solid rgba(37,99,235,.20);
+  border-radius: 8px;
+  padding: 3px 9px;
+  white-space: nowrap;
+  transition: background .15s;
+}
+.kj-obs-chip:hover{ background: rgba(37,99,235,.16); }
+.kj-obs-edit-form{
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 260px;
+}
+.kj-obs-edit-textarea{
+  resize: vertical;
+  min-height: 70px;
+  max-height: 220px;
+  font-size: 12px;
+}
 </style>
 
 <div class="processos-page">
@@ -584,13 +621,37 @@ body.kj-day .processos-page .kj-copy-btn.kj-copied{
               </td>
 
               <td style="max-width: 320px;">
-                {% if p.obs %}
-                  <span class="kj-obs" title="{{ p.obs }}">
-                    {{ p.obs[:80] }}{% if p.obs|length > 80 %}...{% endif %}
+                <div class="kj-obs-view" id="obsView_{{ p.id }}">
+                  {% if p.obs %}
+                    <span class="kj-obs" title="{{ p.obs }}">
+                      {{ p.obs[:80] }}{% if p.obs|length > 80 %}...{% endif %}
+                    </span>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                  <span class="kj-obs-chip" onclick="toggleObsEdit({{ p.id }})">
+                    ✏️ Editar
                   </span>
-                {% else %}
-                  <span class="text-muted">—</span>
-                {% endif %}
+                </div>
+
+                <form class="kj-obs-edit-form"
+                      id="obsForm_{{ p.id }}"
+                      method="post"
+                      action="/processos/{{ p.id }}/atualizar-obs"
+                      style="display:none;">
+                  <input type="hidden" name="status" value="{{ status }}">
+                  {% if status == "PRAZOS" %}
+                    <input type="hidden" name="filtro" value="{{ filtro or 'PENDENTES' }}">
+                  {% endif %}
+                  <textarea class="form-control form-control-sm kj-obs-edit-textarea"
+                            name="obs"
+                            rows="3"
+                            placeholder="Observação">{{ p.obs or '' }}</textarea>
+                  <div class="d-flex gap-1">
+                    <button type="submit" class="btn btn-sm btn-success">💾 Salvar</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleObsEdit({{ p.id }})">Cancelar</button>
+                  </div>
+                </form>
               </td>
 
               <td class="td-acoes">
@@ -658,6 +719,27 @@ body.kj-day .processos-page .kj-copy-btn.kj-copied{
     });
 
     checks().forEach(c => c.addEventListener("change", atualizarIds));
+
+    // ✅ NOVO: editar observação inline (view ⇄ edit), sem sair da tela
+    function toggleObsEdit(id){
+      const view = document.getElementById("obsView_" + id);
+      const form = document.getElementById("obsForm_" + id);
+      if (!view || !form) return;
+
+      const editando = form.style.display !== "none";
+      if (editando) {
+        form.style.display = "none";
+        view.style.display = "flex";
+      } else {
+        view.style.display = "none";
+        form.style.display = "flex";
+        const ta = form.querySelector("textarea");
+        if (ta) {
+          ta.focus();
+          ta.selectionStart = ta.selectionEnd = ta.value.length;
+        }
+      }
+    }
 
     // ✅ NOVO: copiar número do processo
     async function copiarTexto(texto) {

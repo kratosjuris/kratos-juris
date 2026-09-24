@@ -695,6 +695,47 @@ def processos_editar(
     return RedirectResponse(url=f"/processos?status={aba_norm}", status_code=303)
 
 
+@router.post("/processos/{pid}/atualizar-obs")
+def processos_atualizar_obs(
+    request: Request,
+    pid: int,
+    db: Session = Depends(get_db),
+    status: str = Form("PROCEDENTE"),
+    filtro: str = Form(""),
+    obs: str = Form(""),
+):
+    """
+    ✅ NOVO: edição inline da observação, direto na tela de listagem
+    (Controle de Prazos / Ações Procedentes / Ações em Execução),
+    sem precisar entrar na tela "Editar".
+    """
+    office_id = _get_office_id(request)
+
+    p = (
+        db.query(ProcessItem)
+        .filter(
+            ProcessItem.id == pid,
+            ProcessItem.office_id == office_id,
+        )
+        .first()
+    )
+    if not p:
+        return RedirectResponse(url="/processos?status=PROCEDENTE", status_code=303)
+
+    p.obs = (obs.strip() or None)
+
+    db.add(p)
+    db.commit()
+
+    aba_redirect = _normalize_aba(status)
+
+    if aba_redirect == "PRAZOS":
+        f = _normalize_filtro_prazos(filtro) if filtro else "PENDENTES"
+        return RedirectResponse(url=f"/processos?status=PRAZOS&filtro={f}", status_code=303)
+
+    return RedirectResponse(url=f"/processos?status={aba_redirect}", status_code=303)
+
+
 @router.post("/processos/{pid}/excluir")
 def processos_excluir(request: Request, pid: int, db: Session = Depends(get_db), status: str = Form("PROCEDENTE")):
     office_id = _get_office_id(request)

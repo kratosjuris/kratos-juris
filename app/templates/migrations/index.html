@@ -300,6 +300,14 @@
     margin-top: 3px;
   }
 
+  /* ✅ NOVO: campo de observação editável */
+  .kj-obs-edit{
+    resize: vertical;
+    min-height: 38px;
+    max-height: 160px;
+    font-size: 12px;
+  }
+
   /* =========================================================
      ✅ NOVO: botão de copiar número do processo
      (mesmo padrão usado em Ações Procedentes / Execução / Prazos)
@@ -872,25 +880,19 @@
 
           <td>
             {% set obs_txt = p.observacao or '' %}
-            {% if obs_txt %}
-              <span class="kj-obs-chip" onclick="abrirObs('{{ p.id }}')">
-                📄 Ver conteúdo
-              </span>
-              <span class="kj-obs-preview">{{ obs_txt[:80] }}{% if obs_txt|length > 80 %}…{% endif %}</span>
-              <!-- campo hidden para o form de salvar -->
-              <input type="hidden"
-                     id="obs_{{ p.id }}"
-                     name="obs_{{ p.id }}"
-                     form="formSalvarLote"
-                     value="{{ obs_txt }}">
-            {% else %}
-              <input class="form-control form-control-sm"
-                     id="obs_{{ p.id }}"
-                     name="obs_{{ p.id }}"
-                     form="formSalvarLote"
-                     value=""
-                     placeholder="Observação">
-            {% endif %}
+            <div class="d-flex flex-column gap-1">
+              {% if obs_txt %}
+                <span class="kj-obs-chip" onclick="abrirObs('{{ p.id }}')">
+                  📄 Ver conteúdo completo
+                </span>
+              {% endif %}
+              <textarea class="form-control form-control-sm kj-obs-edit"
+                        id="obs_{{ p.id }}"
+                        name="obs_{{ p.id }}"
+                        form="formSalvarLote"
+                        rows="2"
+                        placeholder="Observação"></textarea>
+            </div>
           </td>
 
           <td>
@@ -969,7 +971,9 @@
   </div>
 
   <script>
-  // Guarda textos de observação indexados por id do item
+  // Guarda o texto ORIGINAL da intimação (DJEN) indexado por id do item,
+  // usado apenas para exibir no modal "Ver conteúdo completo".
+  // O textarea de observação fica vazio para o advogado escrever livremente.
   const _obsData = {};
   {% for p in pendentes %}
   {% if p.observacao %}_obsData["{{ p.id }}"] = {{ p.observacao | tojson }};{% endif %}
